@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kicad_cruncher.design_review_manifest.a0",
+  "title": "KiCad Cruncher Design Review Manifest",
+  "description": "Artifact index emitted by the design, design-review, and dr commands. Native design-facts provenance is additive and omitted by the retained Python provider path.",
+  "type": "object",
+  "required": [
+    "schema",
+    "input",
+    "design_json",
+    "compiled_schematic_graph",
+    "netlist_json",
+    "netlist_kicad_sexpr",
+    "schematic_svgs",
+    "pcb_svgs",
+    "readme"
+  ],
+  "properties": {
+    "schema": {"const": "kicad_cruncher.design_review_manifest.a0"},
+    "input": {"type": "string", "minLength": 1},
+    "design_json": {"$ref": "#/$defs/artifact_path"},
+    "compiled_schematic_graph": {"$ref": "#/$defs/compiled_schematic_graph"},
+    "netlist_json": {"$ref": "#/$defs/artifact_path"},
+    "netlist_kicad_sexpr": {"$ref": "#/$defs/artifact_path"},
+    "schematic_svgs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/schematic_svg"}
+    },
+    "pcb_svgs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/pcb_svg"}
+    },
+    "readme": {"$ref": "#/$defs/artifact_path"},
+    "design_facts": {"$ref": "#/$defs/design_facts"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "artifact_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$))[^/]+(?:/[^/]+)*$",
+      "description": "Forward-slash path relative to the bundle root."
+    },
+    "lower_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "compiled_schematic_graph": {
+      "type": "object",
+      "required": [
+        "file",
+        "schema",
+        "type",
+        "identity_namespace",
+        "counts",
+        "linkage_contract"
+      ],
+      "properties": {
+        "file": {"$ref": "#/$defs/artifact_path"},
+        "schema": {"const": "kicad_monkey.compiled_schematic_graph.a0"},
+        "type": {"const": "sch.compiled_schematic_graph"},
+        "identity_namespace": {"const": "sch.compiled_schematic_graph.a0"},
+        "counts": {
+          "type": "object",
+          "required": [
+            "unit_definitions",
+            "page_definitions",
+            "unit_occurrences",
+            "page_occurrences",
+            "hierarchy_occurrences",
+            "component_occurrences",
+            "local_net_occurrences",
+            "terminal_occurrences",
+            "hierarchy_terminal_bindings",
+            "graphical_artifact_links"
+          ],
+          "properties": {
+            "unit_definitions": {"type": "integer", "minimum": 0},
+            "page_definitions": {"type": "integer", "minimum": 0},
+            "unit_occurrences": {"type": "integer", "minimum": 0},
+            "page_occurrences": {"type": "integer", "minimum": 0},
+            "hierarchy_occurrences": {"type": "integer", "minimum": 0},
+            "component_occurrences": {"type": "integer", "minimum": 0},
+            "local_net_occurrences": {"type": "integer", "minimum": 0},
+            "terminal_occurrences": {"type": "integer", "minimum": 0},
+            "hierarchy_terminal_bindings": {"type": "integer", "minimum": 0},
+            "graphical_artifact_links": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        },
+        "linkage_contract": {
+          "const": "kicad_monkey.schematic.svg.compiled_graph_linkage.a0"
+        }
+      },
+      "additionalProperties": false
+    },
+    "schematic_svg": {
+      "type": "object",
+      "required": [
+        "file",
+        "sheet_number",
+        "sheet_count",
+        "sheet_name",
+        "sheet_path",
+        "sheet_path_uuids",
+        "sheet_instance_path",
+        "source",
+        "page_occurrence_ref",
+        "artifact_key",
+        "graph_link_count",
+        "resolved_svg_identity_count"
+      ],
+      "properties": {
+        "file": {"$ref": "#/$defs/artifact_path"},
+        "sheet_number": {"type": "integer", "minimum": 1},
+        "sheet_count": {"type": "integer", "minimum": 1},
+        "sheet_name": {"type": "string"},
+        "sheet_path": {"type": "string", "minLength": 1},
+        "sheet_path_uuids": {"type": "string", "minLength": 1},
+        "sheet_instance_path": {"type": "string", "minLength": 1},
+        "source": {"type": "string"},
+        "page_occurrence_ref": {"type": "string", "minLength": 1},
+        "artifact_key": {"const": "sch.dwg_scene"},
+        "graph_link_count": {"type": "integer", "minimum": 0},
+        "resolved_svg_identity_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "pcb_svg": {
+      "type": "object",
+      "required": ["file", "layer", "included_layers", "drill_slot_record_count"],
+      "properties": {
+        "file": {"$ref": "#/$defs/artifact_path"},
+        "layer": {"type": "string", "minLength": 1},
+        "included_layers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "drill_slot_record_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "design_facts": {
+      "type": "object",
+      "required": [
+        "backend",
+        "engine_version",
+        "resource_profile",
+        "source_snapshot_sha256",
+        "compiled_schematic_graph_sha256",
+        "kicad_netlist_bytes",
+        "kicad_netlist_sha256"
+      ],
+      "properties": {
+        "backend": {"const": "kicad-monkey-native"},
+        "engine_version": {"type": "string", "minLength": 1},
+        "resource_profile": {"const": "design-facts-bounded-a1"},
+        "source_snapshot_sha256": {"$ref": "#/$defs/lower_sha256"},
+        "compiled_schematic_graph_sha256": {"$ref": "#/$defs/lower_sha256"},
+        "kicad_netlist_bytes": {"type": "integer", "minimum": 1},
+        "kicad_netlist_sha256": {"$ref": "#/$defs/lower_sha256"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

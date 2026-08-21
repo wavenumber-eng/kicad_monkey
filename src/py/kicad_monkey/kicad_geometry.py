@@ -256,6 +256,10 @@ class RenderedGeometry:
         };
     """
     contours: List[Contour] = field(default_factory=list)
+    #: Contiguous per-glyph (and per-overbar) contour counts in draw order,
+    #: summing to ``len(contours)``.  Empty when the producer does not track
+    #: glyph grouping.
+    contour_group_sizes: List[int] = field(default_factory=list)
     source_text: str = ""
     layer: str = ""
     is_knockout: bool = False
@@ -282,8 +286,14 @@ class RenderedGeometry:
         return len(self.contours)
 
     def add_contour(self, points: List[Point]) -> None:
-        """Add a contour from a list of points."""
-        if len(points) >= 3:
+        """Add a contour from a list of points.
+
+        Degenerate (<3 point) contours are retained: KiCad keeps rings that
+        collapse below three points in the glyph polygon set and publishes
+        them in the saved render cache, so downstream cache consumers decide
+        whether to draw or drop them.
+        """
+        if points:
             self.contours.append(Contour(points=list(points)))
 
     def add_contour_obj(self, contour: Contour) -> None:

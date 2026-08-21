@@ -1,0 +1,683 @@
+{
+  "fonts": [
+    {
+      "face_index": 0,
+      "font_id": "kicad_stroke_regular",
+      "font_path": "assets/fonts/kicad-stroke.ttf",
+      "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+      "units_per_em": 1000
+    },
+    {
+      "face_index": 0,
+      "font_id": "outline_variable_fixture",
+      "font_path": "tests/parity/fonts/outline-variable-fixture.ttf",
+      "font_sha256": "03d6e00f5026b063e4e06e315ae97ed635f59c60fd405f805b9194016a310fb3",
+      "units_per_em": 1000
+    },
+    {
+      "face_index": 0,
+      "font_id": "outline_cff_fixture",
+      "font_path": "tests/parity/fonts/outline-cff-fixture.otf",
+      "font_sha256": "83e67e1e0332393f5bb0c0352e8f92d705b31672e9e992589464b9426583de49",
+      "units_per_em": 1000
+    },
+    {
+      "face_index": 0,
+      "font_id": "outline_cff2_fixture",
+      "font_path": "tests/parity/fonts/outline-cff2-fixture.otf",
+      "font_sha256": "38fb2b9bbcae1698655eedcbb0049bc6435b83c85857e5d364c13850c7545cb2",
+      "units_per_em": 1000
+    },
+    {
+      "face_index": 0,
+      "font_id": "outline_composite_fixture",
+      "font_path": "tests/parity/fonts/outline-composite-fixture.ttf",
+      "font_sha256": "aac6d96e38d11c4b85f0183ca2988fe27495ac38fa65771d63f73e062e67bc24",
+      "units_per_em": 1000
+    },
+    {
+      "face_index": 1,
+      "font_id": "outline_collection_second_face",
+      "font_path": "tests/parity/fonts/outline-collection-fixture.ttc",
+      "font_sha256": "c3d74d23050a53b6062f32999fd600cebccbb705b6a9d6d285940f8d31d570a5",
+      "units_per_em": 1000
+    }
+  ],
+  "oracle": {
+    "coordinate_space": "unscaled_font_design_units",
+    "cubic_api": "BasePen._curveToOne",
+    "engine": "fontTools",
+    "quadratic_api": "BasePen._qCurveToOne"
+  },
+  "records": [
+    {
+      "case_id": "kicad_stroke_line_outline",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 151,
+          "y": 143
+        },
+        {
+          "kind": "line_to",
+          "x": 99,
+          "y": -13
+        },
+        {
+          "kind": "line_to",
+          "x": 96,
+          "y": -20
+        },
+        {
+          "kind": "line_to",
+          "x": 91,
+          "y": -26
+        },
+        {
+          "kind": "line_to",
+          "x": 85,
+          "y": -32
+        },
+        {
+          "kind": "line_to",
+          "x": 79,
+          "y": -36
+        },
+        {
+          "kind": "line_to",
+          "x": 72,
+          "y": -39
+        },
+        {
+          "kind": "line_to",
+          "x": 64,
+          "y": -40
+        },
+        {
+          "kind": "line_to",
+          "x": 56,
+          "y": -40
+        },
+        {
+          "kind": "line_to",
+          "x": 48,
+          "y": -38
+        },
+        {
+          "kind": "line_to",
+          "x": 41,
+          "y": -35
+        },
+        {
+          "kind": "line_to",
+          "x": 35,
+          "y": -30
+        },
+        {
+          "kind": "line_to",
+          "x": 29,
+          "y": -25
+        },
+        {
+          "kind": "line_to",
+          "x": 25,
+          "y": -18
+        },
+        {
+          "kind": "line_to",
+          "x": 22,
+          "y": -11
+        },
+        {
+          "kind": "line_to",
+          "x": 21,
+          "y": -3
+        },
+        {
+          "kind": "line_to",
+          "x": 21,
+          "y": 5
+        },
+        {
+          "kind": "line_to",
+          "x": 23,
+          "y": 13
+        },
+        {
+          "kind": "line_to",
+          "x": 236,
+          "y": 653
+        },
+        {
+          "kind": "line_to",
+          "x": 239,
+          "y": 660
+        },
+        {
+          "kind": "line_to",
+          "x": 244,
+          "y": 666
+        },
+        {
+          "kind": "line_to",
+          "x": 249,
+          "y": 671
+        },
+        {
+          "kind": "line_to",
+          "x": 256,
+          "y": 675
+        },
+        {
+          "kind": "line_to",
+          "x": 263,
+          "y": 678
+        },
+        {
+          "kind": "line_to",
+          "x": 270,
+          "y": 680
+        },
+        {
+          "kind": "line_to",
+          "x": 278,
+          "y": 680
+        },
+        {
+          "kind": "line_to",
+          "x": 286,
+          "y": 678
+        },
+        {
+          "kind": "line_to",
+          "x": 293,
+          "y": 675
+        },
+        {
+          "kind": "line_to",
+          "x": 299,
+          "y": 671
+        },
+        {
+          "kind": "line_to",
+          "x": 305,
+          "y": 666
+        },
+        {
+          "kind": "line_to",
+          "x": 309,
+          "y": 660
+        },
+        {
+          "kind": "line_to",
+          "x": 312,
+          "y": 653
+        },
+        {
+          "kind": "line_to",
+          "x": 526,
+          "y": 13
+        },
+        {
+          "kind": "line_to",
+          "x": 527,
+          "y": 5
+        },
+        {
+          "kind": "line_to",
+          "x": 528,
+          "y": -3
+        },
+        {
+          "kind": "line_to",
+          "x": 526,
+          "y": -11
+        },
+        {
+          "kind": "line_to",
+          "x": 523,
+          "y": -18
+        },
+        {
+          "kind": "line_to",
+          "x": 519,
+          "y": -25
+        },
+        {
+          "kind": "line_to",
+          "x": 514,
+          "y": -30
+        },
+        {
+          "kind": "line_to",
+          "x": 507,
+          "y": -35
+        },
+        {
+          "kind": "line_to",
+          "x": 500,
+          "y": -38
+        },
+        {
+          "kind": "line_to",
+          "x": 493,
+          "y": -40
+        },
+        {
+          "kind": "line_to",
+          "x": 485,
+          "y": -40
+        },
+        {
+          "kind": "line_to",
+          "x": 477,
+          "y": -39
+        },
+        {
+          "kind": "line_to",
+          "x": 470,
+          "y": -36
+        },
+        {
+          "kind": "line_to",
+          "x": 463,
+          "y": -32
+        },
+        {
+          "kind": "line_to",
+          "x": 457,
+          "y": -26
+        },
+        {
+          "kind": "line_to",
+          "x": 453,
+          "y": -20
+        },
+        {
+          "kind": "line_to",
+          "x": 450,
+          "y": -13
+        },
+        {
+          "kind": "line_to",
+          "x": 398,
+          "y": 143
+        },
+        {
+          "kind": "line_to",
+          "x": 151,
+          "y": 143
+        },
+        {
+          "kind": "close"
+        },
+        {
+          "kind": "move_to",
+          "x": 371,
+          "y": 223
+        },
+        {
+          "kind": "line_to",
+          "x": 274,
+          "y": 514
+        },
+        {
+          "kind": "line_to",
+          "x": 177,
+          "y": 223
+        },
+        {
+          "kind": "line_to",
+          "x": 371,
+          "y": 223
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "mode": "exact"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "kicad_stroke_regular",
+      "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+      "glyph_id": 34,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [],
+      "version": "a0"
+    },
+    {
+      "case_id": "variable_quadratic_default",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 100,
+          "y": 0
+        },
+        {
+          "control_x": 500,
+          "control_y": 800,
+          "kind": "quad_to",
+          "x": 900,
+          "y": 0
+        },
+        {
+          "kind": "line_to",
+          "x": 700,
+          "y": 0
+        },
+        {
+          "control_x": 500,
+          "control_y": 500,
+          "kind": "quad_to",
+          "x": 300,
+          "y": 0
+        },
+        {
+          "kind": "line_to",
+          "x": 100,
+          "y": 0
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "mode": "exact"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "outline_variable_fixture",
+      "font_sha256": "03d6e00f5026b063e4e06e315ae97ed635f59c60fd405f805b9194016a310fb3",
+      "glyph_id": 1,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [],
+      "version": "a0"
+    },
+    {
+      "case_id": "variable_quadratic_weight_700",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 100,
+          "y": 0
+        },
+        {
+          "control_x": 500,
+          "control_y": 919.9951171875,
+          "kind": "quad_to",
+          "x": 900,
+          "y": 0
+        },
+        {
+          "kind": "line_to",
+          "x": 700,
+          "y": 0
+        },
+        {
+          "control_x": 500,
+          "control_y": 500,
+          "kind": "quad_to",
+          "x": 300,
+          "y": 0
+        },
+        {
+          "kind": "line_to",
+          "x": 100,
+          "y": 0
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "absolute_tolerance": 0.0001,
+        "mode": "absolute_tolerance"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "outline_variable_fixture",
+      "font_sha256": "03d6e00f5026b063e4e06e315ae97ed635f59c60fd405f805b9194016a310fb3",
+      "glyph_id": 1,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [
+        {
+          "axis": "wght",
+          "value": 700.0
+        }
+      ],
+      "version": "a0"
+    },
+    {
+      "case_id": "cff_cubic_outline",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 850,
+          "y": 700
+        },
+        {
+          "control1_x": 700,
+          "control1_y": 850,
+          "control2_x": 300,
+          "control2_y": 850,
+          "kind": "curve_to",
+          "x": 150,
+          "y": 500
+        },
+        {
+          "control1_x": 100,
+          "control1_y": 250,
+          "control2_x": 300,
+          "control2_y": 100,
+          "kind": "curve_to",
+          "x": 700,
+          "y": 150
+        },
+        {
+          "kind": "line_to",
+          "x": 650,
+          "y": 300
+        },
+        {
+          "control1_x": 400,
+          "control1_y": 250,
+          "control2_x": 300,
+          "control2_y": 350,
+          "kind": "curve_to",
+          "x": 350,
+          "y": 500
+        },
+        {
+          "control1_x": 400,
+          "control1_y": 650,
+          "control2_x": 600,
+          "control2_y": 650,
+          "kind": "curve_to",
+          "x": 750,
+          "y": 550
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "absolute_tolerance": 0.0001,
+        "mode": "absolute_tolerance"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "outline_cff_fixture",
+      "font_sha256": "83e67e1e0332393f5bb0c0352e8f92d705b31672e9e992589464b9426583de49",
+      "glyph_id": 1,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [],
+      "version": "a0"
+    },
+    {
+      "case_id": "cff2_cubic_outline",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 810,
+          "y": 750
+        },
+        {
+          "control1_x": 610,
+          "control1_y": 900,
+          "control2_x": 260,
+          "control2_y": 850,
+          "kind": "curve_to",
+          "x": 240,
+          "y": 600
+        },
+        {
+          "control1_x": 220,
+          "control1_y": 420,
+          "control2_x": 710,
+          "control2_y": 500,
+          "kind": "curve_to",
+          "x": 680,
+          "y": 250
+        },
+        {
+          "control1_x": 660,
+          "control1_y": 80,
+          "control2_x": 320,
+          "control2_y": 70,
+          "kind": "curve_to",
+          "x": 180,
+          "y": 220
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "absolute_tolerance": 0.003,
+        "mode": "absolute_tolerance"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "outline_cff2_fixture",
+      "font_sha256": "38fb2b9bbcae1698655eedcbb0049bc6435b83c85857e5d364c13850c7545cb2",
+      "glyph_id": 1,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [
+        {
+          "axis": "wght",
+          "value": 700.0
+        }
+      ],
+      "version": "a0"
+    },
+    {
+      "case_id": "transformed_composite_glyf",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 43.75,
+          "y": 62.5
+        },
+        {
+          "control_x": 312.5,
+          "control_y": 825,
+          "kind": "quad_to",
+          "x": 418.75,
+          "y": 125
+        },
+        {
+          "kind": "line_to",
+          "x": 306.25,
+          "y": 106.25
+        },
+        {
+          "control_x": 275,
+          "control_y": 487.5,
+          "kind": "quad_to",
+          "x": 156.25,
+          "y": 81.25
+        },
+        {
+          "kind": "line_to",
+          "x": 43.75,
+          "y": 62.5
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "absolute_tolerance": 0.0001,
+        "mode": "absolute_tolerance"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "outline_composite_fixture",
+      "font_sha256": "aac6d96e38d11c4b85f0183ca2988fe27495ac38fa65771d63f73e062e67bc24",
+      "glyph_id": 2,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [],
+      "version": "a0"
+    },
+    {
+      "case_id": "collection_second_face",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 160,
+          "y": 100
+        },
+        {
+          "kind": "line_to",
+          "x": 740,
+          "y": 100
+        },
+        {
+          "kind": "line_to",
+          "x": 640,
+          "y": 700
+        },
+        {
+          "kind": "line_to",
+          "x": 360,
+          "y": 700
+        },
+        {
+          "kind": "line_to",
+          "x": 160,
+          "y": 100
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "mode": "exact"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 1,
+      "font_id": "outline_collection_second_face",
+      "font_sha256": "c3d74d23050a53b6062f32999fd600cebccbb705b6a9d6d285940f8d31d570a5",
+      "glyph_id": 1,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [],
+      "version": "a0"
+    }
+  ]
+}

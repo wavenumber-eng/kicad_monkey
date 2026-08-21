@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native base SVG Phase 6 slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust native base SVG Phase 6 slice</h1>
+  <p>Status: accepted. P6_010 adds a bounded, deterministic
+  <code>plotter-base-a0</code> SVG serializer to the packaged Monkey native
+  process. It consumes the four unchanged, frozen Phase-5 Plotter-IR
+  contracts. It does not replace the established public Python SVG wrappers
+  or the Cruncher compositor; that no-fallback handoff belongs to P6_020.</p>
+
+  <h2>Contract boundary</h2>
+  <p>The closed <code>handshake</code> a0 remains exactly
+  <code>["design-facts"]</code>. A separate <code>handshake-a1</code> advertises
+  <code>design-facts</code> then <code>render-svg</code>. New strict generated
+  roots describe the a1 handshake and SVG request/result; failures reuse
+  <code>NativeErrorA0</code>. The request explicitly discriminates footprint,
+  symbol, board, or schematic and embeds that frozen document. No Phase-5
+  schema or union is widened.</p>
+  <p>A positive explicit viewport is mandatory. Footprint, symbol, and board
+  documents do not own the live source-model bounds used by legacy wrappers.
+  A schematic viewport must exactly equal its zero-origin document canvas.
+  This prevents an A4 fallback or unreviewed text-dependent bbox inference.</p>
+
+  <h2>Profile semantics</h2>
+  <p><code>plotter-base-a0</code> is presentation-neutral source SVG: a white
+  background, nanometre viewBox, explicit millimetre extent, deterministic
+  ordering, escaped record/block identifiers, and no raw XML injection.
+  Typed render-cache polygons become paths. Uncached text becomes semantic
+  SVG text without system-font discovery. Contract-validated image bytes are
+  retained as data URLs without pixel decoding. Oval pad flashes use KiCad's
+  rotated stadium geometry rather than an ellipse.</p>
+  <p>The profile renders every frozen drawable arm and source/block ownership
+  hook. It deliberately performs no layer filtering, live-model bbox,
+  legacy standalone-symbol framing, worksheet/drill presentation reordering,
+  Cruncher enrichment/theming/virtual layers, or arbitrary metadata. Custom
+  pads use their nominal frozen polygons; mask-view expansion and equivalent
+  polygon boolean geometry remain P6_020 provider work.</p>
+
+  <h2>Safety and resources</h2>
+  <p>The producer semantic validator runs before rendering. Preflight bounds
+  records, operations, points, text, encoded images, and aggregate work. A
+  bounded sink independently limits block depth, SVG elements, serialization
+  work, and SVG bytes; transport bounds the larger request and complete result.
+  Before generated decoding or nested document clones, the native transport
+  performs an allocation-free streaming preflight capped at 8,388,608 JSON
+  nodes. Negative dimensions that would create invalid SVG fail closed. Errors
+  publish bounded stderr and no stdout.</p>
+  <p>No path, project, font, template, layer, or application discovery occurs.
+  XML control characters are rejected, text and attributes are escaped, raw
+  metadata is unavailable, and the result's byte count and SHA-256 are
+  recomputed by Rust and Python before publication.</p>
+
+  <h2>Evidence and compatibility</h2>
+  <p>Focused readable goldens independently lock the renderer semantics that
+  a serializer-generated hash cannot prove, including embedded-footprint
+  placement, authored stroke widths, multiline text placement, cached text,
+  odd-nanometre geometry, ownership attributes, XML safety, and exact element
+  accounting. On top of those semantic checks,
+  <code>native_svg_a0_vectors.json</code> covers all 30 frozen documents:
+  six footprint, two symbol, thirteen board, and nine schematic. Twenty-nine
+  cases pin a viewport, SVG byte count/hash, and XML tag counts. The remaining
+  board case pins a fail-closed rejection because its intentionally negative
+  segment width is valid retained Plotter-IR evidence but cannot be serialized
+  as valid SVG geometry. Every case pins its source-document hash.
+  Rust repeats every serialization and proves exact/one-under ceilings for
+  records, operations, points, text, images, blocks, elements, work, SVG, and
+  result bytes. L0_063 owns envelopes, L1_038 the real Python-to-Rust process,
+  and L3_023 the composed gate. The isolated Windows wheel smoke executes a
+  real <code>render-svg</code> request.</p>
+  <p>The reusable Windows <code>phase6-native-svg</code> workflow runs those
+  three Rack owners and is required by both ordinary CI and Monkey release
+  publication. The Phase-5 freeze and generated bindings are rechecked in the
+  composed P6_010 gate before the renderer is built.</p>
+  <p><code>native_render_svg</code> is a Monkey operation client, but no
+  existing <code>to_svg</code>, <code>render_ir_to_svg</code>, or Cruncher call
+  is redirected here. P6_020 must add same-change cross-package tests when
+  Cruncher consumes the provider and must fail instead of falling back after
+  that boundary is promoted.</p>
+  <p>P6_010 closed on 2026-08-17 after three independent reviews. The final
+  warm Rack evidence was L0_063 (17 tests, 0.19 seconds), L1_038 (2 tests,
+  1.34 seconds), and L3_023 (1 test, 11.05 seconds; 11.92 seconds including
+  Rack orchestration). The full Rust workspace format, check, Clippy, and test
+  gate was also green.</p>
+</body>
+</html>

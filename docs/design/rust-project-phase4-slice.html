@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 native project reader/writer slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 native project reader/writer slice</h1>
+  <p><strong>Status:</strong> accepted native product slice.</p>
+
+  <section>
+    <h2>Decision and boundary</h2>
+    <p><code>ProjectDocument</code> owns the exact UTF-8 bytes of one
+    <code>.kicad_pro</code> JSON object and an insertion-ordered JSON value.
+    Exact writes preserve the source unchanged. Canonical writes use KiCad's
+    two-space indentation and trailing newline while preserving authored key
+    order and JSON number spelling. This avoids cross-language float shortening
+    such as rewriting <code>0.049999999999999996</code> to <code>0.05</code>.</p>
+    <p><code>ProjectView</code> promotes the settings currently used by native
+    compilation and PCB workflows: text variables, schematic variants, net
+    classes/assignments/patterns/colors, differential-pair dimensions, tuning
+    defaults, and arbitrary read-only dotted paths. The existing schematic
+    bundle subpart settings now read through this shared model rather than a
+    second private JSON DTO.</p>
+    <p>The owned writer supports transactional text-variable set/remove,
+    variant add/remove/rename, and typed JSON dotted-path replacement. Every
+    successful mutation is bounded, serialized, and reparsed before commit;
+    stable no-ops retain the original exact source. Unknown project fields and
+    their insertion order survive mutations.</p>
+  </section>
+
+  <section>
+    <h2>Resource, dependency, and safety behavior</h2>
+    <p>Input admission reads at most <code>max_source_bytes + 1</code>. Exact
+    writes reject over-limit owned source before publishing bytes. Canonical
+    serialization uses a bounded writer and never retains output beyond
+    <code>max_output_bytes</code>. A non-allocating structural preflight bounds
+    JSON value nodes and container depth before the generic Serde DOM is
+    materialized. The caller's depth ceiling governs through 512 nested
+    containers, the library's explicit hard safety cap; Serde's lower default
+    recursion ceiling is disabled only after that iterative preflight. Typed
+    projection independently bounds text
+    variables, variants, net classes, assignments, patterns, colors,
+    differential-pair presets, and aggregate copied string bytes. Outer
+    netclass assignments and their nested class references have independent
+    ceilings.</p>
+    <p>The implementation uses the workspace's existing <code>serde</code> and
+    <code>serde_json</code> dependencies. The enabled <code>preserve_order</code>
+    and <code>arbitrary_precision</code> features add the standard
+    <code>indexmap</code>/<code>hashbrown</code> support needed for observable
+    KiCad/Python canonical parity; <code>unbounded_depth</code> lets the
+    explicitly bounded preflight own the recursion policy. The structural preflight is not a JSON
+    parser: Serde remains authoritative for syntax and materialization. The
+    crate continues to forbid unsafe code.</p>
+    <p>Invalid UTF-8, malformed JSON, non-object roots, invalid paths, mutation
+    conflicts, I/O errors, and resource exhaustion use a structured project
+    error. Candidate mutations are isolated from the owned document until the
+    complete output reparses successfully.</p>
+  </section>
+
+  <section>
+    <h2>Evidence and retained work</h2>
+    <p>Rack case L1_034 requires all 217 project files and 3,048,297 bytes from
+    the content-addressed package corpus. For every file, native Rust proves an
+    exact source write, stable canonical second write, complete canonical hash
+    equality with Python, and equality of every promoted typed field. The gate
+    fails if the archive/extraction is incomplete and batches process launch
+    arguments to remain portable on Windows.</p>
+    <p>A separate mutation gate compares native output byte-for-byte with
+    Python after text-variable, variant, and dotted-path changes while retaining
+    unknown JSON. Focused Rust tests cover independent limits, ordered
+    serialization, transactional conflicts/no-ops, malformed input, and I/O.</p>
+    <p>Project-folder creation and orchestration remain downstream workflow
+    concerns. Schematic mutation and the project-bundle-to-netlist/compiled-graph
+    obligations are covered by the accepted Phase 4 exit under separate governed
+    surfaces. Native plotter and Cruncher behavior are governed by later accepted
+    phases and do not widen this project reader/writer boundary.</p>
+  </section>
+</body>
+</html>

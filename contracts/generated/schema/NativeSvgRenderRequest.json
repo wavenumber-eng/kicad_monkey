@@ -1,0 +1,237 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.native.svg.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.native.svg.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "profile": {
+            "type": "string",
+            "const": "plotter-base-a0"
+        },
+        "document": {
+            "$ref": "#/$defs/NativeSvgPlotDocument"
+        },
+        "viewport": {
+            "$ref": "#/$defs/NativeSvgViewport"
+        },
+        "limits": {
+            "$ref": "#/$defs/NativeSvgRenderLimits"
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "profile",
+        "document",
+        "viewport",
+        "limits"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Strict request for deterministic, presentation-neutral base SVG.",
+    "title": "Native SVG render request a0",
+    "$defs": {
+        "NativeSvgPlotDocument": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/NativeFootprintSvgDocument"
+                },
+                {
+                    "$ref": "#/$defs/NativeSymbolSvgDocument"
+                },
+                {
+                    "$ref": "#/$defs/NativeBoardSvgDocument"
+                },
+                {
+                    "$ref": "#/$defs/NativeSchematicSvgDocument"
+                }
+            ],
+            "description": "One explicitly discriminated frozen Phase-5 plot-document root."
+        },
+        "NativeSvgViewport": {
+            "type": "object",
+            "properties": {
+                "min_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "min_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/NativeSvgPositiveSafeInteger"
+                },
+                "height_nm": {
+                    "$ref": "#/$defs/NativeSvgPositiveSafeInteger"
+                }
+            },
+            "required": [
+                "min_x_nm",
+                "min_y_nm",
+                "width_nm",
+                "height_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Explicit document viewport. Frozen MOD/SYM/PCB plot documents do not carry one."
+        },
+        "NativeSvgRenderLimits": {
+            "type": "object",
+            "properties": {
+                "max_records": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "max_operations": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "max_points": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_text_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_image_encoded_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_block_depth": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "max_svg_elements": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_render_work": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_svg_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_result_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                }
+            },
+            "required": [
+                "max_records",
+                "max_operations",
+                "max_points",
+                "max_text_bytes",
+                "max_image_encoded_bytes",
+                "max_block_depth",
+                "max_svg_elements",
+                "max_render_work",
+                "max_svg_bytes",
+                "max_result_bytes"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Aggregate resource ceilings for one native SVG serialization."
+        },
+        "NativeFootprintSvgDocument": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "footprint"
+                },
+                "value": {
+                    "$ref": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0"
+                }
+            },
+            "required": [
+                "kind",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "NativeSymbolSvgDocument": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "symbol"
+                },
+                "value": {
+                    "$ref": "urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0"
+                }
+            },
+            "required": [
+                "kind",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "NativeBoardSvgDocument": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "board"
+                },
+                "value": {
+                    "$ref": "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0"
+                }
+            },
+            "required": [
+                "kind",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "NativeSchematicSvgDocument": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "schematic"
+                },
+                "value": {
+                    "$ref": "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0"
+                }
+            },
+            "required": [
+                "kind",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "JavaScriptSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact when decoded as a JavaScript number."
+        },
+        "NativeSvgPositiveSafeInteger": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "Positive viewport dimension that remains exact in JavaScript."
+        },
+        "CanonicalUint64Decimal": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,19})$",
+            "description": "Canonical decimal wire encoding for an unsigned 64-bit byte count."
+        }
+    }
+}

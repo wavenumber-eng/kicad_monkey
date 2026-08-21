@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust schematic Plotter-IR Phase 5 placed symbols</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust schematic Plotter-IR Phase 5 placed symbols</h1>
+
+  <p>Status: accepted. P5_070 extends the bounded native schematic
+  producer with placed symbol instances and overlap overplots. It reuses the
+  accepted library-symbol geometry and text paths while retaining schematic
+  placement, occurrence, pin ownership, field, DNP, and overlap semantics.
+  Earlier foundation, annotation, and graphics entry points remain unchanged.</p>
+
+  <h2>Order, occurrence, and transforms</h2>
+  <p>All <code>symbol_instance</code> records follow tables in source order.
+  Overlapping instances are then replotted in increasing source index as
+  <code>symbol_overplot</code> records. Embedded library lookup accepts KiCad's
+  library name, identifier, and short-name forms; unit and body-style
+  selection remain explicit. Record references prefer the exact caller-owned
+  sheet occurrence, then the first instance, then the authored Reference
+  field. Rotation, X/Y mirror, translation, device-text orientation, unit
+  suffixes, and field centering retain the Python/KiCad coordinate rules.</p>
+
+  <h2>Body, pins, fields, and DNP behavior</h2>
+  <p>Each primary record orders transformed body fill/text/outline operations,
+  pin groups, visible fields, and optional DNP strokes. Pin groups use balanced
+  typed <code>StartBlock</code>/<code>EndBlock</code> ownership around their
+  graphics, number, and name operations. They retain placed and library pin
+  identities, the parent symbol UUID, authored designator, and alternate-pin
+  selection without widening board or standalone-symbol block contracts.</p>
+
+  <p>DNP symbols dim every retained operation color and append the two KiCad
+  diagonal marker strokes. Marker bounds distinguish library body plus pin
+  roots from the complete pin graphics. Overlap detection includes body,
+  visible fields, and pin graphics but excludes pin text, matching the Python
+  authority before producing field-and-pin overplots.</p>
+
+  <h2>Determinism and resource boundary</h2>
+  <p>Raw selected source spans preserve nanometre placement precision. Project
+  variables, drawing settings, sheet occurrence, worksheet bytes, and font
+  bytes remain explicit caller sidecars; core performs no path, project, or
+  platform-font discovery. A single deterministic font session owns field
+  measurement and overlap work for the document.</p>
+
+  <p>Independent ceilings bound placed symbols, overplots, properties, placed
+  pins, embedded library symbols/subsymbols/pins, pairwise overlap checks,
+  source input points, output records/operations/points, retained text and
+  metadata, parse work, and font work. Derived coordinates and unit/style
+  values are checked before publication. No partial document is returned on
+  malformed input or resource failure.</p>
+
+  <h2>Contract and evidence</h2>
+  <p>The strict schematic contract gains two terminal record arms and a
+  schematic-symbol operation union with typed pin blocks. TypeSpec and the
+  generated Rust, Python, TypeScript, and JSON Schema projections regenerate
+  atomically. Semantic validation enforces terminal phase order, record
+  identity, operation indexes, balanced nonnested pin blocks, closed pin
+  metadata, parent linkage, layerless drawing, and rejection of image or pad
+  operations. Existing board, footprint, and standalone-symbol contracts are
+  unchanged.</p>
+
+  <p>The hermetic Python vector covers occurrence reference selection,
+  project-variable body text, field hyperlinks and outline centering,
+  transformed/mirrored pins, DNP dimming and markers, exact block metadata,
+  and two overlap records with the checked-in fixture font. Rack
+  <code>L1_036</code>, focused core resource tests, strict semantic mutations,
+  and generated-binding checks own executable evidence. P5_071 retains only
+  hierarchical sheet rendering; this native-first slice adds no WASM or
+  Cruncher endpoint.</p>
+</body>
+</html>

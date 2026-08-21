@@ -8,9 +8,12 @@
 __pycache__/
 build/
 dist/
+target/
+node_modules/
 *.egg-info/
 rack_results/
 tests/**/output/
+tests/.cache/
 tests/corpus/kicad.zip
 tests/corpus/kicad/
 tests/corpus/.unpacked/

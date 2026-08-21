@@ -11,7 +11,7 @@ Usage::
 
     python scripts/sync_upstream_qa_netlist_fixtures.py
         --kicad-src <local KiCad source checkout>
-        [--corpus  "<wn_test_corpus root>"]
+        [--corpus "<writable corpus authoring root>"]
         [--dry-run]
 
 Mirrors the conventions of ``sync_upstream_qa_fixtures.py``: SHA-256 +
@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
-import os
 import shutil
 import subprocess
 import sys
@@ -113,17 +112,7 @@ def _sha256(path: Path) -> str:
 def _resolve_corpus(arg: Path | None) -> Path:
     if arg:
         return arg
-    env = os.environ.get("WN_TEST_CORPUS")
-    candidates: list[Path] = []
-    if env:
-        candidates.append(Path(env))
-    candidates.append(REPO_ROOT / "tests" / "corpus")
-    for cand in candidates:
-        if (cand / "kicad").exists():
-            return cand
-    raise SystemExit(
-        f"Could not locate corpus root. Tried: {[str(c) for c in candidates]}"
-    )
+    return REPO_ROOT / "tests" / "corpus"
 
 
 def _toml_quote(value: str) -> str:
@@ -183,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--corpus", type=Path, default=None,
-        help="Corpus root (defaults to $WN_TEST_CORPUS, then tests/corpus).",
+        help="Writable corpus authoring root (defaults to tests/corpus).",
     )
     parser.add_argument(
         "--dry-run", action="store_true",

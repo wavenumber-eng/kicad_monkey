@@ -1,0 +1,133 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.native.design_facts.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.native.design_facts.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "bundle_root": {
+            "type": "string"
+        },
+        "manifest": {
+            "$ref": "urn:wavenumber:schema:kicad_monkey.source_bundle_manifest:a0"
+        },
+        "file_slots": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/NativeFileSlot"
+            }
+        },
+        "limits": {
+            "$ref": "#/$defs/NativeDesignFactsLimits"
+        },
+        "netlist": {
+            "$ref": "#/$defs/NativeNetlistMetadata"
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "bundle_root",
+        "manifest",
+        "file_slots",
+        "limits",
+        "netlist"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Strict request for the native compiled-graph and version-E netlist operation.",
+    "title": "Native design facts request a0",
+    "$defs": {
+        "NativeFileSlot": {
+            "type": "object",
+            "properties": {
+                "slot": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "path": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "slot",
+                "path"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "File-system carrier for one zero-based source-bundle byte slot."
+        },
+        "NativeDesignFactsLimits": {
+            "type": "object",
+            "properties": {
+                "max_sources": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "max_source_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_total_source_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                },
+                "max_path_bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "max_output_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                }
+            },
+            "required": [
+                "max_sources",
+                "max_source_bytes",
+                "max_total_source_bytes",
+                "max_path_bytes",
+                "max_output_bytes"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Caller-selected resource ceilings for one native design-facts operation."
+        },
+        "NativeNetlistMetadata": {
+            "type": "object",
+            "properties": {
+                "source_path": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "tool": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "source_path",
+                "date",
+                "tool"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Metadata written into the version-E KiCad netlist header."
+        },
+        "CanonicalUint64Decimal": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,19})$",
+            "description": "Canonical decimal wire encoding for an unsigned 64-bit byte count."
+        }
+    }
+}

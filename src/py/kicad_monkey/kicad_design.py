@@ -33,6 +33,7 @@ from .kicad_project import (
 from .kicad_schematic_occurrence import walk_schematic_occurrences
 
 if TYPE_CHECKING:
+    from .kicad_native import KiCadNativeDesignFacts
     from .kicad_netlist_model import KiCadNet, KiCadNetlist, KiCadNetlistComponent
     from .kicad_pcb import KiCadPcb
     from .kicad_plotter_ir import KiCadPlotterDocument
@@ -635,20 +636,40 @@ class KiCadDesign:
 
         return kicad_netlist_to_json(self.to_netlist())
 
-    def to_json(self, include_indexes: bool = True) -> dict:
+    def to_json(
+        self,
+        include_indexes: bool = True,
+        *,
+        compiled_schematic_graph: "KiCadNativeDesignFacts | None" = None,
+    ) -> dict:
         """Render a KiCad-native design JSON payload.
 
         The payload uses KiCad-owned schema IDs and includes project, sheet,
-        component, net, variant, and optional index sections.
+        component, net, variant, and optional index sections. A caller that
+        already produced validated native facts for this exact in-memory
+        design state may inject them to avoid rebuilding the same graph.
         """
         from .kicad_design_json import kicad_design_to_json
 
-        return kicad_design_to_json(self, include_indexes=include_indexes)
+        return kicad_design_to_json(
+            self,
+            include_indexes=include_indexes,
+            compiled_schematic_graph=compiled_schematic_graph,
+        )
 
-    def to_json_text(self, *, include_indexes: bool = True, indent: int = 2) -> str:
+    def to_json_text(
+        self,
+        *,
+        include_indexes: bool = True,
+        indent: int = 2,
+        compiled_schematic_graph: "KiCadNativeDesignFacts | None" = None,
+    ) -> str:
         """Render :meth:`to_json` as formatted JSON text."""
         return json.dumps(
-            self.to_json(include_indexes=include_indexes),
+            self.to_json(
+                include_indexes=include_indexes,
+                compiled_schematic_graph=compiled_schematic_graph,
+            ),
             indent=indent,
             ensure_ascii=False,
         ) + "\n"
@@ -659,10 +680,15 @@ class KiCadDesign:
         *,
         include_indexes: bool = True,
         indent: int = 2,
+        compiled_schematic_graph: "KiCadNativeDesignFacts | None" = None,
     ) -> None:
         """Write :meth:`to_json_text` to disk."""
         Path(path).write_text(
-            self.to_json_text(include_indexes=include_indexes, indent=indent),
+            self.to_json_text(
+                include_indexes=include_indexes,
+                indent=indent,
+                compiled_schematic_graph=compiled_schematic_graph,
+            ),
             encoding="utf-8",
         )
 

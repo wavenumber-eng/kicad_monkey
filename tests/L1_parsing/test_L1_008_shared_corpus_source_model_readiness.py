@@ -3,7 +3,7 @@ Subtest: Shared Corpus Source Model Readiness
 Stratum: L1_parsing
 Purpose: Prove the KiCad OOP parser exposes the real board surfaces needed by downstream conversion.
 
-This subtest uses the shared KiCad corpus under `WN_TEST_CORPUS/kicad/common`
+This subtest uses the shared KiCad corpus under the resolved `KM_CORPUS`
 instead of only the legacy parser fixtures. The goal is to validate the parser
 surface we actually intend to use for Track D and future neutral-model work.
 """

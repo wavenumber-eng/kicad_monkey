@@ -1,0 +1,155 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.sexpr_scan.result:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.sexpr_scan.result"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "source_bytes": {
+            "type": "string"
+        },
+        "forms": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/FormSpan"
+            }
+        },
+        "diagnostics": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Diagnostic"
+            }
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "source_bytes",
+        "forms",
+        "diagnostics"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Result envelope; selected source bytes remain in the caller-owned input buffer.",
+    "title": "S-expression scan result a0",
+    "$defs": {
+        "FormSpan": {
+            "type": "object",
+            "properties": {
+                "head": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "depth": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_offset": {
+                    "type": "string"
+                },
+                "end_offset": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "string"
+                },
+                "column": {
+                    "type": "string"
+                },
+                "end_line": {
+                    "type": "string"
+                },
+                "end_column": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "path",
+                "depth",
+                "start_offset",
+                "end_offset",
+                "line",
+                "column",
+                "end_line",
+                "end_column"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One complete selected form in the original UTF-8 byte buffer."
+        },
+        "Diagnostic": {
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "$ref": "#/$defs/DiagnosticPhase"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "position": {
+                    "$ref": "#/$defs/SourcePosition"
+                },
+                "token": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "phase",
+                "code",
+                "message"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Stable operation diagnostic shared by native, Python, and browser adapters."
+        },
+        "DiagnosticPhase": {
+            "type": "string",
+            "enum": [
+                "lex",
+                "tree",
+                "build"
+            ]
+        },
+        "SourcePosition": {
+            "type": "object",
+            "properties": {
+                "offset": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "string"
+                },
+                "column": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "offset",
+                "line",
+                "column"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Zero-based UTF-8 byte offset with one-based source coordinates."
+        }
+    }
+}

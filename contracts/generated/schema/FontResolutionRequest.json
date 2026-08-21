@@ -1,0 +1,61 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.font_resolution.request:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad_monkey.font_resolution_request.a0"
+        },
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.font_resolution_request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "selection": {
+            "$ref": "#/$defs/FontSelection"
+        }
+    },
+    "required": [
+        "schema",
+        "type",
+        "version",
+        "selection"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Selection metadata paired with a FontBundle and out-of-band buffers.",
+    "title": "Font resolution request a0",
+    "$defs": {
+        "FontSelection": {
+            "type": "object",
+            "properties": {
+                "font_id": {
+                    "$ref": "#/$defs/StableTextId"
+                },
+                "aliases": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "aliases"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Deterministic font request: explicit ID wins, otherwise aliases are matched."
+        },
+        "StableTextId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "description": "Stable ASCII identifier shared by manifests and oracle cases."
+        }
+    }
+}

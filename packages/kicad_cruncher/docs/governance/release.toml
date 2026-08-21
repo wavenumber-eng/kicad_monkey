@@ -4,7 +4,7 @@ kind = "pypi"
 status = "active"
 owner = "Wavenumber LLC"
 process_doc = "docs/release-process.md"
-build_doc = "../../.github/workflows/release.yml"
+build_doc = "docs/release-candidates.md"
 
 [[channels.verification_refs]]
 kind = "local_pytest"
@@ -15,3 +15,21 @@ rationale = "Release signoff runs the configured dev-std governance scopes befor
 kind = "local_pytest"
 target = "tests/L99_signoff/test_L99_001_release_signoff.py::test_dev_std_upstream_version_is_current"
 rationale = "Release signoff checks whether the configured dev-std standard is current before release."
+
+[[channels]]
+id = "windows-x64-rust-cli"
+kind = "github_release"
+status = "active"
+owner = "Wavenumber LLC"
+process_doc = "docs/release-process.md"
+build_doc = "docs/release-candidates.md"
+
+[[channels.verification_refs]]
+kind = "local_pytest"
+target = "tests/L3_public_workflows/test_L3_012_rust_cli_install.py::test_installed_rust_cli_runs_design_without_python"
+rationale = "The installed smoke verifies the exact commit/version/hash-bound Windows x64 archive and its rejection paths."
+
+[[channels.verification_refs]]
+kind = "ci_workflow"
+target = "wavenumber-eng/kicad_monkey/.github/workflows/phase7-rust-cli.yml"
+rationale = "The repository-root Phase 7 workflow produces and uploads the reviewed native candidate."

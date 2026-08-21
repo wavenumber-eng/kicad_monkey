@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust S-Expression Phase 1 Promotion Review</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust S-Expression Phase 1 Promotion Review</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      Phase 1 is accepted for typed-reader expansion. The promoted parser
+      boundary includes safe native and WASM scan/build operations, selective
+      and streaming reads, a reusable structural index, deterministic generic
+      builds, and source-preserving patches. Typed converter paths must consume
+      spans and borrowed views directly; constructing a generic full-file tree
+      is a compatibility path, not the typed-reader architecture.
+    </p>
+  </section>
+
+  <section>
+    <h2>Correctness Evidence</h2>
+    <ul>
+      <li>
+        Rack L0 passes all 49 foundation subtests: 1,447 tests passed and the
+        advisory performance case was the only skip in the fast lane.
+      </li>
+      <li>
+        Shared Python/Rust vectors cover canonical build output, error phase,
+        KiCad escapes, comments, numeric boundaries, malformed nesting, and
+        stable second writes. Property tests add generated semantic round trips
+        and malformed-input coverage.
+      </li>
+      <li>
+        Streaming selection equals in-memory selection across every chunk size
+        from one through seventeen bytes. Partial reads, UTF-8 failures, depth,
+        selected-form, source-size, and form-size limits fail closed.
+      </li>
+      <li>
+        Source patches preserve untouched bytes and semantic reparsing while
+        rejecting overlaps, invalid source boundaries, and output growth past
+        the caller limit.
+      </li>
+      <li>
+        Actual Node-hosted WASM tests exercise canonicalization, typed build,
+        bounded build output, and structured scan resource-limit diagnostics.
+      </li>
+      <li>
+        Rack L1_022 covers all 1,774 corpus files with per-file memory release;
+        the largest accepted input is 71,556,836 bytes.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Architecture And Safety</h2>
+    <ul>
+      <li>
+        Workspace and crate lint policy forbids package-owned unsafe code. No
+        exception is needed for the parser slice.
+      </li>
+      <li>
+        Core parsing depends only on the standard library. Serde, TypeSpec
+        generation, and wasm-bindgen remain at contract and adapter boundaries.
+      </li>
+      <li>
+        TypeSpec owns the operation envelopes. Rust, strict Python
+        <code>msgspec</code>, strict TypeScript, and JSON Schema projections are
+        generated and checked for drift.
+      </li>
+      <li>
+        Selected spans remain source ordered. Their current final sort and
+        owned paths are known complexity watchpoints, not correctness defects;
+        changing them without a real typed-reader profile is not authorized.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Deferred Performance Gates</h2>
+    <p>
+      Existing Windows corpus and selected-span measurements are retained as
+      advisory evidence. Linux threshold ratification, deep-path ownership,
+      many-path selectors, streaming/patch timing, and browser transfer timing
+      move to the pre-cutover review or may be triggered by an observed typed
+      reader profile. They do not block the first typed model.
+    </p>
+  </section>
+
+  <section>
+    <h2>Authorized Next Boundary</h2>
+    <p>
+      Phase 2 may add a TypeSpec-first footprint reader/writer operation over
+      caller-owned bytes. The first cut must preserve unknown forms during a
+      focused edit, prove semantic write/reparse and stable second output, use
+      the shared bounded parser primitives, and expose the same operation shape
+      to native Rust and WASM without a generic full-file tree.
+    </p>
+  </section>
+</body>
+</html>

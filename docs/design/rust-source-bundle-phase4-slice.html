@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 source bundle and hierarchy slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 source bundle and hierarchy slice</h1>
+  <p>
+    Status: accepted with direct executable Rust evidence. This slice
+    establishes the named multi-file input and hierarchy foundation for the
+    native schematic compiler. It does not claim connectivity, netlist,
+    compiled-graph emission, or schematic write parity.
+  </p>
+
+  <h2>Contract and byte ownership</h2>
+  <p>
+    TypeSpec owns <code>kicad_monkey.source_bundle_manifest.a0</code> and
+    generates strict JSON Schema, Rust, Python/msgspec, and TypeScript
+    projections. The manifest carries portable relative paths, source roles,
+    slots, and decimal byte counts. Source bytes are separate buffers: they are
+    neither base64 nor embedded JSON. Semantic validation requires exact a0
+    literals, one unique in-range descriptor per slot, unique normalized paths,
+    exact byte counts, valid root/project roles, and deterministic rejection of
+    extra buffers.
+  </p>
+  <p>
+    The slot is a named <code>uint32</code> scalar, so JSON Schema, generated
+    Python/msgspec, and generated Rust reject values outside 0 through
+    4,294,967,295. The byte count is a named canonical-decimal string scalar:
+    schema and Python reject signs, leading zeroes, and non-digits, while the
+    promoted Python and Rust decoders additionally enforce the exact
+    18,446,744,073,709,551,615 maximum. Shared vectors cover both bounds and
+    malformed, negative, leading-zero, and overflow cases.
+  </p>
+  <p>
+    <code>SourceBundle</code> owns each supplied buffer once and preserves its
+    bytes exactly. Portable paths normalize separators and lexical dot segments,
+    reject absolute paths and traversal beyond the bundle root, and use exact
+    normalized matching on every platform. Configurable defaults allow up to
+    512 MiB per file and 4 GiB aggregate; checks occur before bytes move into the
+    retained map. Project JSON syntax and object-root shape are validated with a
+    streaming ignored-value deserializer instead of a generic JSON tree.
+  </p>
+
+  <h2>Schematic index and hierarchy</h2>
+  <p>
+    <code>SchematicBundleIndex</code> performs one selective structural scan per
+    schematic source, regardless of how many times a page is placed. It decodes
+    document provenance and the sheet fields needed for hierarchy discovery,
+    including legacy and current Sheet name/file keys and Python-compatible
+    first-value/default boolean behavior. Unknown schematic forms remain only in
+    the original source bytes and are not discarded or materialized.
+  </p>
+  <p>
+    Hierarchy realization is iterative and parent-first. A hash set tracks only
+    the active source ancestry for cycle detection, a source-path index resolves
+    definitions, and repeated pages produce distinct occurrences without
+    rescanning their definitions. Runtime is O(source bytes + selected forms +
+    occurrences), apart from the already-known selected-span ordering cost and
+    logarithmic named-source lookup. Occurrence and decoded-field limits fail
+    before appending past their configured ceilings.
+  </p>
+
+  <h2>Evidence and retained work</h2>
+  <ul>
+    <li>Language-neutral manifest vectors drive strict generated Python and Rust decoding.</li>
+    <li>Focused Rust tests cover exact slots/bytes, path and role failures, project JSON, nested relative sheets, repeated pages, inherited policy, missing sources, cycles, and occurrence limits.</li>
+    <li>Rack L0_051 directly runs the Rust contract vector and focused core manifest tests under four build jobs and two test threads, including exact/one-under source count, per-source byte, aggregate byte, and path byte ceilings.</li>
+    <li>Rack L3_020 compares definition and occurrence counts with Python for all four compiled-graph reference projects through one native process.</li>
+    <li>Package-owned unsafe code remains forbidden; serde/serde_json are the only added mature serialization dependencies and were already workspace dependencies.</li>
+    <li>Owned schematic/project writers, connectivity, buses, netlists, and
+      compiled-graph emission are covered by the accepted Phase 4 exit under
+      separate governed surfaces; they do not widen this source-bundle and
+      hierarchy boundary.</li>
+  </ul>
+</body>
+</html>

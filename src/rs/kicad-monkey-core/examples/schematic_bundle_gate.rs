@@ -1,0 +1,935 @@
+use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
+use kicad_monkey_contracts::generated::source_bundle_manifest::{
+    SourceBundleManifestA0, SourceBundleSource, SourceKind,
+};
+use kicad_monkey_core::{
+    KiCadNetlist, ProjectDocument, ProjectLimits, SchematicBundleIndex, SchematicBundleLimits,
+    SchematicBusSubgraph, SchematicDefinition, SchematicDesignNet, SchematicLabelScope,
+    SchematicLocalNet, SchematicOccurrenceConnectivityLimits, SchematicPlacedSymbol,
+    SchematicPoint, SchematicSheet, SchematicWireSubgraph, SourceBundle, SourceBundleLimits,
+    build_compiled_schematic_graph, build_kicad_netlist, build_schematic_bus_subgraphs,
+    build_schematic_occurrence_nets, build_schematic_occurrence_subgraphs,
+    build_schematic_scalar_design_nets, emit_kicad_netlist,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+use std::error::Error;
+use std::io::{self, BufRead};
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Request {
+    bundle_root: PathBuf,
+    project_path: Option<PathBuf>,
+    root_schematic_path: PathBuf,
+    schematic_paths: Vec<PathBuf>,
+}
+
+#[derive(Debug, Serialize)]
+struct ResultSummary {
+    definition_paths: Vec<String>,
+    definitions: Vec<DefinitionSummary>,
+    occurrences: Vec<OccurrenceSummary>,
+    effective_symbols: Vec<EffectiveOccurrenceSummary>,
+    symbol_terminals: Vec<TerminalOccurrenceSummary>,
+    wire_subgraphs: Vec<WireOccurrenceSummary>,
+    local_nets: Vec<LocalNetOccurrenceSummary>,
+    scalar_design: ScalarDesignSummary,
+    compiled_graph: CompiledSchematicGraphA0,
+    netlist: KiCadNetlist,
+    netlist_sexpr: String,
+    total_bytes: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct DefinitionSummary {
+    source_path: String,
+    sheets: Vec<SheetSummary>,
+    symbols: Vec<SymbolSummary>,
+    legacy_symbol_instances: Vec<LegacySymbolInstanceSummary>,
+    wires: Vec<PolylineSummary>,
+    buses: Vec<PolylineSummary>,
+    bus_entries: Vec<BusEntrySummary>,
+    bus_aliases: Vec<BusAliasSummary>,
+    junctions: Vec<MarkerSummary>,
+    no_connects: Vec<MarkerSummary>,
+    labels: Vec<LabelSummary>,
+    connectivity_components: Vec<Vec<[i64; 2]>>,
+    bus_subgraphs: Vec<BusSubgraphSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct BusSubgraphSummary {
+    coords: Vec<[i64; 2]>,
+    drivers: Vec<BusDriverSummary>,
+    tap_wire_coords: Vec<[i64; 2]>,
+    chosen_name: String,
+    chosen_priority: i8,
+    chosen_kind: String,
+    members: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct BusDriverSummary {
+    text: String,
+    at: [i64; 2],
+    priority: i8,
+    kind: String,
+}
+
+#[derive(Debug, Serialize)]
+struct BusAliasSummary {
+    name: String,
+    members: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolSummary {
+    lib_id: String,
+    lib_name: String,
+    at: [i64; 2],
+    angle_degrees: f64,
+    mirror: Option<String>,
+    unit: i64,
+    convert: i64,
+    policy: [bool; 6],
+    uuid: String,
+    properties: Vec<[String; 2]>,
+    pins: Vec<SymbolPinSummary>,
+    instances: Vec<SymbolInstanceSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolPinSummary {
+    number: String,
+    uuid: String,
+    alternate: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolInstanceSummary {
+    project: String,
+    path: String,
+    reference: String,
+    unit: i64,
+    variants: Vec<SymbolVariantSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolVariantSummary {
+    name: String,
+    policy: [Option<bool>; 5],
+    fields: Vec<[String; 2]>,
+}
+
+#[derive(Debug, Serialize)]
+struct LegacySymbolInstanceSummary {
+    path: String,
+    reference: String,
+    unit: i64,
+    value: String,
+    footprint: String,
+}
+
+#[derive(Debug, Serialize)]
+struct SheetSummary {
+    uuid: String,
+    pins: Vec<SheetPinSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct SheetPinSummary {
+    name: String,
+    shape: String,
+    uuid: String,
+    at: [i64; 2],
+}
+
+#[derive(Debug, Serialize)]
+struct PolylineSummary {
+    uuid: String,
+    points: Vec<[i64; 2]>,
+}
+
+#[derive(Debug, Serialize)]
+struct BusEntrySummary {
+    uuid: String,
+    at: [i64; 2],
+    size: [i64; 2],
+}
+
+#[derive(Debug, Serialize)]
+struct MarkerSummary {
+    uuid: String,
+    at: [i64; 2],
+}
+
+#[derive(Debug, Serialize)]
+struct LabelSummary {
+    scope: &'static str,
+    text: String,
+    shape: String,
+    uuid: String,
+    at: [i64; 2],
+}
+
+#[derive(Debug, Serialize)]
+struct OccurrenceSummary {
+    source_path: String,
+    parent_index: Option<usize>,
+    parent_sheet_index: Option<usize>,
+    occurrence_address: String,
+    legacy_address: String,
+    human_address: String,
+    effective_in_bom: bool,
+    effective_on_board: bool,
+    effective_dnp: bool,
+    effective_exclude_from_sim: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct EffectiveOccurrenceSummary {
+    occurrence_index: usize,
+    symbols: Vec<EffectiveSymbolSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct EffectiveSymbolSummary {
+    symbol_index: usize,
+    uuid: String,
+    lib_id: String,
+    reference: String,
+    value: String,
+    unit: i64,
+    convert: i64,
+    policy: [bool; 5],
+    fields: std::collections::BTreeMap<String, String>,
+}
+
+#[derive(Debug, Serialize)]
+struct TerminalOccurrenceSummary {
+    occurrence_index: usize,
+    terminals: Vec<TerminalSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct TerminalSummary {
+    symbol_index: usize,
+    symbol_uuid: String,
+    reference: String,
+    pin_number: String,
+    pin_name: String,
+    electrical_type: String,
+    graphic_style: String,
+    hidden: bool,
+    library_at: [i64; 2],
+    at: [i64; 2],
+}
+
+#[derive(Debug, Serialize)]
+struct WireOccurrenceSummary {
+    occurrence_index: usize,
+    subgraphs: Vec<WireSubgraphSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct WireSubgraphSummary {
+    coords: Vec<[i64; 2]>,
+    pins: Vec<WirePinSummary>,
+    labels: Vec<WireLabelSummary>,
+    chosen_name: String,
+    chosen_priority: i8,
+    chosen_kind: String,
+    no_connect: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct WirePinSummary {
+    symbol_index: usize,
+    reference: String,
+    pin_number: String,
+    pin_name: String,
+    electrical_type: String,
+    at: [i64; 2],
+    priority: i8,
+    kind: String,
+    power_value: String,
+    has_multiple: bool,
+    designator_with_unit: String,
+    parent_pin_count: usize,
+    is_power: bool,
+    is_implicit_hidden_power: bool,
+    source_pin_uuid: String,
+    pin_svg_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct LocalNetOccurrenceSummary {
+    occurrence_index: usize,
+    nets: Vec<LocalNetSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct LocalNetSummary {
+    name: String,
+    code: u64,
+    driver_priority: i8,
+    driver_kind: String,
+    auto_named: bool,
+    terminals: Vec<LocalNetTerminalSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct LocalNetTerminalSummary {
+    symbol_index: usize,
+    designator: String,
+    pin: String,
+    pin_name: String,
+    pin_type: String,
+    sheet_path: String,
+    source_pin_id: String,
+    svg_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ScalarDesignSummary {
+    nets: Vec<DesignNetSummary>,
+    hierarchy_bindings: Vec<HierarchyBindingSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct DesignNetSummary {
+    name: String,
+    code: u64,
+    driver_priority: i8,
+    driver_kind: String,
+    auto_named: bool,
+    members: Vec<[usize; 2]>,
+    terminals: Vec<DesignTerminalSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct DesignTerminalSummary {
+    designator: String,
+    pin: String,
+    pin_name: String,
+    pin_type: String,
+    sheet_path: String,
+    source_pin_id: String,
+    svg_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct HierarchyBindingSummary {
+    parent_occurrence_index: usize,
+    child_occurrence_index: usize,
+    sheet_pin_name: String,
+    sheet_pin_uuid: String,
+    hierarchical_label_uuid: Option<String>,
+    parent_subgraph_index: Option<usize>,
+    child_subgraph_index: Option<usize>,
+    resolved: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct WireLabelSummary {
+    text: String,
+    at: [i64; 2],
+    priority: i8,
+    kind: String,
+    shape: String,
+    source_uuid: String,
+}
+
+struct LoadedRequest {
+    manifest: SourceBundleManifestA0,
+    buffers: Vec<Vec<u8>>,
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let input = io::stdin();
+    let mut request_count = 0_usize;
+    for line in input.lock().lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let request: Request = serde_json::from_str(&line)?;
+        let loaded = load_request(request)?;
+        let bundle = SourceBundle::from_manifest(
+            loaded.manifest,
+            loaded.buffers,
+            SourceBundleLimits::default(),
+        )?;
+        let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())?;
+        let project_document = bundle
+            .project()
+            .map(|source| {
+                ProjectDocument::from_reader(
+                    source.bytes(),
+                    ProjectLimits {
+                        max_source_bytes: source.bytes().len(),
+                        max_output_bytes: source.bytes().len(),
+                        ..ProjectLimits::default()
+                    },
+                )
+            })
+            .transpose()?;
+        let effective_symbols = effective_summaries(&index)?;
+        let symbol_terminals = terminal_summaries(&index)?;
+        let wire_subgraphs = wire_summaries(&index)?;
+        let local_nets = local_net_summaries(&index)?;
+        let scalar_design = scalar_design_summary(&index)?;
+        let compiled_graph = build_compiled_schematic_graph(&index, Default::default())?;
+        let netlist_limits = Default::default();
+        let netlist = build_kicad_netlist(
+            &index,
+            project_document.as_ref().map(ProjectDocument::view),
+            netlist_limits,
+        )?;
+        let netlist_sexpr = emit_kicad_netlist(
+            &netlist,
+            "",
+            "",
+            "kicad_monkey",
+            netlist_limits.max_output_bytes,
+        )?;
+        println!(
+            "{}",
+            serde_json::to_string(&ResultSummary {
+                definition_paths: index
+                    .definitions()
+                    .map(|definition| definition.source_path.clone())
+                    .collect(),
+                definitions: index.definitions().map(definition_summary).collect(),
+                occurrences: index
+                    .occurrences()
+                    .map(|occurrence| OccurrenceSummary {
+                        source_path: occurrence.source_path.clone(),
+                        parent_index: occurrence.parent_index,
+                        parent_sheet_index: occurrence.parent_sheet_index,
+                        occurrence_address: occurrence.occurrence_address.clone(),
+                        legacy_address: occurrence.legacy_address.clone(),
+                        human_address: occurrence.human_address.clone(),
+                        effective_in_bom: occurrence.effective_in_bom,
+                        effective_on_board: occurrence.effective_on_board,
+                        effective_dnp: occurrence.effective_dnp,
+                        effective_exclude_from_sim: occurrence.effective_exclude_from_sim,
+                    })
+                    .collect(),
+                effective_symbols,
+                symbol_terminals,
+                wire_subgraphs,
+                local_nets,
+                scalar_design,
+                compiled_graph,
+                netlist,
+                netlist_sexpr,
+                total_bytes: bundle.total_bytes(),
+            })?
+        );
+        request_count += 1;
+    }
+    if request_count == 0 {
+        return Err("no source bundle requests supplied".into());
+    }
+    Ok(())
+}
+
+fn scalar_design_summary(
+    index: &SchematicBundleIndex,
+) -> Result<ScalarDesignSummary, kicad_monkey_core::SourceBundleError> {
+    let design = build_schematic_scalar_design_nets(index, 1, Default::default())?;
+    Ok(ScalarDesignSummary {
+        nets: design.nets.iter().map(design_net_summary).collect(),
+        hierarchy_bindings: design
+            .hierarchy_bindings
+            .iter()
+            .map(|binding| HierarchyBindingSummary {
+                parent_occurrence_index: binding.parent_occurrence_index,
+                child_occurrence_index: binding.child_occurrence_index,
+                sheet_pin_name: binding.sheet_pin_name.clone(),
+                sheet_pin_uuid: binding.sheet_pin_uuid.clone(),
+                hierarchical_label_uuid: binding.hierarchical_label_uuid.clone(),
+                parent_subgraph_index: binding.parent_subgraph_index,
+                child_subgraph_index: binding.child_subgraph_index,
+                resolved: binding.is_resolved(),
+            })
+            .collect(),
+    })
+}
+
+fn design_net_summary(net: &SchematicDesignNet) -> DesignNetSummary {
+    DesignNetSummary {
+        name: net.name.clone(),
+        code: net.code,
+        driver_priority: net.driver_priority as i8,
+        driver_kind: net
+            .driver_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        auto_named: net.auto_named,
+        members: net
+            .members
+            .iter()
+            .map(|member| [member.occurrence_index, member.subgraph_index])
+            .collect(),
+        terminals: net
+            .terminals
+            .iter()
+            .map(|terminal| DesignTerminalSummary {
+                designator: terminal.designator.clone(),
+                pin: terminal.pin.clone(),
+                pin_name: terminal.pin_name.clone(),
+                pin_type: terminal.pin_type.clone(),
+                sheet_path: terminal.sheet_path.clone(),
+                source_pin_id: terminal.source_pin_id.clone(),
+                svg_id: terminal.svg_id.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn local_net_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<LocalNetOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(LocalNetOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                nets: build_schematic_occurrence_nets(
+                    index,
+                    occurrence.index,
+                    1,
+                    Default::default(),
+                )?
+                .iter()
+                .map(local_net_summary)
+                .collect(),
+            })
+        })
+        .collect()
+}
+
+fn local_net_summary(net: &SchematicLocalNet) -> LocalNetSummary {
+    LocalNetSummary {
+        name: net.name.clone(),
+        code: net.code,
+        driver_priority: net.driver_priority as i8,
+        driver_kind: net
+            .driver_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        auto_named: net.auto_named,
+        terminals: net
+            .terminals
+            .iter()
+            .map(|terminal| LocalNetTerminalSummary {
+                symbol_index: terminal.symbol_index,
+                designator: terminal.designator.clone(),
+                pin: terminal.pin.clone(),
+                pin_name: terminal.pin_name.clone(),
+                pin_type: terminal.pin_type.clone(),
+                sheet_path: terminal.sheet_path.clone(),
+                source_pin_id: terminal.source_pin_id.clone(),
+                svg_id: terminal.svg_id.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn effective_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<EffectiveOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(EffectiveOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                symbols: index
+                    .effective_symbols(occurrence.index, None)?
+                    .into_iter()
+                    .map(|symbol| EffectiveSymbolSummary {
+                        symbol_index: symbol.symbol_index,
+                        uuid: symbol.uuid,
+                        lib_id: symbol.lib_id,
+                        reference: symbol.reference,
+                        value: symbol.value,
+                        unit: symbol.unit,
+                        convert: symbol.convert,
+                        policy: [
+                            symbol.dnp,
+                            symbol.exclude_from_sim,
+                            symbol.in_bom,
+                            symbol.on_board,
+                            symbol.in_pos_files,
+                        ],
+                        fields: symbol.fields,
+                    })
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+fn terminal_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<TerminalOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(TerminalOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                terminals: index
+                    .symbol_terminals(occurrence.index)?
+                    .into_iter()
+                    .map(|terminal| TerminalSummary {
+                        symbol_index: terminal.symbol_index,
+                        symbol_uuid: terminal.symbol_uuid,
+                        reference: terminal.reference,
+                        pin_number: terminal.pin_number,
+                        pin_name: terminal.pin_name,
+                        electrical_type: terminal.electrical_type,
+                        graphic_style: terminal.graphic_style,
+                        hidden: terminal.hidden,
+                        library_at: point_pair(terminal.library_at),
+                        at: point_pair(terminal.at),
+                    })
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+fn wire_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<WireOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(WireOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                subgraphs: build_schematic_occurrence_subgraphs(
+                    index,
+                    occurrence.index,
+                    SchematicOccurrenceConnectivityLimits::default(),
+                )?
+                .iter()
+                .map(wire_subgraph_summary)
+                .collect(),
+            })
+        })
+        .collect()
+}
+
+fn wire_subgraph_summary(subgraph: &SchematicWireSubgraph) -> WireSubgraphSummary {
+    WireSubgraphSummary {
+        coords: subgraph.coords.iter().copied().map(point_pair).collect(),
+        pins: subgraph
+            .pin_drivers
+            .iter()
+            .map(|pin| WirePinSummary {
+                symbol_index: pin.symbol_index,
+                reference: pin.reference.clone(),
+                pin_number: pin.pin_number.clone(),
+                pin_name: pin.pin_name.clone(),
+                electrical_type: pin.electrical_type.clone(),
+                at: point_pair(pin.at),
+                priority: pin.priority as i8,
+                kind: pin.kind.as_str().to_owned(),
+                power_value: pin.power_value.clone(),
+                has_multiple: pin.has_multiple,
+                designator_with_unit: pin.designator_with_unit.clone(),
+                parent_pin_count: pin.parent_pin_count,
+                is_power: pin.is_power,
+                is_implicit_hidden_power: pin.is_implicit_hidden_power,
+                source_pin_uuid: pin.source_pin_uuid.clone(),
+                pin_svg_id: pin.pin_svg_id.clone(),
+            })
+            .collect(),
+        labels: subgraph
+            .label_drivers
+            .iter()
+            .map(|label| WireLabelSummary {
+                text: label.text.clone(),
+                at: point_pair(label.at),
+                priority: label.priority as i8,
+                kind: label.kind.as_str().to_owned(),
+                shape: label.shape.clone(),
+                source_uuid: label.source_uuid.clone(),
+            })
+            .collect(),
+        chosen_name: subgraph.chosen_name.clone(),
+        chosen_priority: subgraph.chosen_priority as i8,
+        chosen_kind: subgraph
+            .chosen_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        no_connect: subgraph.no_connect,
+    }
+}
+
+fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
+    let mut bus_subgraphs = build_schematic_bus_subgraphs(definition, Default::default())
+        .expect("indexed schematic definition has valid bus connectivity")
+        .iter()
+        .map(bus_subgraph_summary)
+        .collect::<Vec<_>>();
+    bus_subgraphs.sort_by(|left, right| {
+        left.chosen_name
+            .cmp(&right.chosen_name)
+            .then_with(|| left.coords.cmp(&right.coords))
+    });
+    DefinitionSummary {
+        source_path: definition.source_path.clone(),
+        sheets: definition.sheets.iter().map(sheet_summary).collect(),
+        symbols: definition.symbols.iter().map(symbol_summary).collect(),
+        legacy_symbol_instances: definition
+            .legacy_symbol_instances
+            .iter()
+            .map(|instance| LegacySymbolInstanceSummary {
+                path: instance.path.clone(),
+                reference: instance.reference.clone(),
+                unit: instance.unit,
+                value: instance.value.clone(),
+                footprint: instance.footprint.clone(),
+            })
+            .collect(),
+        wires: definition
+            .wires
+            .iter()
+            .map(|value| PolylineSummary {
+                uuid: value.uuid.clone(),
+                points: value.points.iter().copied().map(point_pair).collect(),
+            })
+            .collect(),
+        buses: definition
+            .buses
+            .iter()
+            .map(|value| PolylineSummary {
+                uuid: value.uuid.clone(),
+                points: value.points.iter().copied().map(point_pair).collect(),
+            })
+            .collect(),
+        bus_entries: definition
+            .bus_entries
+            .iter()
+            .map(|value| BusEntrySummary {
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+                size: point_pair(value.size),
+            })
+            .collect(),
+        bus_aliases: definition
+            .bus_aliases
+            .iter()
+            .map(|alias| BusAliasSummary {
+                name: alias.name.clone(),
+                members: alias.members.clone(),
+            })
+            .collect(),
+        junctions: definition
+            .junctions
+            .iter()
+            .map(|value| MarkerSummary {
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+            })
+            .collect(),
+        no_connects: definition
+            .no_connects
+            .iter()
+            .map(|value| MarkerSummary {
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+            })
+            .collect(),
+        labels: definition
+            .labels
+            .iter()
+            .map(|value| LabelSummary {
+                scope: match value.scope {
+                    SchematicLabelScope::Local => "local",
+                    SchematicLabelScope::Global => "global",
+                    SchematicLabelScope::Hierarchical => "hierarchical",
+                },
+                text: value.text.clone(),
+                shape: value.shape.clone(),
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+            })
+            .collect(),
+        connectivity_components: definition
+            .connectivity
+            .components()
+            .map(|component| component.iter().copied().map(point_pair).collect())
+            .collect(),
+        bus_subgraphs,
+    }
+}
+
+fn bus_subgraph_summary(subgraph: &SchematicBusSubgraph) -> BusSubgraphSummary {
+    BusSubgraphSummary {
+        coords: subgraph.coords.iter().copied().map(point_pair).collect(),
+        drivers: subgraph
+            .drivers
+            .iter()
+            .map(|driver| BusDriverSummary {
+                text: driver.text.clone(),
+                at: point_pair(driver.at),
+                priority: driver.priority as i8,
+                kind: driver.kind.as_str().to_owned(),
+            })
+            .collect(),
+        tap_wire_coords: subgraph
+            .tap_wire_coords
+            .iter()
+            .copied()
+            .map(point_pair)
+            .collect(),
+        chosen_name: subgraph.chosen_name.clone(),
+        chosen_priority: subgraph.chosen_priority as i8,
+        chosen_kind: subgraph
+            .chosen_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        members: subgraph.members.clone(),
+    }
+}
+
+fn sheet_summary(sheet: &SchematicSheet) -> SheetSummary {
+    SheetSummary {
+        uuid: sheet.uuid.clone(),
+        pins: sheet
+            .pins
+            .iter()
+            .map(|pin| SheetPinSummary {
+                name: pin.name.clone(),
+                shape: pin.shape.as_str().to_owned(),
+                uuid: pin.uuid.clone(),
+                at: point_pair(pin.at),
+            })
+            .collect(),
+    }
+}
+
+fn symbol_summary(symbol: &SchematicPlacedSymbol) -> SymbolSummary {
+    SymbolSummary {
+        lib_id: symbol.lib_id.clone(),
+        lib_name: symbol.lib_name.clone(),
+        at: point_pair(symbol.at),
+        angle_degrees: symbol.angle_degrees,
+        mirror: symbol.mirror.clone(),
+        unit: symbol.unit,
+        convert: symbol.convert,
+        policy: [
+            symbol.exclude_from_sim,
+            symbol.in_bom,
+            symbol.on_board,
+            symbol.in_pos_files,
+            symbol.dnp,
+            symbol.fields_autoplaced,
+        ],
+        uuid: symbol.uuid.clone(),
+        properties: symbol
+            .properties
+            .iter()
+            .map(|property| [property.key.clone(), property.value.clone()])
+            .collect(),
+        pins: symbol
+            .pins
+            .iter()
+            .map(|pin| SymbolPinSummary {
+                number: pin.number.clone(),
+                uuid: pin.uuid.clone(),
+                alternate: pin.alternate.clone(),
+            })
+            .collect(),
+        instances: symbol
+            .instances
+            .iter()
+            .map(|instance| SymbolInstanceSummary {
+                project: instance.project.to_string(),
+                path: instance.path.clone(),
+                reference: instance.reference.clone(),
+                unit: instance.unit,
+                variants: instance
+                    .variants
+                    .iter()
+                    .map(|variant| SymbolVariantSummary {
+                        name: variant.name.clone(),
+                        policy: [
+                            variant.dnp,
+                            variant.exclude_from_sim,
+                            variant.in_bom,
+                            variant.on_board,
+                            variant.in_pos_files,
+                        ],
+                        fields: variant
+                            .fields
+                            .iter()
+                            .map(|field| [field.name.clone(), field.value.clone()])
+                            .collect(),
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+fn point_pair(point: SchematicPoint) -> [i64; 2] {
+    [point.x_iu, point.y_iu]
+}
+
+fn load_request(request: Request) -> Result<LoadedRequest, Box<dyn Error>> {
+    let mut paths = BTreeSet::new();
+    paths.insert(request.root_schematic_path.clone());
+    paths.extend(request.schematic_paths);
+    if let Some(project_path) = request.project_path.as_ref() {
+        paths.insert(project_path.clone());
+    }
+    let mut descriptors = Vec::with_capacity(paths.len());
+    let mut buffers = Vec::with_capacity(paths.len());
+    let mut project_path = None;
+    let mut root_schematic_path = None;
+    for path in paths {
+        let relative = portable_relative(&request.bundle_root, &path)?;
+        let bytes = std::fs::read(&path)?;
+        let kind = if Some(&path) == request.project_path.as_ref() {
+            project_path = Some(relative.clone());
+            SourceKind::Project
+        } else {
+            if path == request.root_schematic_path {
+                root_schematic_path = Some(relative.clone());
+            }
+            SourceKind::Schematic
+        };
+        let slot = u32::try_from(buffers.len())?;
+        descriptors.push(SourceBundleSource {
+            kind,
+            path: relative,
+            slot: slot.into(),
+            source_bytes: bytes.len().to_string().into(),
+        });
+        buffers.push(bytes);
+    }
+    Ok(LoadedRequest {
+        manifest: SourceBundleManifestA0 {
+            project_path,
+            root_schematic_path: root_schematic_path.ok_or("root schematic was not loaded")?,
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources: descriptors,
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        },
+        buffers,
+    })
+}
+
+fn portable_relative(root: &Path, path: &Path) -> Result<String, Box<dyn Error>> {
+    let relative = path.strip_prefix(root)?;
+    let value = relative.to_string_lossy().replace('\\', "/");
+    if value.is_empty() {
+        Err("source path equals the bundle root".into())
+    } else {
+        Ok(value)
+    }
+}

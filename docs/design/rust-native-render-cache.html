@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native text render cache</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust native text render cache</h1>
+
+  <p>Status: accepted. The native render-cache gate composes the already
+  accepted shaping and outline boundaries into KiCad-compatible polygon
+  caches. Work is intentionally staged so a final contour mismatch remains
+  attributable to shaping, outline extraction, curve decomposition, placement,
+  or hole fracture.</p>
+
+  <h2>Evidence ladder</h2>
+  <ol>
+    <li>Accepted fixed shaping records establish glyph IDs, clusters,
+    advances, offsets, and optional flags.</li>
+    <li>Accepted fixed outline records establish raw line, quadratic, cubic,
+    composite, collection-face, gvar, CFF, and CFF2 commands.</li>
+    <li>Rack L0_055 establishes the safe-Rust port of KiCad's
+    <code>BEZIER_POLY</code> curve approximation in
+    <code>libs/kimath/src/bezier_curves.cpp</code> before any placement
+    transform. The text integration path is
+    <code>common/font/outline_decomposer.cpp</code>.</li>
+    <li>Rack L0_056 composes HarfRust shaping, a reusable configured
+    <code>ttf-parser</code> face, the curve kernel, cursor advances, offsets,
+    anisotropic sizing, Y inversion, and caller origin into bounded raw text-run
+    contours. Fixed uharfbuzz and FontTools records keep this placement stage
+    attributable and explicitly unhinted.</li>
+    <li>Rack L0_057 applies single-line horizontal/vertical alignment, mirroring,
+    and clockwise rotation about the authored text origin. Fixed records invoke
+    the Python renderer's alignment and transform helpers directly.</li>
+    <li>Rack L0_058 and L0_059 establish bounded cache hole fracture and typed
+    cache S-expression read/write.</li>
+    <li>Rack L0_060 establishes bounded multiline and tab-delimited block
+    layout while reusing one configured hinted font and shaping face.</li>
+    <li>Rack L2_009 compares the separate embedded-hinted path against a live
+    KiCad save oracle for representative line-only, curved, holed, multiline,
+    tabbed, and non-default-line-spacing Arial cases.</li>
+    <li>P5_010 connects that accepted engine to board text, text-box, and table
+    carriers through a caller-supplied bounded font/shaping sidecar, including
+    native outline line breaking and explicit generated-cache provenance. The
+    shared contract distinguishes existing-file, Python-generated, and
+    native-generated cache payloads.</li>
+  </ol>
+
+  <h2>Curve-decomposition boundary</h2>
+  <p><code>flatten_quadratic_bezier</code> and
+  <code>flatten_cubic_bezier</code> operate in caller-declared finite
+  coordinates and reproduce the current Python/KiCad approximation, including
+  inflection-aware cubic splitting and KiCad's nonpositive-tolerance fallback.
+  The API is independent of font parsing and placement so the same kernel can
+  consume TrueType, CFF, or future close-to-format curves. Source provenance is
+  pinned to KiCad revision
+  <code>5f555f4d63b970e410d567d1f79e05e8ce41b9d8</code>, matching the Python
+  renderer's documented reference revision.</p>
+
+  <p>Retained points and decomposition work have separate inclusive limits.
+  Quadratic segment counts are rejected before iteration when they exceed the
+  work ceiling. Cubic fallback uses an explicit bounded stack rather than
+  recursive call-stack growth. Every append and work item is charged before it
+  is retained or processed; failures publish no output. Direct adversarial
+  quadratic and high-curvature cubic exhaustion tests protect both paths.</p>
+
+  <h2>Raw contour-placement boundary</h2>
+  <p><code>FontOutlineFace</code> validates the buffer, face, variation axes,
+  and hash once, then extracts every shaped glyph without reparsing or rehashing
+  per operation. The public wrapper continues to support independent single-
+  glyph calls. <code>shape_text_contours_a0</code> keeps font bytes out of the
+  metadata request and applies KiCad's truncated 1433 face scaler and 1.4
+  outline compensation in a documented coordinate space.</p>
+
+  <p>Shaping glyph count and bytes, per-face outline commands, aggregate outline
+  commands, curve work, peak temporary curve points, retained contours, and
+  retained points are independently bounded. The temporary ceiling makes the
+  maximum live contour memory the explicit sum of retained-output and one-curve
+  scratch allowances instead of permitting every late curve another implicit
+  full output-sized allocation. Missing outlines such as a space contribute
+  their shaped advance but no contour; a backend failure after any outline
+  callback is invalid font data, never whitespace. Failures return no partial
+  output. This intermediate deliberately
+  uses unhinted OpenType design-unit outlines; final KiCad save-oracle evidence
+  remains responsible for deciding whether FreeType hinting creates material
+  drift that requires a separate native backend.</p>
+
+  <h2>Single-line layout boundary</h2>
+  <p><code>layout_single_line_text_a0</code> measures and renders one shaped run
+  once, applies left/center/right width offsets and top/center/bottom offsets
+  using KiCad's <code>1.17</code> height factor, then mirrors on the X axis and
+  rotates clockwise around the authored position. Transform work mutates the
+  already-bounded contour output in place and creates no second point graph.
+  Nonfinite angles, aligned positions, and transformed points fail closed.
+  Horizontal layout supports both left-to-right and right-to-left shaped runs;
+  top-to-bottom and bottom-to-top shaping fail with a structured invalid-input
+  diagnostic until vertical-flow layout exists. Returned
+  <code>advance_x</code>/<code>advance_y</code> values remain the pre-layout
+  local shaped-run metrics after the contour points are positioned, mirrored,
+  and rotated.</p>
+
+  <h2>KiCad-compatible hinted outline boundary</h2>
+  <p><code>HintedFontOutlineFace</code> uses the safe-Rust Skrifa 0.46 embedded
+  TrueType hinting engine at KiCad's effective 358.25 pixels-per-em. Skrifa
+  returns pixel coordinates; the adapter applies four internal units per pixel,
+  equivalent to KiCad's FreeType 26.6 coordinates followed by its
+  <code>72 / 1152</code> high-resolution scale. The existing unhinted
+  <code>ttf-parser</code> APIs and fixed design-unit records remain unchanged;
+  callers select the hinted cache operation explicitly.</p>
+  <p>Font bytes, metadata, variations, outline commands, and per-glyph hinting
+  scratch memory have independent fail-closed ceilings. Scratch memory is
+  sized before allocation, with inclusive exact and one-under tests. The
+  initial hinted boundary deliberately rejects nonempty variation coordinates
+  until a variable-font KiCad oracle is promoted. No package-owned unsafe code
+  is used.</p>
+  <p>The dependency is the Google Fontations
+  <a href="https://github.com/googlefonts/fontations">Skrifa</a> crate under
+  its MIT/Apache-2.0 terms. The workspace pins 0.46.0 in <code>Cargo.lock</code>,
+  reuses the existing <code>read-fonts</code> version, disables default features,
+  and enables only <code>std</code>; the unused autohint-shaping feature does not
+  enter the graph. KiCad Monkey continues to own all request validation,
+  resource limits, coordinate conversion, topology, and cache I/O.</p>
+
+  <h2>Multiline and tabbed block boundary</h2>
+  <p><code>layout_text_block_hinted_a0</code> mirrors KiCad's
+  <code>FONT::getLinePositions</code> and
+  <code>OUTLINE_FONT::GetTextAsGlyphs</code> behavior: newline-delimited lines
+  use the font-metrics <code>1.68</code> interline pitch and the authored line-
+  spacing multiplier; each line receives its own horizontal alignment;
+  vertical alignment uses the complete block height; and tabs advance to the
+  next <code>4 * 0.6</code>-em stop. Mirroring and clockwise rotation are then
+  applied around the authored block origin.</p>
+  <p>The block rules are source-pinned to KiCad revision
+  <code>d6ff4c23641ee5236b7c9fac19eb6af1849294f5</code> in
+  <code>common/font/font.cpp</code>, <code>common/font/outline_font.cpp</code>,
+  and <code>include/font/font_metrics.h</code>.</p>
+  <p>The block creates one validated HarfRust/Skrifa session and shapes each
+  non-overlapping run once. Font bytes are neither rehashed nor reparsed per
+  run. UTF-8 feature ranges are intersected and rebased in source order for
+  each run. Aggregate feature inspections are charged before each collection
+  scan, and matching feature applications are charged before cloning. Line,
+  run, aggregate cloned metadata, feature inspection/application, glyph,
+  outline-command, curve-work, contour, and point ceilings are all charged
+  before publication; delimiter-heavy input
+  stops at the configured span ceiling without a full delimiter-counting pass.
+  The typed cache wrapper composes those ceilings with the existing text,
+  topology, and cache-output limits.</p>
+  <p>Live native evidence currently covers left/top, center/center, rotated
+  mirrored, tabbed, explicit-line-spacing, right-aligned multi-glyph,
+  kerning, and whitespace blocks at tolerance <code>0.002</code>. The hinted
+  path follows KiCad's integer <code>VECTOR2I</code> cursor semantics: each
+  Harf advance is scaled by <code>72 / 1152</code> into internal units and
+  truncated toward zero before the next glyph. This closes the prior Arial
+  <code>SS</code> alignment gap without widening the comparison tolerance.</p>
+
+  <h2>Markup styling boundary</h2>
+  <p>Each line is parsed into KiCad's <code>^{}</code>, <code>_{}</code>, and
+  <code>~{}</code> markup tree with the accepted Python
+  <code>_parse_markup</code> semantics: a marker immediately followed by
+  <code>{</code> opens a group, <code>}</code> closes the innermost group, a
+  bare marker or unmatched <code>}</code> is literal, and unterminated groups
+  extend to the end of the line. Every retained text or group node is charged
+  against one block-wide markup-node ceiling before creation, and both the
+  parser and the layout walk use explicit heap stacks so nesting depth is
+  bounded by that same ceiling.</p>
+  <p>Subscript and superscript runs shape and hint on KiCad's rounded styled
+  face size <code>round(1433 * 0.64) = 917</code>; the hinted session builds
+  the second Skrifa hinting instance at <code>229.25</code> ppem only when the
+  block text contains a styled marker. Styled positions convert through the
+  <code>917</code> scaler while the millimeter conversion stays on the base
+  <code>1433</code> scale, which yields the <code>0.64</code> visual ratio.
+  Baseline offsets are <code>-0.25</code> and <code>+0.45</code> of the styled
+  scaler; the subscript flag wins for nested markers and offsets never
+  accumulate across nesting. Cursor quantization uses the styled
+  internal-unit scale.</p>
+  <p>An overbar group appends one stroke polygon after its children: the bar
+  runs from the group's start to its end advance, trimmed by
+  <code>0.1 * size_x</code> at each end, at <code>1.23 * size_y</code> above
+  the baseline, stroked with the authored font thickness. Matching
+  <code>CALLBACK_GAL::DrawGlyph()</code>, the endpoints are transformed into
+  final coordinates first and the ERROR_INSIDE
+  <code>TransformOvalToPolygon()</code> port then strokes there with error
+  <code>strokeWidth / 180</code>, giving the constant 24-segment, 28-point
+  oval and preserving the reference point order under mirroring. A
+  non-positive stroke width suppresses the bar; retained bars are charged
+  against the aggregate contour and point ceilings before deferral.</p>
+  <p>Live native evidence covers Arial subscript, superscript, plain overbar,
+  and rotated mirrored overbar blocks at tolerance <code>0.002</code>.</p>
+
+  <h2>Fake bold and italic boundary</h2>
+  <p>When the resolved face lacks a real bold or italic variant, KiCad
+  synthesizes the style in FreeType: fake italic installs a
+  <code>FT_Set_Transform</code> shear of <code>-12</code> degrees with
+  <code>xx = cos</code>, <code>xy = sin</code> truncated to 16.16 fixed point
+  and identity <code>y</code>, applied after hinting and after shaping, so
+  advances never change; fake bold then runs
+  <code>FT_Outline_Embolden(outline, 1 &lt;&lt; 6)</code> on the glyph's 26.6
+  control points with its return code ignored. The Rust port recovers each
+  hinted outline command onto the exact 26.6 grid
+  (<code>round(value * 16)</code> is exact because hinted values sit on the
+  1/64-pixel grid), then executes exact 32-bit integer ports of
+  <code>FT_MulFix</code>, <code>FT_MulDiv</code>,
+  <code>FT_Vector_NormLen</code>, <code>FT_Outline_Get_Orientation</code>, and
+  <code>FT_Outline_EmboldenXY</code> from the pinned FreeType 2.13.3 sources,
+  including their deliberate wrap-around arithmetic, with <code>FT_Long</code>
+  fixed at 32 bits to match the Windows ABI KiCad ships. Indeterminate
+  orientation leaves the outline unchanged, mirroring the ignored FreeType
+  error before any point has moved.</p>
+  <p>Two representational differences from FreeType's raw point array are
+  deliberate and bounded: the pen stream materializes implied on-curve
+  midpoints, which are collinear with their neighbouring controls and receive
+  the same lateral shift up to fixed-point normalization rounding, and the
+  pen's closing return-to-start point is folded back onto the contour's first
+  point before the integer pass so cyclic anchor walking sees FreeType's point
+  count. Which style is faked is resolved by the caller against the actual
+  face; the Rust request takes explicit <code>fake_bold</code> and
+  <code>fake_italic</code> flags, and the unhinted design-unit path rejects
+  them because the synthesis is defined on hinted 26.6 coordinates. The
+  collected point pass is bounded by the existing outline-command ceiling, and
+  out-of-range 26.6 coordinates fail closed.</p>
+  <p>Live native evidence covers Impact fake bold, Impact fake italic, and
+  Arial bold-italic resolving to the real bold face with only the italic
+  shear faked, all at tolerance <code>0.002</code>.</p>
+  <p>Face resolution itself stays caller-side: the Rust request receives font
+  bytes, and the caller resolves board faces through KiCad's own bundled
+  fontconfig (the <code>family:Bold</code>/<code>:Italic</code>
+  <code>FcNameParse</code> match of <code>FONTCONFIG::FindFont</code> in
+  <code>common/font/fontconfig.cpp</code>) before any fallback, so a face not
+  installed on the machine substitutes to the same installed file the KiCad
+  oracle picks. Live Ubuntu Sans regular and bold substitution save-oracle
+  cases pin this.</p>
+
+  <h2>Cache contour topology</h2>
+  <p><code>fracture_text_contours_a0</code> trims one repeated closing point,
+  ignores contours with fewer than three retained points, assigns later
+  contours to the first containing exterior, and bridges holes using the
+  deterministic leftmost-edge ordering of the Python KiCad reference. Holes
+  bridge in ascending (min&nbsp;x, min&nbsp;y) order, matching KiCad's
+  <code>fractureSingleCacheFriendly</code> path sort. Each hole bridges at the
+  first strict-min-x point scanned cyclically from the hole's Simplify seam in
+  stored traversal order: KiCad scans stored order for the first point at the
+  strict minimum x with no tie-break, and <code>Fracture()</code>'s Clipper2
+  <code>Simplify()</code> emits every ring starting just past its min-y run
+  exit, so a vertical hole left edge bridges at its bottom vertex (Arial
+  <code>D</code>) while a hole whose seam reaches the upper min-x vertex first
+  bridges there (embedded Wavenumber <code>W</code>). Live double-hole (Arial
+  <code>B</code>), vertical-left-edge-hole (Arial <code>D</code>), and
+  corpus <code>complex_font</code> save-oracle cases pin this. One topology
+  call covers
+  exactly one glyph's polygon set: KiCad's saved-cache writer fractures each
+  drawn glyph independently and only when that glyph has holes
+  (<code>if (glyph.HasHoles()) glyph.Fracture()</code>), so cache composition
+  threads per-glyph contour group sizes from layout and scopes fracture to
+  each group. Within a holed group, <code>Simplify()</code> first emits every
+  ring in a fixed orientation (exteriors positive shoelace area in the cache
+  frame, holes negative) regardless of input winding &mdash; mirrored text
+  flips every ring's winding, so holed groups orientation-normalize before
+  the seam/bridge rules, while hole-free groups keep their stored winding;
+  live mirrored Arial <code>D</code>/<code>R8</code> save-oracle cases and
+  mirrored corpus footprint texts pin this. <code>Simplify()</code> also
+  rewrites every
+  ring seam: rings restart one past the exit of the min-y run containing the
+  smallest-x min-y point, where a run is a maximal stretch of consecutive
+  stored points at the ring's minimum y and, with several min-y runs, the
+  smallest-x run wins, matching Clipper2's local-minima sweep order &mdash;
+  and Clipper2's
+  <code>LocMinSorter</code> reorders the group's outers by bottom-most vertex
+  (largest y first, ties smallest x, otherwise stable). Hole-free groups see
+  no <code>Simplify()</code> and keep font contour order and ring seams
+  untouched. Live Arial <code>%</code> (one glyph mixing a hole-free slash
+  outer with holed rings), <code>Tp%</code>, and <code>i:j;!?</code>
+  save-oracle cases pin this scoping. The fractured ring is assembled through
+  KiCad's <code>SHAPE_LINE_CHAIN::Append</code>, which drops points equal to
+  the last one: when a bridge split point coincides exactly with the hole's
+  bridge vertex (as happens at small glyph sizes where distinct outline points
+  collapse after scaling), the pair collapses to a single published point;
+  a coincident-bridge unit case and live small bold Arial
+  <code>C203</code>/<code>R80</code> save-oracle cases pin this. The
+  pairwise containment and prior-edge bridge scans have independent work
+  ceilings; input points, edge slots, link traversal, polygons, and published
+  points are also bounded. Finite comparisons intentionally preserve Python's
+  signed-zero equality and stable tie ordering. Overflowed intersection or
+  distance intermediates are invalid input. The operation returns no partial
+  topology on any invalid input or resource-limit failure.</p>
+
+  <h2>Typed cache and KiCad S-expression I/O</h2>
+  <p><code>generate_text_render_cache_a0</code> composes the accepted horizontal
+  layout and topology stages into a typed cache containing resolved text,
+  authored angle, polygons, contours, and points. The cache is a KiCad
+  source-model type, not a public interchange DTO, so it does not create a new
+  TypeSpec or WASM contract. <code>read_text_render_cache_a0</code> consumes the
+  lexical token stream directly and never builds a generic S-expression tree.
+  <code>write_text_render_cache_a0</code> emits escaped text and nested
+  polygon/points forms directly into a byte-bounded buffer. Read/write limits
+  separately cover source, decoded text, polygons, contours, points, and output
+  bytes, and semantic read-write-read is stable.</p>
+  <p>The shape of the writer is pinned to KiCad revision
+  <code>d6ff4c23641ee5236b7c9fac19eb6af1849294f5</code>, function
+  <code>PCB_IO_KICAD_SEXPR::formatRenderCache</code> in
+  <code>pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp</code>. Fixed byte
+  formatting evidence comes from Python <code>RenderCache.to_sexp</code> plus
+  <code>build_sexp</code>; final coordinate authority remains the KiCad save
+  oracle.</p>
+
+  <h2>Still open</h2>
+  <p>The current render-cache strata now establish live KiCad save-oracle
+  parity for representative plain single-line, multiline, tabbed, and explicit
+  line-spacing, right-aligned, kerning, whitespace, and markup Arial text,
+  plus fake bold/italic synthesis on Impact and the real-bold Arial face,
+  double-hole and vertical-left-edge hole fracture ordering, and per-glyph
+  fracture scoping with Simplify seam rewrite and outer reordering (the
+  former Arial <code>%</code> gap, now closed &mdash; it was per-glyph outer
+  output ordering plus hole-free ring seam rewriting, not geometry cleanup).
+  The Phase 5 exit gate adds a focused transient authored Arial board and live
+  save-oracle case. The accepted boundary does not claim exhaustive font,
+  composite-glyph, or every-corpus-object coverage. One known limitation sits in
+  the Python reference (not the Rust port): without a provisioned
+  <code>KICAD_HARFBUZZ_DLL</code> its pure-uharfbuzz fallback shaping drifts a
+  few microns per glyph at larger x positions; with the hb_ft path it matches
+  the oracle, and the native hinted path always quantizes advances like
+  KiCad. Those remain active parts
+  of <code>render-cache-parity</code>, not deferred packaging work. Font
+  discovery stays native-only and outside the platform-neutral byte-input
+  core; WASM packaging remains in its later selected-operation phase.</p>
+</body>
+</html>

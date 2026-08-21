@@ -1,0 +1,17 @@
+[package]
+name = "kicad-monkey-svg"
+description = "Bounded deterministic SVG serialization for frozen KiCad Monkey Plotter-IR"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
+serde_json.workspace = true

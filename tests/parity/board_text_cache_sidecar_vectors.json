@@ -1,0 +1,22 @@
+{
+  "schema": "kicad.board_text_cache_sidecar_vectors.a0",
+  "vectors": [
+    {
+      "id": "matching-stale-missing-carrier-caches",
+      "source": "(kicad_pcb\n  (gr_text \"A\" (at 0 0) (layer \"F.SilkS\")\n    (effects (font (face \"Native Fixture\") (size 1 1)))\n    (render_cache \"A\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1)))))\n  (gr_text \"A\" (at 2 0) (layer \"F.SilkS\")\n    (effects (font (face \"Native Fixture\") (size 1 1)))\n    (render_cache \"stale\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1)))))\n  (gr_text \"A\" (at 4 0) (layer \"F.SilkS\")\n    (effects (font (face \"Native Fixture\") (size 1 1))))\n  (gr_text_box \"A\" (start 0 2) (end 2 4) (layer \"F.SilkS\")\n    (effects (font (face \"Native Fixture\") (size 1 1)))\n    (render_cache \"A\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1)))))\n  (gr_text_box \"A\" (start 2 2) (end 4 4) (layer \"F.SilkS\")\n    (effects (font (face \"Native Fixture\") (size 1 1)))\n    (render_cache \"stale\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1)))))\n  (gr_text_box \"A\" (start 4 2) (end 6 4) (layer \"F.SilkS\")\n    (effects (font (face \"Native Fixture\") (size 1 1))))\n  (table (column_count 1) (layer \"F.Cu\")\n    (cells (table_cell \"A\" (start 0 5) (end 2 7)\n      (effects (font (face \"Native Fixture\") (size 1 1)))\n      (render_cache \"A\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1)))))))\n  (table (column_count 1) (layer \"F.Cu\")\n    (cells (table_cell \"A\" (start 2 5) (end 4 7)\n      (effects (font (face \"Native Fixture\") (size 1 1)))\n      (render_cache \"stale\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1)))))))\n  (table (column_count 1) (layer \"F.Cu\")\n    (cells (table_cell \"A\" (start 4 5) (end 6 7)\n      (effects (font (face \"Native Fixture\") (size 1 1))))))\n  (dimension (type center) (layer \"Dwgs.User\") (pts (xy 0 10) (xy 1 10))\n    (format (override_value \"A\") (units_format 0))\n    (gr_text \"authored\" (at 0 10) (effects (font (face \"Native Fixture\") (size 1 1)))\n      (render_cache \"stale\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1))))))\n  (dimension (type center) (layer \"Dwgs.User\") (pts (xy 3 10) (xy 4 10))\n    (format (override_value \"A\") (units_format 0))\n    (gr_text \"authored\" (at 3 10) (effects (font (face \"Native Fixture\") (size 1 1)))))\n)",
+      "expected_cache_sources": [
+        "existing_file_cache",
+        "native_generated_cache",
+        "native_generated_cache",
+        "existing_file_cache",
+        "native_generated_cache",
+        "native_generated_cache",
+        "existing_file_cache",
+        "native_generated_cache",
+        "native_generated_cache",
+        "native_generated_cache",
+        "native_generated_cache"
+      ]
+    }
+  ]
+}

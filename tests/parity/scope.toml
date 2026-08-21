@@ -1,0 +1,720 @@
+schema = "kicad_monkey.parity_scope.a0"
+milestone = "rust_phase6_native_cruncher_closed"
+review_state = "accepted"
+
+[[surfaces]]
+id = "sexpr.lex_parse"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["lex_sexp", "parse_sexp", "KicadSexprLexer", "KicadSexprParser"]
+rust_symbols = ["Lexer", "parse", "parse_bytes", "parse_with_limits"]
+rack_cases = ["L0_044", "L0_045", "L0_046"]
+evidence = ["tests/parity/sexpr_l0_vectors.a0.json", "src/rs/kicad-monkey-core/tests/sexpr_foundation.rs"]
+
+[[surfaces]]
+id = "sexpr.diagnostics_spans"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["SexprError", "SexpSpan", "parse_sexp_with_spans"]
+rust_symbols = ["Error", "Position", "FormSpan", "StructuralIndex"]
+rack_cases = ["L0_044", "L0_046"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.selection_pruning"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["SexpSelector", "iter_sexp_form_spans", "parse_sexp_span"]
+rust_symbols = ["Selector", "scan_form_spans", "parse_form", "StructuralIndex.select"]
+rack_cases = ["L0_044", "L0_046"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.streaming_partial_reads"
+disposition = "required"
+wasm = "native_io_not_applicable"
+status = "closed"
+python_symbols = ["iter_sexp_file_form_spans"]
+rust_symbols = ["scan_reader_form_spans", "read_form_bytes"]
+rack_cases = ["L0_044", "L0_046"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.build_format"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["build_sexp", "format_sexp"]
+rust_symbols = ["build", "format"]
+rack_cases = ["L0_044", "L0_045", "L0_046"]
+evidence = ["tests/parity/sexpr_l0_vectors.a0.json", "src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.source_preserving_write"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["source-model focused write behavior"]
+rust_symbols = ["Patch", "apply_patches", "apply_patches_with_limit"]
+rack_cases = ["L0_044"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_foundation.rs"]
+
+[[surfaces]]
+id = "sexpr.mutation"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["replace_element", "remove_element", "remove_all_elements", "set_value", "walk", "find_path", "transform_descendants"]
+rust_symbols = ["replace_element", "remove_element", "remove_all_elements", "set_value", "walk", "find_path", "transform_descendants"]
+rack_cases = ["L0_044"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.properties_limits"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["roundtrip_sexp_text"]
+rust_symbols = ["Limits", "ProjectionLimits"]
+rack_cases = ["L0_044"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_properties.rs"]
+
+[[surfaces]]
+id = "sexpr.operation_contracts"
+disposition = "replaced_by_contract"
+wasm = "required"
+status = "closed"
+python_symbols = ["kicad_monkey.contracts.generated"]
+rust_symbols = ["kicad-monkey-contracts", "kicad-monkey-wasm.scanSexpr"]
+rack_cases = ["L0_046", "L0_049"]
+evidence = ["src/tsp/kicad_monkey/sexpr-a0.tsp", "contracts/generated/schema/ScanRequest.json", "contracts/generated/schema/ScanResult.json", "src/rs/kicad-monkey-contracts/src/generated/mod.rs", "src/py/kicad_monkey/contracts/generated.py", "src/ts/kicad_monkey/contracts/generated/index.ts"]
+
+[[surfaces]]
+id = "sexpr.build_operation_contract"
+disposition = "replaced_by_contract"
+wasm = "required"
+status = "closed"
+python_symbols = ["kicad_monkey.contracts.generated.SExpressionBuildRequestA0", "kicad_monkey.contracts.generated.SExpressionBuildResultA0"]
+rust_symbols = ["validate_build_request", "ValidatedNode", "build_with_limit", "kicad-monkey-wasm.buildSexpr"]
+rack_cases = ["L0_046", "L0_048", "L0_049"]
+evidence = ["src/tsp/kicad_monkey/sexpr-a0.tsp", "contracts/generated/schema/BuildRequest.json", "contracts/generated/schema/BuildResult.json", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-contracts/tests/generated_contracts.rs", "src/rs/kicad-monkey-core/tests/sexpr_foundation.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "src/py/kicad_monkey/contracts/generated.py", "src/ts/kicad_monkey/contracts/generated/index.ts"]
+
+[[surfaces]]
+id = "sexpr.performance"
+disposition = "required"
+wasm = "measurement_deferred_to_boundary_review"
+status = "review_ready"
+python_symbols = ["parse_sexp", "build_sexp", "iter_sexp_form_spans"]
+rust_symbols = ["parse", "build", "scan_form_spans"]
+rack_cases = ["L0_047", "L1_023", "L1_024"]
+evidence = ["tests/performance/sexpr_l0.toml", "tests/performance/sexpr_corpus_cases.toml", "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs", "src/rs/kicad-monkey-core/examples/sexpr_corpus_benchmark.rs", "src/rs/kicad-monkey-core/examples/sexpr_selection_sort_benchmark.rs", "docs/design/rust-sexpr-phase1-measurement.html"]
+
+[[surfaces]]
+id = "sexpr.corpus_roundtrip"
+disposition = "required"
+wasm = "host_independent_core"
+status = "closed"
+python_symbols = ["roundtrip_sexp_text", "iter_kicad_sexpr_files"]
+rust_symbols = ["parse_bytes", "build", "sexpr_corpus_gate"]
+rack_cases = ["L1_018", "L1_022"]
+evidence = ["tests/L1_parsing/test_L1_018_corpus_sexpr_passthrough.py", "tests/L1_parsing/test_L1_022_rust_corpus_sexpr_passthrough.py", "src/rs/kicad-monkey-core/examples/sexpr_corpus_gate.rs", "docs/design/rust-sexpr-l1-review.html"]
+
+[[surfaces]]
+id = "footprint.typed_read_write"
+disposition = "required"
+wasm = "required"
+status = "review_ready"
+python_symbols = ["KiCadFootprint", "Footprint"]
+rust_symbols = ["FootprintView", "FootprintProperty", "FootprintEdit", "kicad-monkey-wasm.readFootprint", "kicad-monkey-wasm.editFootprintProperty"]
+rack_cases = ["L0_046", "L0_049", "L1_025"]
+evidence = ["src/tsp/kicad_monkey/footprint-a0.tsp", "src/rs/kicad-monkey-core/src/footprint.rs", "src/rs/kicad-monkey-core/tests/footprint_typed_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_025_rust_footprint_typed_slice.py", "docs/design/rust-footprint-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_solid_lines"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["KiCadFootprint", "footprint_to_ir", "fp_line_to_op"]
+rust_symbols = ["footprint_plot_document", "FootprintPlotDocument", "kicad-monkey-wasm.plotFootprintIr"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_graphics"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["fp_line_to_ops", "fp_arc_to_ops", "fp_circle_to_op", "fp_rect_to_op", "fp_poly_to_op"]
+rust_symbols = ["PlotterOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.shared_operation_vocabulary"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["KiCadPlotterOp", "KiCadPlotterOpKind"]
+rust_symbols = ["PlotterOperation", "kicad_monkey_contracts.generated.PlotterOperation", "validate_footprint_plot_document"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/contracts/typescript-smoke.ts", "tests/parity/footprint_plotter_a0_vectors.json"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_standard_pads"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["pad_to_ops", "pad_drill_to_ops"]
+rust_symbols = ["PlotterOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_custom_chamfered_pads"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["pad_to_ops", "_chamfered_pad_local_polygon_nm"]
+rust_symbols = ["FlashPadCustom", "PlotterOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.board_graphics"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["pcb_to_ir", "gr_line_to_ops", "gr_arc_to_ops", "gr_circle_to_op", "gr_rect_to_op", "gr_poly_to_op", "gr_curve_to_op"]
+rust_symbols = ["board_plot_document", "BoardPlotDocument", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L0_046", "L0_049", "L1_035"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.board_tracks_vias"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["track_segment_to_op", "track_arc_to_op", "via_to_op", "via_drill_to_op", "via_mask_opening_to_op", "via_mask_drill_to_op", "_net_extras"]
+rust_symbols = ["BoardSegmentRecord", "BoardTrackArcRecord", "BoardViaRecord", "board_plot_document", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L0_046", "L0_049", "L1_035"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.board_zones_net_extras"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["zone_to_record", "zone_filled_polygon_to_op", "_net_extras", "_net_classes_for_name", "_with_net_class_extras", "_records_with_net_class_extras", "project_net_name_to_classes"]
+rust_symbols = ["BoardZoneRecord", "BoardNetClassAssignments", "BoardNetClassExtras", "board_plot_document_with_net_classes", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L0_046", "L0_049", "L1_035"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.board_text"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
+python_symbols = ["gr_text_to_record", "gr_text_box_to_record", "board_text_variables", "RenderCacheResolver"]
+rust_symbols = ["BoardTextRecord", "BoardTextBoxRecord", "BoardTextVariables", "board_plot_document_with_sidecars", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L0_046", "L0_049", "L1_035"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir/text.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py", "docs/design/rust-board-plotter-phase5-slice.html"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/board_plotter_ir/text.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs"]
+
+[[surfaces]]
+id = "plotter_ir.board_tables"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
+python_symbols = ["table_to_record", "table_cell_text_to_op", "render_cache_request_for_table_cell", "table_cell_text_variables"]
+rust_symbols = ["BoardTableRecord", "BoardTableOperation", "board_plot_document_with_sidecars", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L0_046", "L0_049", "L1_035"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir/table.rs", "src/rs/kicad-monkey-core/tests/board_plotter_resource_limits.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py", "docs/design/rust-board-plotter-phase5-slice.html"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/board_plotter_ir/table.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_plotter_resource_limits.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs"]
+
+[[surfaces]]
+id = "text.native_plotter_cache_bridge"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["RenderCacheResolver", "RenderCacheRequest", "generate_render_cache_from_text_params"]
+rust_symbols = ["PlotterTextCacheResources", "PlotterTextFont", "linebreak_text_block_hinted_a0", "generate_text_render_cache_block_hinted_a0", "board_plot_document_with_text_cache_sidecar", "TextRenderCache"]
+rack_cases = ["L1_035", "L2_009"]
+evidence = ["docs/design/rust-native-render-cache.html", "docs/design/rust-board-plotter-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-core/examples/board_plot_text_cache_gate.rs", "src/rs/kicad-monkey-wasm/examples/board_text_cache_sidecar_contract.rs", "src/rs/kicad-monkey-core/tests/plotter_text_cache.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py", "tests/L2_tools/test_L2_009_render_cache_oracle.py"]
+vector_evidence = ["tests/parity/text_layout_vectors.json", "tests/parity/board_plotter_a0_vectors.json", "tests/parity/board_text_cache_sidecar_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-core/src/text_linebreak.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/text.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/text_native.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/table.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_text"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
+python_symbols = ["property_to_op", "fp_text_to_op", "fp_text_box_to_ops", "footprint_to_record"]
+rust_symbols = ["FootprintView", "FootprintGraphicalProperty", "FootprintText", "FootprintTextBox", "FootprintPlotDocument", "PlotterText", "footprint_plot_document"]
+rack_cases = ["L1_026"]
+evidence = ["docs/design/rust-footprint-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/src/footprint_text.rs", "src/rs/kicad-monkey-core/src/footprint_plotter_text.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/footprint_text_contracts.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py"]
+vector_evidence = ["tests/parity/footprint_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/footprint_text.rs", "src/rs/kicad-monkey-core/src/footprint_plotter_text.rs", "src/rs/kicad-monkey-core/src/plotter_contract.rs", "src/rs/kicad-monkey-wasm/src/lib.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/footprint_text_contracts.rs"]
+
+[[surfaces]]
+id = "plotter_ir.symbol_text"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
+python_symbols = ["text_to_op", "pin_to_ops", "subsymbol_to_record", "lib_symbol_to_ir"]
+rust_symbols = ["SymbolPlotDocument", "SymbolPlotRecord", "SymbolTextVariables", "symbol_plot_document_with_text_variables", "kicad-monkey-wasm.plotSymbolIr"]
+rack_cases = ["L1_027"]
+evidence = ["docs/design/rust-symbol-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/src/symbol_text.rs", "src/rs/kicad-monkey-core/tests/symbol_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/generated_contracts.rs", "src/rs/kicad-monkey-wasm/src/symbol_plot.rs", "tests/L1_parsing/test_L1_027_rust_symbol_plotter_slice.py"]
+vector_evidence = ["tests/parity/symbol_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/symbol_text.rs", "src/rs/kicad-monkey-core/src/symbol_plotter_ir.rs", "src/rs/kicad-monkey-wasm/src/symbol_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/symbol_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/generated_contracts.rs", "src/rs/kicad-monkey-wasm/src/symbol_plot.rs"]
+
+[[surfaces]]
+id = "plotter_ir.board_dimensions"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
+python_symbols = ["dimension_shape_ops", "dimension_text_to_record", "render_cache_request_for_dimension_text"]
+rust_symbols = ["PcbDimension", "PcbDimensionFormat", "PcbDimensionStyle", "BoardDimensionRecord", "DimensionPlotRecord", "BoardPlotDocument", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L1_035"]
+evidence = ["docs/design/rust-board-plotter-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/tests/board_dimension_slice.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json", "tests/parity/board_text_cache_sidecar_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/decode.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/dimension.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_dimension_slice.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.board_footprints"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
+python_symbols = ["pcb_footprint_to_record", "_op_with_footprint_child_metadata", "_pad_block_ops"]
+rust_symbols = ["PcbFootprint", "BoardFootprintRecord", "BoardFootprintOperation", "BoardFootprintPlotRecord", "BoardPlotDocument", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L1_035"]
+evidence = ["docs/design/rust-board-plotter-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/tests/board_footprint_slice.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/pcb/footprints.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/footprint.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_footprint_slice.rs", "src/rs/kicad-monkey-core/tests/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.schematic_foundation"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["schematic_to_ir", "_sheet_header_record", "drawing_sheet_to_ops", "_append_schematic_connectivity_records"]
+rust_symbols = ["SchematicPlotDocument", "SchematicPlotRecord", "SchematicPlotLimits", "SchematicPlotContext", "schematic_plot_document", "validate_schematic_plot_document"]
+rack_cases = ["L1_036"]
+evidence = ["docs/design/rust-schematic-plotter-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "contracts/generated/schema/SchematicPlotDocument.json", "src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+vector_evidence = ["tests/parity/schematic_plotter_a0_vectors.json"]
+implementation_evidence = ["src/tsp/kicad_monkey/schematic-plot-a0.tsp", "src/rs/kicad-monkey-core/src/schematic_plotter_ir.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/worksheet_render.rs", "src/rs/kicad-monkey-contracts/src/schematic_plot_contract.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.schematic_annotations"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["_append_schematic_label_records", "_append_schematic_text_records", "_netclass_flag_record"]
+rust_symbols = ["SchematicDrawingSettings", "SchematicAnnotationRecord", "SchematicPlotOperation", "schematic_plot_document_with_annotations", "PlotterTextCacheResources", "validate_schematic_plot_document"]
+rack_cases = ["L1_036"]
+evidence = ["docs/design/rust-schematic-annotations-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "contracts/generated/schema/SchematicPlotDocument.json", "src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+vector_evidence = ["tests/parity/schematic_plotter_a0_vectors.json"]
+implementation_evidence = ["src/tsp/kicad_monkey/schematic-plot-a0.tsp", "src/rs/kicad-monkey-core/src/schematic_plotter_ir.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/annotation_render.rs", "src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/src/schematic_plot_contract.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.schematic_graphics"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["_append_schematic_graphics_records", "_rule_area_record", "_image_record", "_table_record"]
+rust_symbols = ["SchematicGraphicRecord", "SchematicPlotOperation", "schematic_plot_document_with_graphics", "PlotterTextCacheResources", "validate_schematic_plot_document"]
+rack_cases = ["L1_036"]
+evidence = ["docs/design/rust-schematic-graphics-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "contracts/generated/schema/SchematicPlotDocument.json", "src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+vector_evidence = ["tests/parity/schematic_plotter_a0_vectors.json"]
+implementation_evidence = ["src/tsp/kicad_monkey/schematic-plot-a0.tsp", "src/rs/kicad-monkey-core/src/schematic_plotter_ir.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/graphic_render.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/image_decode.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/table_render.rs", "src/rs/kicad-monkey-contracts/src/schematic_plot_contract.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.schematic_symbols"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["_symbol_instance_record", "_symbol_overplot_record", "_append_schematic_symbol_records"]
+rust_symbols = ["SchematicSymbolInstanceRecord", "SchematicSymbolOverplotRecord", "SchematicSymbolPinBlock", "schematic_plot_document_with_symbols", "PlotterTextCacheResources", "validate_schematic_plot_document"]
+rack_cases = ["L1_036"]
+evidence = ["docs/design/rust-schematic-symbols-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "contracts/generated/schema/SchematicPlotDocument.json", "src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+vector_evidence = ["tests/parity/schematic_plotter_a0_vectors.json"]
+implementation_evidence = ["src/tsp/kicad_monkey/schematic-plot-a0.tsp", "src/rs/kicad-monkey-core/src/schematic_plotter_ir.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/symbol_render.rs", "src/rs/kicad-monkey-core/src/symbol_plotter_ir.rs", "src/rs/kicad-monkey-core/src/symbol_text.rs", "src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/src/schematic_plot_contract.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.schematic_sheets"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["_sheet_record", "_append_schematic_sheet_records"]
+rust_symbols = ["SchematicSheetRecord", "SchematicSheetPinBlock", "schematic_plot_document_with_sheets", "PlotterTextCacheResources", "validate_schematic_plot_document"]
+rack_cases = ["L1_036"]
+evidence = ["docs/design/rust-schematic-sheets-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "contracts/generated/schema/SchematicPlotDocument.json", "src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+vector_evidence = ["tests/parity/schematic_plotter_a0_vectors.json"]
+implementation_evidence = ["src/tsp/kicad_monkey/schematic-plot-a0.tsp", "src/rs/kicad-monkey-core/src/schematic_plotter_ir.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/sheet_render.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/annotation_render.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/symbol_render.rs", "src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/src/schematic_plot_contract.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+
+[[surfaces]]
+id = "plotter_ir.phase5_exit"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["footprint_to_ir", "lib_symbol_to_ir", "pcb_to_ir", "schematic_to_ir"]
+rust_symbols = ["footprint_plot_document", "symbol_plot_document", "board_plot_document", "schematic_plot_document_with_sheets", "generate_text_render_cache_block_hinted_a0", "validate_board_plot_document", "validate_schematic_plot_document"]
+rack_cases = ["L3_022"]
+evidence = ["docs/adrs/ADR-011-native-first-rust-port-delivery.md", "docs/design/rust-phase5-exit-audit.html", "docs/design/rust-native-render-cache.html", "tests/parity/plotter_ir_phase5_freeze.json", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "tests/L3_rendering/STRATUM.toml", ".github/workflows/phase5-exit.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["tests/parity/footprint_plotter_a0_vectors.json", "tests/parity/symbol_plotter_a0_vectors.json", "tests/parity/board_plotter_a0_vectors.json", "tests/parity/schematic_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/src/symbol_plotter_ir.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir.rs", "src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-contracts/src/schematic_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/lib.rs"]
+semantic_resource_evidence = ["tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-core/tests/symbol_plotter_slice.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-core/tests/board_plotter_resource_limits.rs", "src/rs/kicad-monkey-core/tests/board_dimension_slice.rs", "src/rs/kicad-monkey-core/tests/board_footprint_slice.rs", "src/rs/kicad-monkey-core/tests/plotter_text_cache.rs", "src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/footprint_text_contracts.rs", "src/rs/kicad-monkey-contracts/tests/generated_contracts.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs"]
+
+[[surfaces]]
+id = "pcb.native_setup_stackup"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.setup_sexp", "KiCadPcb.aux_axis_origin_mm", "Stackup", "StackupLayer"]
+rust_symbols = ["PcbView.setup", "PcbSetup", "PcbStackup", "PcbStackupLayer"]
+rack_cases = ["L1_029"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/setup.rs", "src/rs/kicad-monkey-core/tests/pcb_setup_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_footprint_children"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Footprint", "Property", "FpLine", "FpArc", "FpCircle", "FpRect", "FpPoly"]
+rust_symbols = ["PcbFootprint", "PcbFootprintProperty", "PcbFootprintGraphic", "PcbView.footprint_properties", "PcbView.footprint_graphics"]
+rack_cases = ["L1_029"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/footprints.rs", "src/rs/kicad-monkey-core/tests/pcb_footprint_children_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_selective_reads"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb"]
+rust_symbols = ["PcbFamily", "PcbSelection", "PcbView.parse_selected", "PcbDocument.view_selected", "PcbView.footprint_properties", "PcbView.footprint_graphics"]
+rack_cases = ["L1_029"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/selection.rs", "src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/footprints.rs", "src/rs/kicad-monkey-core/tests/pcb_selection_slice.rs", "src/rs/kicad-monkey-core/tests/pcb_footprint_children_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_typed_read_write"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb", "KiCadPcbProjection"]
+rust_symbols = ["PcbView", "PcbCounts", "PcbFootprint", "PcbPad", "PcbModelReference", "PcbNetRef", "PcbSegment", "PcbVia", "PcbZone", "PcbZonePolygon", "PcbZoneFilledPolygon", "PcbZoneKeepout", "PcbZonePlacement", "PcbEdit"]
+rack_cases = ["L1_029"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/zones.rs", "src/rs/kicad-monkey-core/tests/pcb_typed_slice.rs", "src/rs/kicad-monkey-core/tests/pcb_zone_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_physical_facts"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Pad", "Via", "FootprintPlacement", "KiCadPcb.board_outline_carriers"]
+rust_symbols = ["PcbView.holes", "PcbHole", "PcbPadDrill", "PcbView.footprint_transforms", "PcbFootprintTransform", "PcbView.profile_primitives", "PcbProfilePrimitive"]
+rack_cases = ["L1_029"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/physical.rs", "src/rs/kicad-monkey-core/tests/pcb_physical_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_owned_document"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.from_file", "KiCadPcb.write"]
+rust_symbols = ["PcbDocument", "PcbDocument.from_reader", "PcbDocument.write_to", "PcbDocument.view", "PcbDocument.set_property", "PcbDocument.upsert_property", "PcbDocument.remove_property", "PcbDocument.remove_top_level_by_id", "PcbDocument.set_top_level_layer_by_id"]
+rack_cases = ["L1_029", "L1_030", "L1_031"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/document.rs", "src/rs/kicad-monkey-core/tests/pcb_document_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_mutation_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "tests/L1_parsing/test_L1_031_rust_pcb_cli_mutation.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_remaining_carriers"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["GrText", "GrLine", "GrRect", "GrArc", "GrCircle", "GrPoly", "GrCurve", "GrTextBox", "Arc", "Dimension", "Group", "GeneratedObject", "EmbeddedFile"]
+rust_symbols = ["PcbGraphic", "PcbGraphicKind", "PcbRoutingArc", "PcbDimension", "PcbGroup", "PcbGeneratedItem", "PcbEmbeddedFile", "PcbView.remove_top_level_by_id"]
+rack_cases = ["L1_029"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/tests/pcb_typed_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_document_metadata"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.paper", "KiCadPcb.title_block", "KiCadPcb.general", "KiCadPcb.generator", "KiCadPcb.generator_version"]
+rust_symbols = ["PcbView.paper", "PcbView.title_block", "PcbView.metadata", "KiCadPaper", "KiCadTitleBlock", "PcbBoardMetadata"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/document_metadata.rs", "src/rs/kicad-monkey-core/src/pcb/extended.rs", "src/rs/kicad-monkey-core/tests/pcb_document_metadata_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_footprint_text"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["FpText", "FpTextBox", "Effects", "Font"]
+rust_symbols = ["PcbView.footprint_texts", "PcbView.footprint_text_boxes", "PcbFootprintText", "PcbFootprintTextBox", "KiCadTextEffects", "KiCadFont"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/text_metadata.rs", "src/rs/kicad-monkey-core/src/pcb/footprints.rs", "src/rs/kicad-monkey-core/tests/pcb_footprint_text_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_pad_detail"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Pad", "PadPrimitive", "TeardropParams", "ZoneLayerConnection"]
+rust_symbols = ["PcbPad", "PcbPadPrimitive", "PcbTeardropParameters", "PcbZoneLayerConnection", "PcbView.pads"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/pads.rs", "src/rs/kicad-monkey-core/src/pcb/manufacturing.rs", "src/rs/kicad-monkey-core/tests/pcb_pad_detail_slice.rs", "src/rs/kicad-monkey-core/tests/pcb_manufacturing_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_via_detail"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Via", "TeardropParams", "ZoneLayerConnection"]
+rust_symbols = ["PcbVia", "PcbViaKind", "PcbTeardropParameters", "PcbZoneLayerConnection", "PcbView.vias"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/vias.rs", "src/rs/kicad-monkey-core/src/pcb/manufacturing.rs", "src/rs/kicad-monkey-core/tests/pcb_via_detail_slice.rs", "src/rs/kicad-monkey-core/tests/pcb_manufacturing_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_manufacturing_records"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Backdrill", "TeardropParams", "ZoneLayerConnection", "Pad", "Via"]
+rust_symbols = ["PcbBackdrill", "PcbPostMachining", "PcbTeardropParameters", "PcbZoneLayerConnection", "PcbTertiaryDrill"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/manufacturing.rs", "src/rs/kicad-monkey-core/tests/pcb_manufacturing_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_owned_roundtrip_corpus"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.from_file", "KiCadPcb.to_text"]
+rust_symbols = ["PcbDocument.from_reader", "PcbDocument.write_to", "PcbDocument.view", "pcb_roundtrip_gate"]
+rack_cases = ["L1_030"]
+evidence = ["src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "tests/L1_parsing/STRATUM.toml", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_cli_mutation_acceptance"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.from_file", "KiCadPcb.to_text"]
+rust_symbols = ["PcbDocument.set_property", "PcbDocument.upsert_property", "PcbDocument.remove_property", "PcbDocument.remove_top_level_by_id", "PcbDocument.set_top_level_layer_by_id", "pcb_mutation_gate"]
+rack_cases = ["L1_031"]
+evidence = ["tests/parity/pcb_native_mutation_a0.kicad_pcb", "src/rs/kicad-monkey-core/examples/pcb_mutation_gate.rs", "tests/L1_parsing/test_L1_031_rust_pcb_cli_mutation.py", "tests/L1_parsing/STRATUM.toml", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "compiled_graph.typespec_contract"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadCompiledSchematicGraph", "validate_compiled_schematic_graph", "CompiledSchematicGraphA0", "SchCompiledSchematicGraphIdentityAllocator"]
+rust_symbols = ["kicad_monkey_contracts.generated.compiled_schematic_graph.CompiledSchematicGraphA0", "kicad_monkey_contracts.decode_compiled_schematic_graph_a0", "kicad_monkey_contracts.validate_compiled_schematic_graph_contract"]
+rack_cases = ["L0_046", "L0_049", "L0_050", "L3_018"]
+evidence = ["src/tsp/kicad_monkey/compiled-schematic-graph-a0.tsp", "contracts/generated/schema/CompiledSchematicGraph.json", "tests/parity/compiled_schematic_graph_a0_vectors.json", "src/rs/kicad-monkey-contracts/src/generated/compiled_schematic_graph.rs", "src/py/kicad_monkey/contracts/generated.py", "src/ts/kicad_monkey/contracts/generated/compiled-schematic-graph.ts", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-contract.html"]
+
+[[surfaces]]
+id = "compiled_graph.native_identity_allocator"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["SchCompiledSchematicGraphIdentityAllocator", "compiled_schematic_graph_design_scope"]
+rust_symbols = ["CompiledGraphIdentityAllocator", "compiled_schematic_graph_design_scope"]
+rack_cases = ["L0_046", "L0_050", "L3_018"]
+evidence = ["tests/parity/compiled_schematic_graph_a0_vectors.json", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/identity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "tests/L0_foundation/test_L0_050_compiled_graph_contract.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+
+[[surfaces]]
+id = "compiled_graph.native_semantic_validator"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["validate_compiled_schematic_graph"]
+rust_symbols = ["validate_compiled_schematic_graph", "compiled_graph_validation_gate"]
+rack_cases = ["L0_046", "L0_050", "L3_018"]
+evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/validation.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "src/rs/kicad-monkey-core/examples/compiled_graph_validation_gate.rs", "tests/L0_foundation/test_L0_050_compiled_graph_contract.py", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+
+[[surfaces]]
+id = "compiled_graph.native_producer"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["build_compiled_schematic_graph"]
+rust_symbols = ["build_compiled_schematic_graph", "CompiledSchematicGraphLimits"]
+rack_cases = ["L0_046", "L0_050", "L3_020"]
+evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer.rs", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer/connectivity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_producer.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L0_foundation/test_L0_050_compiled_graph_contract.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+
+[[surfaces]]
+id = "schematic.source_bundle_contract"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["SourceBundleManifestA0"]
+rust_symbols = ["SourceBundleManifestA0", "SourceBundle", "SourceBundleLimits"]
+rack_cases = ["L0_046", "L0_049", "L0_051", "L3_020"]
+evidence = ["src/tsp/kicad_monkey/source-bundle-a0.tsp", "contracts/generated/schema/SourceBundleManifest.json", "tests/parity/source_bundle_a0_vectors.json", "src/rs/kicad-monkey-contracts/src/source_bundle_contract.rs", "src/rs/kicad-monkey-core/src/source_bundle.rs", "tests/L0_foundation/test_L0_051_source_bundle_contract.py", "docs/design/rust-source-bundle-phase4-slice.html"]
+
+[[surfaces]]
+id = "schematic.native_hierarchy_foundation"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadSchematic", "walk_schematic_occurrences"]
+rust_symbols = ["SchematicBundleIndex", "SchematicDefinition", "SchematicSheet", "SchematicOccurrence"]
+rack_cases = ["L3_020", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle.rs", "src/rs/kicad-monkey-core/tests/schematic_bundle.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-source-bundle-phase4-slice.html"]
+
+[[surfaces]]
+id = "schematic.project_subpart_settings"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadProject.get_path", "build_compiled_schematic_graph"]
+rust_symbols = ["SchematicBundleIndex.subpart_settings", "build_schematic_occurrence_nets", "build_schematic_scalar_design_nets", "build_compiled_schematic_graph"]
+rack_cases = ["L0_046", "L3_020", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_project.rs", "src/rs/kicad-monkey-core/tests/schematic_netlist.rs", "src/py/kicad_monkey/kicad_compiled_schematic_graph.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html", "docs/design/rust-schematic-connectivity-phase4-slice.html"]
+
+[[surfaces]]
+id = "schematic.native_owned_writer"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadSchematic.to_text", "SchSymbol.properties"]
+rust_symbols = ["SchematicDocument", "SchematicDocumentLimits"]
+rack_cases = ["L1_032", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle/document.rs", "src/rs/kicad-monkey-core/tests/schematic_document.rs", "src/rs/kicad-monkey-core/examples/schematic_roundtrip_gate.rs", "src/rs/kicad-monkey-core/examples/schematic_mutation_gate.rs", "tests/L1_parsing/test_L1_032_rust_schematic_roundtrip.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-schematic-writer-phase4-slice.html"]
+
+[[surfaces]]
+id = "text.font_shaping_outline_contracts"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["FontBundleManifestA0", "validate_font_bundle_manifest_a0", "resolve_font_selection_a0", "ShapingRecordA0", "OutlineVectorA0"]
+rust_symbols = ["FontBundleManifestA0", "FontBundleLimits", "FontResolutionLimits", "ValidatedFontBundle", "validate_font_bundle_contract", "resolve_font_selection_contract", "ShapingRecordA0", "OutlineVectorA0"]
+rack_cases = ["L0_046", "L0_049", "L0_052"]
+evidence = ["src/tsp/kicad_monkey/font-text-a0.tsp", "contracts/generated/schema/FontBundleManifest.json", "contracts/generated/schema/FontResolutionRequest.json", "contracts/generated/schema/ShapingRecord.json", "contracts/generated/schema/OutlineVector.json", "tests/parity/font_text_a0_vectors.json", "src/rs/kicad-monkey-contracts/src/font_bundle_contract.rs", "tests/L0_foundation/test_L0_052_font_text_contract.py", "docs/design/rust-font-text-contracts.html"]
+
+[[surfaces]]
+id = "worksheet.native_reader_writer"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadWorksheet", "WksSetup", "WksLine", "WksRect", "WksPolygon", "WksTbText", "WksBitmap"]
+rust_symbols = ["WorksheetView", "WorksheetDocument", "WorksheetItem", "WorksheetLimits"]
+rack_cases = ["L1_033", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/worksheet.rs", "src/rs/kicad-monkey-core/tests/worksheet.rs", "src/rs/kicad-monkey-core/examples/worksheet_gate.rs", "tests/L1_parsing/test_L1_033_rust_worksheet_roundtrip.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-worksheet-phase4-slice.html"]
+
+[[surfaces]]
+id = "geometry.planar_kernel_bridge"
+disposition = "deferred_geometer_service"
+wasm = "not_applicable_deferred"
+status = "deferred"
+python_symbols = ["kicad_zone_utils.PolygonSet", "kicad_zone_filler.ZoneFiller", "_apply_synthetic_knockout_to_text_box_op", "_custom_pad_cli_rings"]
+rust_symbols = []
+rack_cases = []
+evidence = ["docs/design/rust-geometer-bridge-disposition.html", "src/rs/kicad-monkey-core/src/text_topology.rs", "src/py/kicad_monkey/kicad_zone_utils.py", "src/py/kicad_monkey/kicad_pcb_to_ir.py"]
+
+[[surfaces]]
+id = "project.native_reader_writer"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadProject", "ProjectVariant", "KiCadProjectNetSettings", "KiCadProjectBoardDesignSettings"]
+rust_symbols = ["ProjectDocument", "ProjectView", "ProjectVariant", "ProjectNetSettings", "ProjectBoardDesignSettings", "ProjectLimits"]
+rack_cases = ["L1_034", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/project.rs", "src/rs/kicad-monkey-core/tests/project.rs", "src/rs/kicad-monkey-core/examples/project_gate.rs", "src/rs/kicad-monkey-core/examples/project_mutation_gate.rs", "tests/L1_parsing/test_L1_034_rust_project_roundtrip.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-project-phase4-slice.html"]
+
+[[surfaces]]
+id = "cruncher.native_operation_transport_package"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["native_design_facts", "native_design_facts_for_design", "KiCadNativeDesignFacts", "KiCadNativeError"]
+rust_symbols = ["kicad-monkey-native", "DesignFactsRequestA0", "handshake", "execute_request_bytes", "NativeError"]
+rack_cases = ["L0_062", "L1_037"]
+evidence = ["docs/design/rust-phase6-native-cruncher-audit.html", "src/tsp/kicad_monkey/native-transport-a0.tsp", "contracts/generated/schema/NativeDesignFactsRequest.json", "contracts/generated/schema/NativeDesignFactsResult.json", "hatch_build.py", ".github/workflows/release.yml"]
+vector_evidence = ["tests/parity/source_bundle_a0_vectors.json", "tests/L1_parsing/test_L1_037_native_design_facts_transport.py"]
+implementation_evidence = ["src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-native/src/main.rs", "src/py/kicad_monkey/kicad_native.py", "src/py/kicad_monkey/kicad_design_json.py", "pyproject.toml"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-native/tests/design_facts.rs", "src/rs/kicad-monkey-contracts/tests/native_transport_contracts.rs", "tests/L0_foundation/test_L0_062_native_process_client.py", "tests/L1_parsing/test_L1_037_native_design_facts_transport.py", "tests/support_scripts/native_wheel_test.py"]
+
+[[surfaces]]
+id = "cruncher.native_svg"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["native_render_svg", "KiCadNativeSvg", "kicad_native_handshake_a1"]
+rust_symbols = ["render_svg", "SvgArtifact", "SvgMetrics", "execute_svg_request_bytes", "handshake_a1"]
+rack_cases = ["L0_063", "L1_038", "L3_023"]
+evidence = ["docs/design/rust-native-svg-phase6-slice.html", "docs/design/rust-phase6-native-cruncher-audit.html", "src/tsp/kicad_monkey/native-transport-a0.tsp", "contracts/generated/schema/NativeSvgRenderRequest.json", "contracts/generated/schema/NativeSvgRenderResult.json", "contracts/generated/schema/NativeHandshakeA1.json", ".github/workflows/phase6-native-svg.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["tests/parity/native_svg_a0_vectors.json", "tests/parity/footprint_plotter_a0_vectors.json", "tests/parity/symbol_plotter_a0_vectors.json", "tests/parity/board_plotter_a0_vectors.json", "tests/parity/schematic_plotter_a0_vectors.json", "tests/L1_parsing/test_L1_038_native_svg_transport.py"]
+implementation_evidence = ["src/rs/kicad-monkey-svg/src/lib.rs", "src/rs/kicad-monkey-svg/src/operation.rs", "src/rs/kicad-monkey-svg/src/sink.rs", "src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-native/src/main.rs", "src/py/kicad_monkey/kicad_native.py"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-svg/tests/render_svg.rs", "src/rs/kicad-monkey-native/tests/render_svg.rs", "src/rs/kicad-monkey-contracts/tests/native_transport_contracts.rs", "tests/L0_foundation/test_L0_063_native_svg_transport.py", "tests/L1_parsing/test_L1_038_native_svg_transport.py", "tests/L3_rendering/test_L3_023_native_svg_exit.py", "tests/support_scripts/native_wheel_test.py"]
+
+[[surfaces]]
+id = "cruncher.no_fallback_physical_provider"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["PhysicalSvgProvider", "NativePhysicalProvider", "PhysicalSvgProvenance", "PcbSvgCompositionRenderCache"]
+rust_symbols = ["execute_svg_request_bytes", "render_svg"]
+rack_cases = ["L3_024"]
+evidence = ["docs/design/rust-native-physical-provider-phase6-slice.html", "docs/design/rust-phase6-native-cruncher-audit.html", ".github/workflows/phase6-native-physical-provider.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["tests/parity/native_svg_a0_vectors.json", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_008_native_physical_provider.py", "tests/support_scripts/toolchain_install_test.py"]
+implementation_evidence = ["packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_physical.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_pcb_svg_compositor.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_pcb_svg.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_transaction.py", "src/py/kicad_monkey/kicad_native.py", "src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-svg/src/lib.rs"]
+semantic_resource_evidence = ["packages/kicad_cruncher/tests/L3_public_workflows/test_L3_008_native_physical_provider.py", "packages/kicad_cruncher/tests/L99_signoff/test_L99_001_release_signoff.py", "tests/L3_rendering/test_L3_024_native_physical_provider.py", "tests/support_scripts/toolchain_install_test.py"]
+
+[[surfaces]]
+id = "cruncher.native_design_facts"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["native_design_facts_a1", "native_design_facts_for_design", "KiCadNativeDesignFacts", "DesignFactsProvider", "NativeDesignFactsProvider", "KiCadDesign.to_json", "write_design_review_bundle"]
+rust_symbols = ["NativeDesignFactsRequestA1", "NativeDesignFactsResultA1", "NativeHandshakeA2", "execute_request_a1_bytes", "handshake_a2"]
+rack_cases = ["L3_025"]
+evidence = ["docs/design/rust-native-design-facts-phase6-slice.html", "docs/design/rust-phase6-native-cruncher-audit.html", "src/tsp/kicad_monkey/native-transport-a0.tsp", "contracts/generated/schema/NativeDesignFactsRequestA1.json", "contracts/generated/schema/NativeDesignFactsResultA1.json", "contracts/generated/schema/NativeHandshakeA2.json", ".github/workflows/phase6-native-design-facts.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["tests/L1_parsing/test_L1_037_native_design_facts_transport.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_009_native_design_facts_provider.py", "tests/support_scripts/toolchain_install_test.py"]
+implementation_evidence = ["src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-native/src/main.rs", "src/rs/kicad-monkey-contracts/src/native_transport_contract.rs", "src/py/kicad_monkey/kicad_native.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_design.py"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-native/tests/design_facts.rs", "src/rs/kicad-monkey-contracts/tests/native_transport_contracts.rs", "src/rs/kicad-monkey-core/tests/kicad_netlist.rs", "src/rs/kicad-monkey-core/tests/schematic_connectivity.rs", "tests/L0_foundation/test_L0_049_generated_contract_projections.py", "tests/L0_foundation/test_L0_062_native_process_client.py", "tests/L1_parsing/test_L1_037_native_design_facts_transport.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_009_native_design_facts_provider.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "tests/L3_rendering/test_L3_025_native_design_facts.py", "tests/support_scripts/toolchain_install_test.py"]
+
+[[surfaces]]
+id = "cruncher.native_full_cli"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["kicad-cruncher", "kcr", "python -m kicad_cruncher", "cmd_design"]
+rust_symbols = ["execute_request_a1_bytes", "execute_svg_request_bytes", "NativeDesignFactsRequestA1", "NativeSvgRenderRequestA0"]
+rack_cases = ["L3_026"]
+evidence = ["docs/adrs/ADR-011-native-first-rust-port-delivery.md", "docs/design/rust-native-full-cli-phase6-slice.html", "docs/design/rust-phase6-native-cruncher-audit.html", "packages/kicad_cruncher/docs/contracts/design_review_manifest.a0.schema.json", ".github/workflows/phase6-native-full-cli.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["packages/kicad_cruncher/docs/contracts/command_manifest.a0.json", "packages/kicad_cruncher/tests/L0_public_cli/test_L0_004_design_review_manifest.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_010_design_cli_compatibility.py", "tests/support_scripts/toolchain_install_test.py"]
+implementation_evidence = ["packages/kicad_cruncher/pyproject.toml", "packages/kicad_cruncher/src/py/kicad_cruncher/_cli.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_physical.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_transaction.py", "src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-native/src/main.rs"]
+semantic_resource_evidence = ["tests/L0_foundation/test_L0_062_native_process_client.py", "tests/L0_foundation/test_L0_063_native_svg_transport.py", "packages/kicad_cruncher/tests/L0_public_cli/test_L0_001_cli_entrypoint.py", "packages/kicad_cruncher/tests/L0_public_cli/test_L0_004_design_review_manifest.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_010_design_cli_compatibility.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_008_native_physical_provider.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_009_native_design_facts_provider.py", "tests/L3_rendering/test_L3_026_native_full_cli.py", "tests/support_scripts/toolchain_install_test.py"]
+
+[[surfaces]]
+id = "cruncher.phase6_exit"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["kicad-cruncher", "kcr", "python -m kicad_cruncher"]
+rust_symbols = ["kicad-monkey-native"]
+rack_cases = ["L3_027"]
+evidence = ["docs/adrs/ADR-011-native-first-rust-port-delivery.md", "docs/design/rust-phase6-native-cruncher-audit.html", "docs/design/rust-phase6-exit.html", "tests/parity/native_phase6_exit_freeze.json", ".github/workflows/phase6-exit.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["tests/parity/plotter_ir_phase5_freeze.json", "tests/parity/native_svg_a0_vectors.json", "tests/L3_rendering/test_L3_025_native_design_facts.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_010_design_cli_compatibility.py"]
+implementation_evidence = ["hatch_build.py", "src/rs/kicad-monkey-native/src/main.rs", "src/py/kicad_monkey/kicad_native.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_physical.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_design.py", "scripts/verify_phase6_release_candidates.py", ".github/workflows/phase6-exit.yml"]
+semantic_resource_evidence = ["tests/L3_rendering/test_L3_023_native_svg_exit.py", "tests/L3_rendering/test_L3_024_native_physical_provider.py", "tests/L3_rendering/test_L3_025_native_design_facts.py", "tests/L3_rendering/test_L3_026_native_full_cli.py", "tests/L3_rendering/test_L3_027_rust_phase6_exit.py", "tests/support_scripts/native_wheel_test.py", "tests/support_scripts/toolchain_install_test.py"]

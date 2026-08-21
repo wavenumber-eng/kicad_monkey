@@ -1,0 +1,68 @@
+name: Phase 5 Plotter Exit
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+permissions:
+  contents: read
+
+jobs:
+  phase5-exit:
+    name: Phase 5 plotter exit (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      CARGO_BUILD_JOBS: "4"
+      RUST_TEST_THREADS: "2"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Sync monorepo packages
+        run: uv sync --all-packages --all-extras
+      - name: Install contract toolchain
+        run: |
+          npm install --global npm@11.6.2
+          npm --version
+          npm ci
+      - name: Install lock-compatible WASM runner
+        run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
+      - name: Install the pinned KiCad oracle
+        shell: pwsh
+        run: |
+          choco install kicad --version=10.0.5 --yes --no-progress
+          $cli = 'C:\Program Files\KiCad\10.0\bin\kicad-cli.exe'
+          if (-not (Test-Path -LiteralPath $cli)) {
+            throw "KiCad CLI was not installed at $cli"
+          }
+          $version = (& $cli version).Trim()
+          if ($version -ne '10.0.5') {
+            throw "Expected KiCad CLI 10.0.5, got $version"
+          }
+          $arial = 'C:\Windows\Fonts\arial.ttf'
+          if (-not (Test-Path -LiteralPath $arial)) {
+            throw "Required Arial font was not provisioned at $arial"
+          }
+          "KICAD_CLI=$cli" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Validate and restore the public corpus archive
+        run: |
+          uv run --extra test python scripts/kicad_corpus_archive.py metadata
+          uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
+          uv run --extra test python scripts/package_kicad_corpus.py --check
+      - name: Run the mandatory Phase 5 exit gate
+        run: uv run --extra test python tests/rack.py run L3_022

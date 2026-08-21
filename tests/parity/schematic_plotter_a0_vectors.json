@@ -1,0 +1,4814 @@
+{
+ "schema": "kicad_monkey.schematic_plotter_parity.a0",
+ "vectors": [
+  {
+   "id": "custom-worksheet-connectivity-and-annotation-family-order",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"sch-1\")\n  (paper \"User\" 100 80 portrait)\n  (title_block\n    (title \"${PROJECT}\")\n    (rev \"A\")\n    (comment 1 \"C\"))\n  (lib_symbols)\n  (wire\n    (pts (xy 1 2) (xy 3 4))\n    (stroke (width 0) (type default))\n    (uuid \"w\"))\n  (bus\n    (pts (xy 5 6) (xy 7 8))\n    (stroke (width 0.2) (type dash) (color 1 2 3 0.5))\n    (uuid \"b\"))\n  (bus_entry\n    (at 7 8)\n    (size 2.54 -2.54)\n    (stroke (width -1) (type dot))\n    (uuid \"e\"))\n  (junction\n    (at 9 10)\n    (diameter 0)\n    (color 10 20 30 0.5)\n    (uuid \"j\"))\n  (no_connect (at 11 12) (uuid \"n\"))\n  (label \"BUS{0..1}\"\n    (at 1 2 90)\n    (effects (font (size 1 1)))\n    (uuid \"local-bus\"))\n  (global_label \"\"\n    (shape output)\n    (at 3 4 180)\n    (effects (font (size 1 1)))\n    (uuid \"global-empty\"))\n  (hierarchical_label \"${A}\"\n    (shape input)\n    (at 5 6 90)\n    (effects\n      (font (size 1 2))\n      (justify right))\n    (uuid \"hier-input\"))\n  (netclass_flag \"NC\"\n    (length 3)\n    (shape dot)\n    (at 7 8 270)\n    (effects (font (size 1 1)))\n    (uuid \"netclass-dot\")\n    (property \"Net Class\" \"${B}\"\n      (id 0)\n      (at 7 8 0)\n      (show_name yes)\n      (effects\n        (font (size 1 1))\n        (justify right)))\n    (property \"Hidden\" \"ignored\"\n      (id 1)\n      (at 0 0 0)\n      (hide yes)\n      (effects (font (size 1 1)))))\n  (text \"\\n${A}-${UNKNOWN}-${}-${TITLE}-${title}\"\n    (at 9 10 90)\n    (effects (font (size 1 1)))\n    (uuid \"ordinary-text\"))\n  (text_box \"${BOX}\\n\\nsecond\\n\"\n    (at 10 11 90)\n    (size 0 0)\n    (margins 0 0 0 0)\n    (stroke (width -1) (type dash))\n    (fill (type color) (color 1 2 3 0.5))\n    (effects\n      (font (size 1 1))\n      (justify left top)\n      (href \" https://example.test/box \"))\n    (uuid \"text-box\"))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "foundation.kicad_sch",
+   "document_id": "foundation",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (textsize 1 1)\n    (linewidth 0.15)\n    (textlinewidth 0.15)\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0))\n  (tbtext \"${PROJECT}-${TITLE}-${#}/${##}-${SHEETNAME}\"\n    (name \"\")\n    (pos 1 2 ltcorner)))",
+   "project_variables": {
+    "A": "${B}",
+    "B": "X",
+    "BOX": "first",
+    "PROJECT": "PX",
+    "TITLE": "bad"
+   },
+   "drawing_settings": {
+    "default_line_thickness": 8,
+    "text_offset_ratio": 0.2
+   },
+   "sheet_index": 2,
+   "sheet_count": 3,
+   "sheet_path": "/child",
+   "sheet_name": "Child",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 21,
+    "records": [
+     {
+      "uuid": "sch-1",
+      "kind": "sheet_header",
+      "object_id": "sch-1",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 80000000,
+        "y2": 100000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 1000000,
+        "y": 2000000,
+        "text": "PX-PX-2/3-Child",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 100.0,
+      "paper_height_mm": 80.0,
+      "paper_portrait": true,
+      "sheet_width_nm": 80000000,
+      "sheet_height_nm": 100000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0",
+      "title_block": {
+       "title": "${PROJECT}",
+       "date": "",
+       "rev": "A",
+       "company": "",
+       "comments": {
+        "1": "C"
+       }
+      }
+     },
+     {
+      "uuid": "w",
+      "kind": "wire",
+      "object_id": "w",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          1000000,
+          2000000
+         ],
+         [
+          3000000,
+          4000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#009600FF",
+        "line_style": "DEFAULT"
+       }
+      ]
+     },
+     {
+      "uuid": "b",
+      "kind": "bus",
+      "object_id": "b",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          5000000,
+          6000000
+         ],
+         [
+          7000000,
+          8000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 200000,
+        "stroke_color": "#01020380",
+        "line_style": "DASH"
+       }
+      ]
+     },
+     {
+      "uuid": "e",
+      "kind": "bus_entry",
+      "object_id": "e",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          7000000,
+          8000000
+         ],
+         [
+          9540000,
+          5460000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "stroke_color": "#009600FF",
+        "line_style": "DOT"
+       }
+      ]
+     },
+     {
+      "uuid": "j",
+      "kind": "junction",
+      "object_id": "j",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 9000000,
+        "cy": 10000000,
+        "diameter_nm": 914400,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "stroke_color": "#0A141E80",
+        "fill_color": "#0A141E80"
+       }
+      ],
+      "color": "#0A141E80"
+     },
+     {
+      "uuid": "n",
+      "kind": "no_connect",
+      "object_id": "n",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          10390400,
+          11390400
+         ],
+         [
+          11609600,
+          12609600
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 203200,
+        "stroke_color": "#000084FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 1,
+        "points": [
+         [
+          10390400,
+          12609600
+         ],
+         [
+          11609600,
+          11390400
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 203200,
+        "stroke_color": "#000084FF"
+       }
+      ]
+     },
+     {
+      "uuid": "local-bus",
+      "kind": "label",
+      "object_id": "BUS{0..1}",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 675000,
+        "y": 2000000,
+        "text": "BUS{0..1}",
+        "color": "#000084FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 203200,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       }
+      ],
+      "text": "BUS{0..1}"
+     },
+     {
+      "uuid": "global-empty",
+      "kind": "global_label",
+      "object_id": "",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2625000,
+        "y": 4071500,
+        "text": "",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 203200,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 1,
+        "points": [
+         [
+          3000000,
+          4000000
+         ],
+         [
+          3000000,
+          2972597
+         ],
+         [
+          2097597,
+          2972597
+         ],
+         [
+          1222597,
+          4000000
+         ],
+         [
+          2097597,
+          5027403
+         ],
+         [
+          3000000,
+          5027403
+         ],
+         [
+          3000000,
+          4000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       }
+      ],
+      "text": "",
+      "shape": "output"
+     },
+     {
+      "uuid": "hier-input",
+      "kind": "hierarchical_label",
+      "object_id": "${A}",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 5000000,
+        "y": 8200000,
+        "text": "${A}",
+        "color": "#000084FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 2000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 203200,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 1,
+        "points": [
+         [
+          5000000,
+          6000000
+         ],
+         [
+          5500000,
+          5500000
+         ],
+         [
+          5500000,
+          5000000
+         ],
+         [
+          4500000,
+          5000000
+         ],
+         [
+          4500000,
+          5500000
+         ],
+         [
+          5000000,
+          6000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#725600FF"
+       }
+      ],
+      "text": "${A}",
+      "shape": "input"
+     },
+     {
+      "uuid": "netclass-dot",
+      "kind": "netclass_flag",
+      "object_id": "NC",
+      "operation_count": 3,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 7000000,
+        "start_y": 8000000,
+        "end_x": 9644400,
+        "end_y": 8000000,
+        "width_nm": 203200,
+        "stroke_color": "#484848FF"
+       },
+       {
+        "kind": "Circle",
+        "index": 1,
+        "cx": 10000000,
+        "cy": 8000000,
+        "diameter_nm": 711200,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "stroke_color": "#484848FF",
+        "fill_color": "#484848FF"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 7000000,
+        "y": 8000000,
+        "text": "Net Class: ${B}",
+        "color": "#840084FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 203200,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       }
+      ],
+      "at_x_nm": 7000000,
+      "at_y_nm": 8000000,
+      "shape": "dot",
+      "length_nm": 3000000
+     },
+     {
+      "uuid": "ordinary-text",
+      "kind": "text",
+      "object_id": "ordinary-text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 9400000,
+        "y": 9750000,
+        "text": "\n${B}-${UNKNOWN}--PX-${title}",
+        "color": "#0000C2FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 203200,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "Arial"
+       }
+      ],
+      "text": "\n${B}-${UNKNOWN}--PX-${title}"
+     },
+     {
+      "uuid": "text-box",
+      "kind": "text_box",
+      "object_id": "text-box",
+      "operation_count": 4,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 10000000,
+        "y1": 11000000,
+        "x2": 10000000,
+        "y2": 11000000,
+        "fill": "FILLED_WITH_COLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#01020380",
+        "fill_color": "#01020380",
+        "line_style": "DASH"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 10000000,
+        "y1": 11000000,
+        "x2": 10000000,
+        "y2": 11000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 10000000,
+        "y": 11000000,
+        "text": "first",
+        "color": "#0000C2FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_TOP",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/box"
+         }
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 3,
+        "x": 13360000,
+        "y": 11000000,
+        "text": "second",
+        "color": "#0000C2FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_TOP",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/box"
+         }
+        }
+       }
+      ],
+      "text": "first\n\nsecond\n"
+     }
+    ],
+    "source_path": "foundation.kicad_sch",
+    "document_id": "foundation",
+    "canvas": {
+     "width_nm": 80000000,
+     "height_nm": 100000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "default-worksheet-header-only",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"default-sheet\")\n  (paper \"A4\")\n  (title_block\n    (title \"Default\")\n    (date \"2026-08-17\")\n    (rev \"R1\")\n    (company \"Monkey\")\n    (comment 1 \"Foundation\"))\n  (lib_symbols)\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "default.kicad_sch",
+   "document_id": "default-sheet",
+   "project_variables": {},
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "IgnoredAtRoot",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 59,
+    "records": [
+     {
+      "uuid": "default-sheet",
+      "kind": "sheet_header",
+      "object_id": "default-sheet",
+      "operation_count": 59,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 297002200,
+        "y2": 210007200,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 177002200,
+        "y1": 166007200,
+        "x2": 285002200,
+        "y2": 198007200,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Rect",
+        "index": 2,
+        "x1": 10000000,
+        "y1": 10000000,
+        "x2": 287002200,
+        "y2": 200007200,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Rect",
+        "index": 3,
+        "x1": 12000000,
+        "y1": 12000000,
+        "x2": 285002200,
+        "y2": 198007200,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 4,
+        "points": [
+         [
+          60000000,
+          12000000
+         ],
+         [
+          60000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 5,
+        "points": [
+         [
+          110000000,
+          12000000
+         ],
+         [
+          110000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 6,
+        "points": [
+         [
+          160000000,
+          12000000
+         ],
+         [
+          160000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 7,
+        "points": [
+         [
+          210000000,
+          12000000
+         ],
+         [
+          210000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 8,
+        "points": [
+         [
+          260000000,
+          12000000
+         ],
+         [
+          260000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 9,
+        "x": 35000000,
+        "y": 11000000,
+        "text": "1",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 10,
+        "x": 85000000,
+        "y": 11000000,
+        "text": "2",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 11,
+        "x": 135000000,
+        "y": 11000000,
+        "text": "3",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 12,
+        "x": 185000000,
+        "y": 11000000,
+        "text": "4",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 13,
+        "x": 235000000,
+        "y": 11000000,
+        "text": "5",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 14,
+        "x": 285000000,
+        "y": 11000000,
+        "text": "6",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 15,
+        "points": [
+         [
+          60000000,
+          198007200
+         ],
+         [
+          60000000,
+          200007200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 16,
+        "points": [
+         [
+          110000000,
+          198007200
+         ],
+         [
+          110000000,
+          200007200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 17,
+        "points": [
+         [
+          160000000,
+          198007200
+         ],
+         [
+          160000000,
+          200007200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 18,
+        "points": [
+         [
+          210000000,
+          198007200
+         ],
+         [
+          210000000,
+          200007200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 19,
+        "points": [
+         [
+          260000000,
+          198007200
+         ],
+         [
+          260000000,
+          200007200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 20,
+        "x": 35000000,
+        "y": 199007200,
+        "text": "1",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 21,
+        "x": 85000000,
+        "y": 199007200,
+        "text": "2",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 22,
+        "x": 135000000,
+        "y": 199007200,
+        "text": "3",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 23,
+        "x": 185000000,
+        "y": 199007200,
+        "text": "4",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 24,
+        "x": 235000000,
+        "y": 199007200,
+        "text": "5",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 25,
+        "x": 285000000,
+        "y": 199007200,
+        "text": "6",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 26,
+        "points": [
+         [
+          10000000,
+          60000000
+         ],
+         [
+          12000000,
+          60000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 27,
+        "points": [
+         [
+          10000000,
+          110000000
+         ],
+         [
+          12000000,
+          110000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 28,
+        "points": [
+         [
+          10000000,
+          160000000
+         ],
+         [
+          12000000,
+          160000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 29,
+        "x": 11000000,
+        "y": 35000000,
+        "text": "A",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 30,
+        "x": 11000000,
+        "y": 85000000,
+        "text": "B",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 31,
+        "x": 11000000,
+        "y": 135000000,
+        "text": "C",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 32,
+        "x": 11000000,
+        "y": 185000000,
+        "text": "D",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 33,
+        "points": [
+         [
+          287002200,
+          60000000
+         ],
+         [
+          285002200,
+          60000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 34,
+        "points": [
+         [
+          287002200,
+          110000000
+         ],
+         [
+          285002200,
+          110000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 35,
+        "points": [
+         [
+          287002200,
+          160000000
+         ],
+         [
+          285002200,
+          160000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 36,
+        "x": 286002200,
+        "y": 35000000,
+        "text": "A",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 37,
+        "x": 286002200,
+        "y": 85000000,
+        "text": "B",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 38,
+        "x": 286002200,
+        "y": 135000000,
+        "text": "C",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 39,
+        "x": 286002200,
+        "y": 185000000,
+        "text": "D",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1300000,
+        "size_y_nm": 1300000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 40,
+        "x": 200002200,
+        "y": 193107200,
+        "text": "Date: 2026-08-17",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 41,
+        "points": [
+         [
+          177002200,
+          194507200
+         ],
+         [
+          285002200,
+          194507200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 42,
+        "x": 178002200,
+        "y": 195907200,
+        "text": "KiCad E.D.A. 10.0.0-912-gf11d3da677-dirty",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 43,
+        "points": [
+         [
+          177002200,
+          191507200
+         ],
+         [
+          285002200,
+          191507200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 44,
+        "x": 263002200,
+        "y": 193107200,
+        "text": "Rev: R1",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 300000,
+        "italic": false,
+        "bold": true,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 45,
+        "x": 178002200,
+        "y": 193107200,
+        "text": "Size: A4",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 46,
+        "x": 263002200,
+        "y": 195907200,
+        "text": "Id: 1/1",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 47,
+        "points": [
+         [
+          177002200,
+          187507200
+         ],
+         [
+          285002200,
+          187507200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 48,
+        "x": 178002200,
+        "y": 189307200,
+        "text": "Title: Default",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 2000000,
+        "size_y_nm": 2000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 400000,
+        "italic": true,
+        "bold": true,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 49,
+        "x": 178002200,
+        "y": 185707200,
+        "text": "File: default.kicad_sch",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 50,
+        "points": [
+         [
+          177002200,
+          181507200
+         ],
+         [
+          285002200,
+          181507200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 51,
+        "x": 178002200,
+        "y": 183007200,
+        "text": "Sheet: /",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 52,
+        "x": 178002200,
+        "y": 180007200,
+        "text": "Monkey",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 300000,
+        "italic": false,
+        "bold": true,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 53,
+        "x": 178002200,
+        "y": 177007200,
+        "text": "Foundation",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 54,
+        "x": 178002200,
+        "y": 174007200,
+        "text": "",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 55,
+        "x": 178002200,
+        "y": 171007200,
+        "text": "",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 56,
+        "x": 178002200,
+        "y": 168007200,
+        "text": "",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1500000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 57,
+        "points": [
+         [
+          197002200,
+          191507200
+         ],
+         [
+          197002200,
+          194507200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 58,
+        "points": [
+         [
+          261002200,
+          191507200
+         ],
+         [
+          261002200,
+          198007200
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       }
+      ],
+      "paper_size": "A4",
+      "paper_width_mm": null,
+      "paper_height_mm": null,
+      "paper_portrait": false,
+      "sheet_width_nm": 297002200,
+      "sheet_height_nm": 210007200,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0",
+      "title_block": {
+       "title": "Default",
+       "date": "2026-08-17",
+       "rev": "R1",
+       "company": "Monkey",
+       "comments": {
+        "1": "Foundation"
+       }
+      }
+     }
+    ],
+    "source_path": "default.kicad_sch",
+    "document_id": "default-sheet",
+    "canvas": {
+     "width_nm": 297002200,
+     "height_nm": 210007200
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "valid-bitmap-and-transparent-junction",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"bitmap-junction\")\n  (paper \"User\" 20 20)\n  (lib_symbols)\n  (junction\n    (at 10 10)\n    (diameter 0)\n    (color 0 0 0 0)\n    (uuid \"transparent-junction\")))",
+   "source_path": "bitmap-junction.kicad_sch",
+   "document_id": "bitmap-junction",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0))\n  (bitmap\n    (name \"\")\n    (pos 3 4 ltcorner)\n    (scale 1)\n    (data \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\")))",
+   "project_variables": {},
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 3,
+    "records": [
+     {
+      "uuid": "bitmap-junction",
+      "kind": "sheet_header",
+      "object_id": "bitmap-junction",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 20000000,
+        "y2": 20000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       },
+       {
+        "kind": "PlotImage",
+        "index": 1,
+        "x": 3000000,
+        "y": 4000000,
+        "width_nm": 84667,
+        "height_nm": 84667,
+        "scale": 1.0,
+        "image_data_b64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        "image_format": "png",
+        "stroke_color": "#840000FF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 20.0,
+      "paper_height_mm": 20.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 20000000,
+      "sheet_height_nm": 20000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0"
+     },
+     {
+      "uuid": "transparent-junction",
+      "kind": "junction",
+      "object_id": "transparent-junction",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 10000000,
+        "cy": 10000000,
+        "diameter_nm": 914400,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "stroke_color": "#009600FF",
+        "fill_color": "#009600FF"
+       }
+      ],
+      "color": null
+     }
+    ],
+    "source_path": "bitmap-junction.kicad_sch",
+    "document_id": "bitmap-junction",
+    "canvas": {
+     "width_nm": 20000000,
+     "height_nm": 20000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "explicit-font-metrics-for-schematic-annotations",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"metric-annotations\")\n  (paper \"User\" 20 20)\n  (lib_symbols)\n  (global_label \"AB\"\n    (shape passive)\n    (at 1 2 0)\n    (effects\n      (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1)))\n    (uuid \"metric-global\"))\n  (text \"AB\"\n    (at 3 4 0)\n    (effects\n      (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1)))\n    (uuid \"metric-text\"))\n  (text_box \"AB AB\"\n    (at 5 6 0)\n    (size 2.5 3)\n    (margins 0 0 0 0)\n    (stroke (width 0) (type default))\n    (fill (type none))\n    (effects\n      (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1)))\n    (uuid \"metric-box\")))",
+   "source_path": "metric-annotations.kicad_sch",
+   "document_id": "metric-annotations",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {},
+   "font_resource": {
+    "face": "KiCad Monkey Shaping Fixture",
+    "bold": false,
+    "italic": false,
+    "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+    "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+    "shaping_case_id": "fixture_default_variation_axis"
+   },
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 7,
+    "records": [
+     {
+      "uuid": "metric-annotations",
+      "kind": "sheet_header",
+      "object_id": "metric-annotations",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 20000000,
+        "y2": 20000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 20.0,
+      "paper_height_mm": 20.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 20000000,
+      "sheet_height_nm": 20000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0"
+     },
+     {
+      "uuid": "metric-global",
+      "kind": "global_label",
+      "object_id": "AB",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 1375000,
+        "y": 2071500,
+        "text": "AB",
+        "color": "#840000FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 1,
+        "points": [
+         [
+          1000000,
+          2000000
+         ],
+         [
+          1000000,
+          3027403
+         ],
+         [
+          3301403,
+          3027403
+         ],
+         [
+          3301403,
+          2000000
+         ],
+         [
+          3301403,
+          972597
+         ],
+         [
+          1000000,
+          972597
+         ],
+         [
+          1000000,
+          2000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       }
+      ],
+      "text": "AB",
+      "shape": "passive"
+     },
+     {
+      "uuid": "metric-text",
+      "kind": "text",
+      "object_id": "metric-text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 3000000,
+        "y": 3588900,
+        "text": "AB",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       }
+      ],
+      "text": "AB"
+     },
+     {
+      "uuid": "metric-box",
+      "kind": "text_box",
+      "object_id": "metric-box",
+      "operation_count": 3,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 5000000,
+        "y1": 6000000,
+        "x2": 7500000,
+        "y2": 9000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 6250000,
+        "y": 6660000,
+        "text": "AB",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 6250000,
+        "y": 8340000,
+        "text": "AB",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       }
+      ],
+      "text": "AB AB"
+     }
+    ],
+    "source_path": "metric-annotations.kicad_sch",
+    "document_id": "metric-annotations",
+    "canvas": {
+     "width_nm": 20000000,
+     "height_nm": 20000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "schematic-graphics-rules-images-and-table-family-order",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"graphics\")\n  (paper \"User\" 30 30)\n  (title_block (title \"Graphics\"))\n  (lib_symbols)\n  (table\n    (uuid \"graphics-table\")\n    (cells\n      (table_cell \"${TITLE}-${title}\"\n        (exclude_from_sim yes)\n        (at 20 21 0)\n        (size 0 0)\n        (margins 0 0 0 0)\n        (span 2 3)\n        (stroke (width -1) (type dash))\n        (fill (type color) (color 1 2 3 0.5))\n        (effects\n          (font (size 1 1))\n          (justify left top)\n          (href \"https://example.test/cell\"))\n        (render_cache \"stale\" 0\n          (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1))))\n        (uuid \"ignored-cell-1\"))\n      (table_cell \"\"\n        (at 22 23 0)\n        (size 0 0)\n        (margins 0 0 0 0)\n        (fill (type none))\n        (uuid \"ignored-cell-2\"))\n      (table_cell \"${CELL}\\nsecond\\n\"\n        (at 24 25 90)\n        (size 0 0)\n        (margins 0 0 0 0)\n        (fill (type none))\n        (effects (font (size 1 1)) (justify right bottom))\n        (uuid \"ignored-cell-3\"))))\n  (rule_area\n    (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)\n    (bezier\n      (pts (xy 16 17) (xy 17 16) (xy 18 19) (xy 19 18))\n      (stroke (width 0.1) (type dash_dot))\n      (fill (type none))\n      (uuid \"rule-bezier\")))\n  (image\n    (at 18 19)\n    (scale 0.5)\n    (uuid \"image-bmp\")\n    (data \"Qk1mAAAAAAAAADYAAAAoAAAABAAAAAMAAAABACAAAAAAAAAAAAAlFgAAJRYAAAAAAAAAAAAAHhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/\"))\n  (rectangle\n    (start 6 7) (end 8 9) (radius 0.5)\n    (stroke (width 0.254) (type solid))\n    (fill (type color) (color 0 255 255 1))\n    (uuid \"graphic-rectangle\"))\n  (rule_area\n    (exclude_from_sim yes) (in_bom yes) (on_board no) (dnp no)\n    (circle\n      (center 15 16) (radius 1)\n      (stroke (width 0) (type solid))\n      (fill (type background))\n      (uuid \"rule-circle\")))\n  (polyline\n    (pts (xy 1 1) (xy 2 1) (xy 2 2))\n    (stroke (width 0) (type dash_dot_dot))\n    (fill (type none))\n    (uuid \"graphic-polyline\"))\n  (image\n    (at 16 17)\n    (scale 1.5)\n    (uuid \"image-jpeg\")\n    (data \"/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAACAAMDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD82qKKK9M88//Z\"))\n  (arc\n    (start 2 3) (mid 3 2) (end 4 3)\n    (stroke (width 0.2) (type dot))\n    (fill (type background))\n    (uuid \"graphic-arc\"))\n  (rule_area\n    (locked yes) (exclude_from_sim yes) (in_bom no) (on_board no) (dnp yes)\n    (rectangle\n      (start 13 14) (end 15 16) (radius 0.25)\n      (stroke (width 0.15) (type dot))\n      (fill (type color) (color 4 5 6 0.5))\n      (uuid \"rule-rectangle\")))\n  (bezier\n    (pts (xy 8 9) (xy 9 8) (xy 10 11) (xy 11 10))\n    (stroke (width 0.1) (type dash_dot))\n    (fill (type color) (color 9 8 7 1))\n    (uuid \"graphic-bezier\"))\n  (rule_area\n    (exclude_from_sim no) (in_bom no) (on_board yes) (dnp yes)\n    (arc\n      (start 14 15) (mid 15 14) (end 16 15)\n      (stroke (width -1) (type default))\n      (fill (type none))\n      (uuid \"rule-arc\")))\n  (circle\n    (center 5 6) (radius 1.5)\n    (stroke (width -1) (type solid) (color 1 2 3 0))\n    (fill (type outline))\n    (uuid \"graphic-circle\"))\n  (image\n    (at 14 15)\n    (scale 2)\n    (uuid \"image-png\")\n    (data \"iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAARSURBVBhXY+ASkfsPwgwYDABbCwdj+L78AwAAAABJRU5ErkJggg==\"))\n  (rule_area\n    (locked yes) (exclude_from_sim yes) (in_bom no) (on_board no) (dnp yes)\n    (polyline\n      (pts (xy 12 13) (xy 14 13) (xy 14 15))\n      (stroke (width 0) (type dash) (color 194 0 0 1))\n      (fill (type none))\n      (uuid \"rule-polyline\")))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "graphics.kicad_sch",
+   "document_id": "graphics",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {
+    "CELL": "first",
+    "TITLE": "bad",
+    "title": "lower-project"
+   },
+   "image_resources": [
+    {
+     "image_format": "png",
+     "image_sha256": "c2bfda6df6b855b24bb53c7131a8af317723ec31fd901b4a6cd8257df81c8cd2"
+    },
+    {
+     "image_format": "jpeg",
+     "image_sha256": "6a99497d81003845d473989d76613e2b3d92e0b9a8c33e303e402fc593e3bb66"
+    },
+    {
+     "image_format": "bmp",
+     "image_sha256": "3e213bd3ae10450193c8f943ce09f97a6c03800dac7614c2788f7eed361e70e0"
+    }
+   ],
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 25,
+    "records": [
+     {
+      "uuid": "graphics",
+      "kind": "sheet_header",
+      "object_id": "graphics",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 30000000,
+        "y2": 30000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 30.0,
+      "paper_height_mm": 30.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 30000000,
+      "sheet_height_nm": 30000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0",
+      "title_block": {
+       "title": "Graphics",
+       "date": "",
+       "rev": "",
+       "company": "",
+       "comments": {}
+      }
+     },
+     {
+      "uuid": "graphic-polyline",
+      "kind": "graphic_polyline",
+      "object_id": "graphic-polyline",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          1000000,
+          1000000
+         ],
+         [
+          2000000,
+          1000000
+         ],
+         [
+          2000000,
+          2000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH_DOT_DOT"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-arc",
+      "kind": "graphic_arc",
+      "object_id": "graphic-arc",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "ArcThreePoint",
+        "index": 0,
+        "start_x": 2000000,
+        "start_y": 3000000,
+        "mid_x": 3000000,
+        "mid_y": 2000000,
+        "end_x": 4000000,
+        "end_y": 3000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF",
+        "line_style": "DOT"
+       },
+       {
+        "kind": "ArcThreePoint",
+        "index": 1,
+        "start_x": 2000000,
+        "start_y": 3000000,
+        "mid_x": 3000000,
+        "mid_y": 2000000,
+        "end_x": 4000000,
+        "end_y": 3000000,
+        "fill": "NO_FILL",
+        "width_nm": 200000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DOT"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-circle",
+      "kind": "graphic_circle",
+      "object_id": "graphic-circle",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 5000000,
+        "cy": 6000000,
+        "diameter_nm": 3000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "fill_color": "#0000C2FF",
+        "line_style": "SOLID"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-rectangle",
+      "kind": "graphic_rectangle",
+      "object_id": "graphic-rectangle",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 6000000,
+        "y1": 7000000,
+        "x2": 8000000,
+        "y2": 9000000,
+        "fill": "FILLED_WITH_COLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 500000,
+        "stroke_color": "#00FFFFFF",
+        "fill_color": "#00FFFFFF",
+        "line_style": "SOLID"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 6000000,
+        "y1": 7000000,
+        "x2": 8000000,
+        "y2": 9000000,
+        "fill": "NO_FILL",
+        "width_nm": 254000,
+        "corner_radius_nm": 500000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "SOLID"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-bezier",
+      "kind": "graphic_bezier",
+      "object_id": "graphic-bezier",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "BezierCurve",
+        "index": 0,
+        "start_x": 8000000,
+        "start_y": 9000000,
+        "ctrl1_x": 9000000,
+        "ctrl1_y": 8000000,
+        "ctrl2_x": 10000000,
+        "ctrl2_y": 11000000,
+        "end_x": 11000000,
+        "end_y": 10000000,
+        "tolerance_nm": 0,
+        "width_nm": 100000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH_DOT"
+       }
+      ]
+     },
+     {
+      "uuid": "rule-bezier",
+      "kind": "rule_area",
+      "object_id": "rule-bezier",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "BezierCurve",
+        "index": 0,
+        "start_x": 16000000,
+        "start_y": 17000000,
+        "ctrl1_x": 17000000,
+        "ctrl1_y": 16000000,
+        "ctrl2_x": 18000000,
+        "ctrl2_y": 19000000,
+        "end_x": 19000000,
+        "end_y": 18000000,
+        "tolerance_nm": 0,
+        "width_nm": 100000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH_DOT"
+       }
+      ],
+      "shape": "bezier",
+      "locked": false,
+      "exclude_from_sim": false,
+      "in_bom": true,
+      "on_board": true,
+      "dnp": false
+     },
+     {
+      "uuid": "rule-circle",
+      "kind": "rule_area",
+      "object_id": "rule-circle",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 15000000,
+        "cy": 16000000,
+        "diameter_nm": 2000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF",
+        "line_style": "SOLID"
+       },
+       {
+        "kind": "Circle",
+        "index": 1,
+        "cx": 15000000,
+        "cy": 16000000,
+        "diameter_nm": 2000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#0000C2FF",
+        "line_style": "SOLID"
+       }
+      ],
+      "shape": "circle",
+      "locked": false,
+      "exclude_from_sim": true,
+      "in_bom": true,
+      "on_board": false,
+      "dnp": false
+     },
+     {
+      "uuid": "rule-rectangle",
+      "kind": "rule_area",
+      "object_id": "rule-rectangle",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 13000000,
+        "y1": 14000000,
+        "x2": 15000000,
+        "y2": 16000000,
+        "fill": "FILLED_WITH_COLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 250000,
+        "stroke_color": "#04050680",
+        "fill_color": "#04050680",
+        "line_style": "DOT"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 13000000,
+        "y1": 14000000,
+        "x2": 15000000,
+        "y2": 16000000,
+        "fill": "NO_FILL",
+        "width_nm": 150000,
+        "corner_radius_nm": 250000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DOT"
+       }
+      ],
+      "shape": "rectangle",
+      "locked": true,
+      "exclude_from_sim": true,
+      "in_bom": false,
+      "on_board": false,
+      "dnp": true
+     },
+     {
+      "uuid": "rule-arc",
+      "kind": "rule_area",
+      "object_id": "rule-arc",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ArcThreePoint",
+        "index": 0,
+        "start_x": 14000000,
+        "start_y": 15000000,
+        "mid_x": 15000000,
+        "mid_y": 14000000,
+        "end_x": 16000000,
+        "end_y": 15000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       }
+      ],
+      "shape": "arc",
+      "locked": false,
+      "exclude_from_sim": false,
+      "in_bom": false,
+      "on_board": true,
+      "dnp": true
+     },
+     {
+      "uuid": "rule-polyline",
+      "kind": "rule_area",
+      "object_id": "rule-polyline",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          12000000,
+          13000000
+         ],
+         [
+          14000000,
+          13000000
+         ],
+         [
+          14000000,
+          15000000
+         ],
+         [
+          12000000,
+          13000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#C20000FF",
+        "line_style": "DASH"
+       }
+      ],
+      "shape": "polyline",
+      "locked": true,
+      "exclude_from_sim": true,
+      "in_bom": false,
+      "on_board": false,
+      "dnp": true
+     },
+     {
+      "uuid": "image-bmp",
+      "kind": "image",
+      "object_id": "image-bmp",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotImage",
+        "index": 0,
+        "x": 18000000,
+        "y": 19000000,
+        "width_nm": 357746,
+        "height_nm": 268310,
+        "scale": 0.5,
+        "image_data_b64": "Qk1mAAAAAAAAADYAAAAoAAAABAAAAAMAAAABACAAAAAAAAAAAAAlFgAAJRYAAAAAAAAAAAAAHhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/",
+        "image_format": "bmp",
+        "stroke_color": "#0000C2FF"
+       }
+      ],
+      "scale": 0.5,
+      "image_format": "bmp",
+      "width_nm": 357746,
+      "height_nm": 268310
+     },
+     {
+      "uuid": "image-jpeg",
+      "kind": "image",
+      "object_id": "image-jpeg",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotImage",
+        "index": 0,
+        "x": 16000000,
+        "y": 17000000,
+        "width_nm": 1587500,
+        "height_nm": 1058333,
+        "scale": 1.5,
+        "image_data_b64": "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAACAAMDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD82qKKK9M88//Z",
+        "image_format": "jpeg",
+        "stroke_color": "#0000C2FF"
+       }
+      ],
+      "scale": 1.5,
+      "image_format": "jpeg",
+      "width_nm": 1587500,
+      "height_nm": 1058333
+     },
+     {
+      "uuid": "image-png",
+      "kind": "image",
+      "object_id": "image-png",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotImage",
+        "index": 0,
+        "x": 14000000,
+        "y": 15000000,
+        "width_nm": 1058333,
+        "height_nm": 1587500,
+        "scale": 2.0,
+        "image_data_b64": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAARSURBVBhXY+ASkfsPwgwYDABbCwdj+L78AwAAAABJRU5ErkJggg==",
+        "image_format": "png",
+        "stroke_color": "#0000C2FF"
+       }
+      ],
+      "scale": 2.0,
+      "image_format": "png",
+      "width_nm": 1058333,
+      "height_nm": 1587500
+     },
+     {
+      "uuid": "graphics-table",
+      "kind": "table",
+      "object_id": "graphics-table",
+      "operation_count": 7,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 20000000,
+        "y1": 21000000,
+        "x2": 20000000,
+        "y2": 21000000,
+        "fill": "FILLED_WITH_COLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#01020380",
+        "fill_color": "#01020380",
+        "line_style": "DASH"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 20000000,
+        "y1": 21000000,
+        "x2": 20000000,
+        "y2": 21000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 20000000,
+        "y": 21000000,
+        "text": "Graphics-lower-project",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_TOP",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/cell"
+         }
+        }
+       },
+       {
+        "kind": "Rect",
+        "index": 3,
+        "x1": 22000000,
+        "y1": 23000000,
+        "x2": 22000000,
+        "y2": 23000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Rect",
+        "index": 4,
+        "x1": 24000000,
+        "y1": 25000000,
+        "x2": 24000000,
+        "y2": 25000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 22320000,
+        "y": 25000000,
+        "text": "first",
+        "color": "#0000C2FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 6,
+        "x": 24000000,
+        "y": 25000000,
+        "text": "second",
+        "color": "#0000C2FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       }
+      ],
+      "cell_count": 3
+     }
+    ],
+    "source_path": "graphics.kicad_sch",
+    "document_id": "graphics",
+    "canvas": {
+     "width_nm": 30000000,
+     "height_nm": 30000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "explicit-font-metrics-for-schematic-table",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"metric-table\")\n  (paper \"User\" 20 20)\n  (lib_symbols)\n  (table\n    (uuid \"metric-table-record\")\n    (cells\n      (table_cell \"AB AB\"\n        (at 5 6 0)\n        (size 2.5 3)\n        (margins 0 0 0 0)\n        (stroke (width 0) (type default))\n        (fill (type none))\n        (effects\n          (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1)))\n        (uuid \"metric-cell\"))))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "metric-table.kicad_sch",
+   "document_id": "metric-table",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {},
+   "font_resource": {
+    "face": "KiCad Monkey Shaping Fixture",
+    "bold": false,
+    "italic": false,
+    "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+    "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+    "shaping_case_id": "fixture_default_variation_axis"
+   },
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 4,
+    "records": [
+     {
+      "uuid": "metric-table",
+      "kind": "sheet_header",
+      "object_id": "metric-table",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 20000000,
+        "y2": 20000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 20.0,
+      "paper_height_mm": 20.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 20000000,
+      "sheet_height_nm": 20000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0"
+     },
+     {
+      "uuid": "metric-table-record",
+      "kind": "table",
+      "object_id": "metric-table-record",
+      "operation_count": 3,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 5000000,
+        "y1": 6000000,
+        "x2": 7500000,
+        "y2": 9000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 6250000,
+        "y": 6660000,
+        "text": "AB",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 6250000,
+        "y": 8340000,
+        "text": "AB",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       }
+      ],
+      "cell_count": 1
+     }
+    ],
+    "source_path": "metric-table.kicad_sch",
+    "document_id": "metric-table",
+    "canvas": {
+     "width_nm": 20000000,
+     "height_nm": 20000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "placed-symbols-pins-fields-dnp-and-overplots",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"symbol-page\")\n  (paper \"User\" 30 30)\n  (title_block (title \"Symbols\"))\n  (lib_symbols\n    (symbol \"Demo:Part\"\n      (pin_names (offset 0.5))\n      (property \"Reference\" \"U\"\n        (at 0 0 0)\n        (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n      (symbol \"Demo:Part_1_1\"\n        (rectangle\n          (start -1 -1) (end 1 1)\n          (stroke (width 0) (type default))\n          (fill (type background)))\n        (text \"${PROJECT}\"\n          (at 0 0 0)\n          (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n        (pin passive line\n          (at -2 0 0)\n          (length 1)\n          (name \"IN\"\n            (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n          (number \"1\"\n            (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n          (uuid \"lib-pin-1\")))))\n  (symbol\n    (lib_id \"Demo:Part\")\n    (lib_name \"Demo\")\n    (at 10 10 0)\n    (unit 1)\n    (convert 1)\n    (dnp yes)\n    (uuid \"placed-1\")\n    (property \"Reference\" \"U?\"\n      (at 10 8 0)\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (property \"Value\" \"Part\"\n      (at 10 12 0)\n      (effects\n        (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))\n        (justify left top)\n        (href \"https://example.test/part\")))\n    (pin \"1\" (uuid \"placed-pin-1\"))\n    (instances\n      (project \"demo\"\n        (path \"/child\" (reference \"U7\") (unit 1)))))\n  (symbol\n    (lib_id \"Demo:Part\")\n    (lib_name \"Demo\")\n    (at 10 10 90)\n    (mirror x)\n    (unit 1)\n    (convert 1)\n    (uuid \"placed-2\")\n    (property \"Reference\" \"U2\"\n      (at 10 8 0)\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (pin \"1\" (uuid \"placed-pin-2\")))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "virtual/symbols.kicad_sch",
+   "document_id": "symbols",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {
+    "PROJECT": "PX"
+   },
+   "font_resource": {
+    "face": "KiCad Monkey Shaping Fixture",
+    "bold": false,
+    "italic": false,
+    "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+    "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+    "shaping_case_id": "fixture_default_variation_axis"
+   },
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/child",
+   "sheet_name": "Child",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 37,
+    "records": [
+     {
+      "uuid": "symbol-page",
+      "kind": "sheet_header",
+      "object_id": "symbol-page",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 30000000,
+        "y2": 30000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 30.0,
+      "paper_height_mm": 30.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 30000000,
+      "sheet_height_nm": 30000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0",
+      "title_block": {
+       "title": "Symbols",
+       "date": "",
+       "rev": "",
+       "company": "",
+       "comments": {}
+      }
+     },
+     {
+      "uuid": "placed-1",
+      "kind": "symbol_instance",
+      "object_id": "Demo:Part",
+      "operation_count": 12,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 9000000,
+        "y1": 11000000,
+        "x2": 11000000,
+        "y2": 9000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#EBEAE8FF",
+        "fill_color": "#EBEAE8FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 10000000,
+        "y": 10000000,
+        "text": "PX",
+        "color": "#9C9B99FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Rect",
+        "index": 2,
+        "x1": 9000000,
+        "y1": 11000000,
+        "x2": 11000000,
+        "y2": 9000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#9C9B99FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 3,
+        "label": "placed-pin-1",
+        "data_uuid": "placed-pin-1",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-1",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-1",
+         "designator": "U?",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 4,
+        "points": [
+         [
+          9000000,
+          10000000
+         ],
+         [
+          8000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#9C9B99FF"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 8500000,
+        "y": 9746000,
+        "text": "1",
+        "color": "#A5A4A2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 6,
+        "x": 9500000,
+        "y": 10000000,
+        "text": "IN",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 7
+       },
+       {
+        "kind": "Text",
+        "index": 8,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U7",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 9,
+        "x": 11399000,
+        "y": 12462900,
+        "text": "Part",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/part"
+         }
+        }
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 10,
+        "start_x": 8323800,
+        "start_y": 8743800,
+        "end_x": 11676200,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 11,
+        "start_x": 11676200,
+        "start_y": 8743800,
+        "end_x": 8323800,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       }
+      ],
+      "lib_id": "Demo:Part",
+      "lib_name": "Demo",
+      "reference": "U7",
+      "at_x_nm": 10000000,
+      "at_y_nm": 10000000,
+      "at_angle_deg": 0.0,
+      "mirror": null,
+      "unit": 1,
+      "convert": 1,
+      "in_bom": true,
+      "on_board": true,
+      "dnp": true,
+      "exclude_from_sim": false,
+      "in_pos_files": true
+     },
+     {
+      "uuid": "placed-2",
+      "kind": "symbol_instance",
+      "object_id": "Demo:Part",
+      "operation_count": 9,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 11000000,
+        "y1": 9000000,
+        "x2": 9000000,
+        "y2": 11000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#FFFFC2FF",
+        "fill_color": "#FFFFC2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 10000000,
+        "y": 10000000,
+        "text": "PX",
+        "color": "#840000FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Rect",
+        "index": 2,
+        "x1": 11000000,
+        "y1": 9000000,
+        "x2": 9000000,
+        "y2": 11000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 3,
+        "label": "placed-pin-2",
+        "data_uuid": "placed-pin-2",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-2",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-2",
+         "designator": "U2",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 4,
+        "points": [
+         [
+          10000000,
+          9000000
+         ],
+         [
+          10000000,
+          8000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 9746000,
+        "y": 8500000,
+        "text": "1",
+        "color": "#A90000FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 6,
+        "x": 10000000,
+        "y": 9500000,
+        "text": "IN",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 7
+       },
+       {
+        "kind": "Text",
+        "index": 8,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U2",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       }
+      ],
+      "lib_id": "Demo:Part",
+      "lib_name": "Demo",
+      "reference": "U2",
+      "at_x_nm": 10000000,
+      "at_y_nm": 10000000,
+      "at_angle_deg": 90.0,
+      "mirror": "x",
+      "unit": 1,
+      "convert": 1,
+      "in_bom": true,
+      "on_board": true,
+      "dnp": false,
+      "exclude_from_sim": false,
+      "in_pos_files": true
+     },
+     {
+      "uuid": "placed-1:overplot",
+      "kind": "symbol_overplot",
+      "object_id": "Demo:Part",
+      "operation_count": 9,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U7",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 11399000,
+        "y": 12462900,
+        "text": "Part",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/part"
+         }
+        }
+       },
+       {
+        "kind": "StartBlock",
+        "index": 2,
+        "label": "placed-pin-1__overplot",
+        "data_uuid": "placed-pin-1__overplot",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-1",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-1",
+         "designator": "U?",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 3,
+        "points": [
+         [
+          9000000,
+          10000000
+         ],
+         [
+          8000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#9C9B99FF"
+       },
+       {
+        "kind": "Text",
+        "index": 4,
+        "x": 8500000,
+        "y": 9746000,
+        "text": "1",
+        "color": "#A5A4A2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 9500000,
+        "y": 10000000,
+        "text": "IN",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 6
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 8323800,
+        "start_y": 8743800,
+        "end_x": 11676200,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 8,
+        "start_x": 11676200,
+        "start_y": 8743800,
+        "end_x": 8323800,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       }
+      ],
+      "source_symbol_uuid": "placed-1",
+      "lib_id": "Demo:Part"
+     },
+     {
+      "uuid": "placed-2:overplot",
+      "kind": "symbol_overplot",
+      "object_id": "Demo:Part",
+      "operation_count": 6,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U2",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 1,
+        "label": "placed-pin-2__overplot",
+        "data_uuid": "placed-pin-2__overplot",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-2",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-2",
+         "designator": "U2",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 2,
+        "points": [
+         [
+          10000000,
+          9000000
+         ],
+         [
+          10000000,
+          8000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 3,
+        "x": 9746000,
+        "y": 8500000,
+        "text": "1",
+        "color": "#A90000FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 4,
+        "x": 10000000,
+        "y": 9500000,
+        "text": "IN",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 5
+       }
+      ],
+      "source_symbol_uuid": "placed-2",
+      "lib_id": "Demo:Part"
+     }
+    ],
+    "source_path": "virtual/symbols.kicad_sch",
+    "document_id": "symbols",
+    "canvas": {
+     "width_nm": 30000000,
+     "height_nm": 30000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "hierarchical-sheets-follow-symbol-overplots",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"symbol-page\")\n  (paper \"User\" 30 30)\n  (title_block (title \"Symbols\"))\n  (sheet\n    (at 4 20)\n    (size 8 6)\n    (exclude_from_sim yes)\n    (in_bom no)\n    (on_board yes)\n    (dnp yes)\n    (stroke (width 0.2) (type dash) (color 12 34 56 1))\n    (fill (color 240 230 220 0.5))\n    (uuid \"sheet-rich\")\n    (property \"Sheetname\" \"Child\"\n      (at 5 19 0)\n      (show_name yes)\n      (effects\n        (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))\n        (href \"https://example.test/sheet\")))\n    (property \"Sheetfile\" \"child.kicad_sch\"\n      (at 11 27 0)\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (property \"Literal\" \"${PROJECT}\"\n      (at 8 27 0)\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (property \"Empty\" \"\"\n      (at 0 0 0)\n      (effects (font (size 1 1))))\n    (property \"Hidden\" \"ignored\"\n      (at 0 0 0)\n      (hide yes)\n      (effects (font (size 1 1))))\n    (pin \"BUS{0..1}\" input\n      (at 4 22 180)\n      (uuid \"sheet-pin-bus\")\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (pin \"OUT{slash}N\" output\n      (at 12 23 0)\n      (uuid \"sheet-pin-out\")\n      (effects\n        (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))\n        (href \"https://example.test/sheet-pin\")))\n    (pin \"BIDI\" bidirectional\n      (at 6 20 90)\n      (uuid \"sheet-pin-bidi\")\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (pin \"TRI\" tri_state\n      (at 8 26 270)\n      (uuid \"sheet-pin-tri\")\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (pin \"PASS\" passive\n      (at 10 20 45)\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (instances\n      (project \"demo\"\n        (path \"/child/sheet-rich\"\n          (page \"2\")\n          (variant\n            (name \"Ignored\")\n            (dnp no)\n            (exclude_from_sim no)\n            (in_bom yes))))))\n  (sheet\n    (at 16 20)\n    (size 4 3)\n    (stroke (width 0) (type default))\n    (fill (color 255 255 255 0))\n    (uuid \"sheet-clear\")\n    (property \"Sheetname\" \"Clear\"\n      (at 18 19 0)\n      (effects (font (size 1 1)))))\n  (lib_symbols\n    (symbol \"Demo:Part\"\n      (pin_names (offset 0.5))\n      (property \"Reference\" \"U\"\n        (at 0 0 0)\n        (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n      (symbol \"Demo:Part_1_1\"\n        (rectangle\n          (start -1 -1) (end 1 1)\n          (stroke (width 0) (type default))\n          (fill (type background)))\n        (text \"${PROJECT}\"\n          (at 0 0 0)\n          (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n        (pin passive line\n          (at -2 0 0)\n          (length 1)\n          (name \"IN\"\n            (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n          (number \"1\"\n            (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n          (uuid \"lib-pin-1\")))))\n  (symbol\n    (lib_id \"Demo:Part\")\n    (lib_name \"Demo\")\n    (at 10 10 0)\n    (unit 1)\n    (convert 1)\n    (dnp yes)\n    (uuid \"placed-1\")\n    (property \"Reference\" \"U?\"\n      (at 10 8 0)\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (property \"Value\" \"Part\"\n      (at 10 12 0)\n      (effects\n        (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))\n        (justify left top)\n        (href \"https://example.test/part\")))\n    (pin \"1\" (uuid \"placed-pin-1\"))\n    (instances\n      (project \"demo\"\n        (path \"/child\" (reference \"U7\") (unit 1)))))\n  (symbol\n    (lib_id \"Demo:Part\")\n    (lib_name \"Demo\")\n    (at 10 10 90)\n    (mirror x)\n    (unit 1)\n    (convert 1)\n    (uuid \"placed-2\")\n    (property \"Reference\" \"U2\"\n      (at 10 8 0)\n      (effects (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1))))\n    (pin \"1\" (uuid \"placed-pin-2\")))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "virtual/sheets.kicad_sch",
+   "document_id": "sheets",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {
+    "PROJECT": "PX"
+   },
+   "font_resource": {
+    "face": "KiCad Monkey Shaping Fixture",
+    "bold": false,
+    "italic": false,
+    "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+    "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+    "shaping_case_id": "fixture_default_variation_axis"
+   },
+   "sheet_index": 1,
+   "sheet_count": 2,
+   "sheet_path": "/child",
+   "sheet_name": "Child",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 67,
+    "records": [
+     {
+      "uuid": "symbol-page",
+      "kind": "sheet_header",
+      "object_id": "symbol-page",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 30000000,
+        "y2": 30000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 30.0,
+      "paper_height_mm": 30.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 30000000,
+      "sheet_height_nm": 30000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0",
+      "title_block": {
+       "title": "Symbols",
+       "date": "",
+       "rev": "",
+       "company": "",
+       "comments": {}
+      }
+     },
+     {
+      "uuid": "placed-1",
+      "kind": "symbol_instance",
+      "object_id": "Demo:Part",
+      "operation_count": 12,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 9000000,
+        "y1": 11000000,
+        "x2": 11000000,
+        "y2": 9000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#EBEAE8FF",
+        "fill_color": "#EBEAE8FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 10000000,
+        "y": 10000000,
+        "text": "PX",
+        "color": "#9C9B99FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Rect",
+        "index": 2,
+        "x1": 9000000,
+        "y1": 11000000,
+        "x2": 11000000,
+        "y2": 9000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#9C9B99FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 3,
+        "label": "placed-pin-1",
+        "data_uuid": "placed-pin-1",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-1",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-1",
+         "designator": "U?",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 4,
+        "points": [
+         [
+          9000000,
+          10000000
+         ],
+         [
+          8000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#9C9B99FF"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 8500000,
+        "y": 9746000,
+        "text": "1",
+        "color": "#A5A4A2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 6,
+        "x": 9500000,
+        "y": 10000000,
+        "text": "IN",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 7
+       },
+       {
+        "kind": "Text",
+        "index": 8,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U7",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 9,
+        "x": 11399000,
+        "y": 12462900,
+        "text": "Part",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/part"
+         }
+        }
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 10,
+        "start_x": 8323800,
+        "start_y": 8743800,
+        "end_x": 11676200,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 11,
+        "start_x": 11676200,
+        "start_y": 8743800,
+        "end_x": 8323800,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       }
+      ],
+      "lib_id": "Demo:Part",
+      "lib_name": "Demo",
+      "reference": "U7",
+      "at_x_nm": 10000000,
+      "at_y_nm": 10000000,
+      "at_angle_deg": 0.0,
+      "mirror": null,
+      "unit": 1,
+      "convert": 1,
+      "in_bom": true,
+      "on_board": true,
+      "dnp": true,
+      "exclude_from_sim": false,
+      "in_pos_files": true
+     },
+     {
+      "uuid": "placed-2",
+      "kind": "symbol_instance",
+      "object_id": "Demo:Part",
+      "operation_count": 9,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 11000000,
+        "y1": 9000000,
+        "x2": 9000000,
+        "y2": 11000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#FFFFC2FF",
+        "fill_color": "#FFFFC2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 10000000,
+        "y": 10000000,
+        "text": "PX",
+        "color": "#840000FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Rect",
+        "index": 2,
+        "x1": 11000000,
+        "y1": 9000000,
+        "x2": 9000000,
+        "y2": 11000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 3,
+        "label": "placed-pin-2",
+        "data_uuid": "placed-pin-2",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-2",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-2",
+         "designator": "U2",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 4,
+        "points": [
+         [
+          10000000,
+          9000000
+         ],
+         [
+          10000000,
+          8000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 9746000,
+        "y": 8500000,
+        "text": "1",
+        "color": "#A90000FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 6,
+        "x": 10000000,
+        "y": 9500000,
+        "text": "IN",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 7
+       },
+       {
+        "kind": "Text",
+        "index": 8,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U2",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       }
+      ],
+      "lib_id": "Demo:Part",
+      "lib_name": "Demo",
+      "reference": "U2",
+      "at_x_nm": 10000000,
+      "at_y_nm": 10000000,
+      "at_angle_deg": 90.0,
+      "mirror": "x",
+      "unit": 1,
+      "convert": 1,
+      "in_bom": true,
+      "on_board": true,
+      "dnp": false,
+      "exclude_from_sim": false,
+      "in_pos_files": true
+     },
+     {
+      "uuid": "placed-1:overplot",
+      "kind": "symbol_overplot",
+      "object_id": "Demo:Part",
+      "operation_count": 9,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U7",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 11399000,
+        "y": 12462900,
+        "text": "Part",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/part"
+         }
+        }
+       },
+       {
+        "kind": "StartBlock",
+        "index": 2,
+        "label": "placed-pin-1__overplot",
+        "data_uuid": "placed-pin-1__overplot",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-1",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-1",
+         "designator": "U?",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 3,
+        "points": [
+         [
+          9000000,
+          10000000
+         ],
+         [
+          8000000,
+          10000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#9C9B99FF"
+       },
+       {
+        "kind": "Text",
+        "index": 4,
+        "x": 8500000,
+        "y": 9746000,
+        "text": "1",
+        "color": "#A5A4A2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 9500000,
+        "y": 10000000,
+        "text": "IN",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 6
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 8323800,
+        "start_y": 8743800,
+        "end_x": 11676200,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 8,
+        "start_x": 11676200,
+        "start_y": 8743800,
+        "end_x": 8323800,
+        "end_y": 11256200,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       }
+      ],
+      "source_symbol_uuid": "placed-1",
+      "lib_id": "Demo:Part"
+     },
+     {
+      "uuid": "placed-2:overplot",
+      "kind": "symbol_overplot",
+      "object_id": "Demo:Part",
+      "operation_count": 6,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 10000000,
+        "y": 8000000,
+        "text": "U2",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 1,
+        "label": "placed-pin-2__overplot",
+        "data_uuid": "placed-pin-2__overplot",
+        "data_ref": "symbol_pin",
+        "object_id": "placed-pin-2",
+        "extra_attrs": {
+         "primitive": "pin",
+         "object-type": "pin",
+         "pin": "1",
+         "symbol-uuid": "placed-2",
+         "designator": "U2",
+         "lib-pin-uuid": "lib-pin-1"
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 2,
+        "points": [
+         [
+          10000000,
+          9000000
+         ],
+         [
+          10000000,
+          8000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#840000FF"
+       },
+       {
+        "kind": "Text",
+        "index": 3,
+        "x": 9746000,
+        "y": 8500000,
+        "text": "1",
+        "color": "#A90000FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 4,
+        "x": 10000000,
+        "y": 9500000,
+        "text": "IN",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 5
+       }
+      ],
+      "source_symbol_uuid": "placed-2",
+      "lib_id": "Demo:Part"
+     },
+     {
+      "uuid": "sheet-rich",
+      "kind": "sheet",
+      "object_id": "Child",
+      "operation_count": 27,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 4000000,
+        "y1": 20000000,
+        "x2": 12000000,
+        "y2": 26000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F0E6DC80",
+        "fill_color": "#F0E6DC80"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 4000000,
+        "y1": 20000000,
+        "x2": 12000000,
+        "y2": 26000000,
+        "fill": "NO_FILL",
+        "width_nm": 200000,
+        "corner_radius_nm": 0,
+        "stroke_color": "#8C8B89FF",
+        "line_style": "DASH"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 2,
+        "label": "sheet-pin-bus",
+        "data_uuid": "sheet-pin-bus",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-bus",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-rich",
+         "sheet-name": "Child",
+         "sheet-file": "child.kicad_sch",
+         "pin": "BUS{0..1}",
+         "pin-name": "BUS{0..1}",
+         "shape": "input"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 3,
+        "x": 5150000,
+        "y": 22000000,
+        "text": "BUS{0..1}",
+        "color": "#9C9B99FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 4,
+        "points": [
+         [
+          5000000,
+          22000000
+         ],
+         [
+          4500000,
+          21500000
+         ],
+         [
+          4000000,
+          21500000
+         ],
+         [
+          4000000,
+          22500000
+         ],
+         [
+          4500000,
+          22500000
+         ],
+         [
+          5000000,
+          22000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#949391FF"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 5
+       },
+       {
+        "kind": "StartBlock",
+        "index": 6,
+        "label": "sheet-pin-out",
+        "data_uuid": "sheet-pin-out",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-out",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-rich",
+         "sheet-name": "Child",
+         "sheet-file": "child.kicad_sch",
+         "pin": "OUT{slash}N",
+         "pin-name": "OUT{slash}N",
+         "shape": "output"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 7,
+        "x": 10850000,
+        "y": 23000000,
+        "text": "OUT/N",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/sheet-pin"
+         }
+        }
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 8,
+        "points": [
+         [
+          12000000,
+          23000000
+         ],
+         [
+          11500000,
+          22500000
+         ],
+         [
+          11000000,
+          22500000
+         ],
+         [
+          11000000,
+          23500000
+         ],
+         [
+          11500000,
+          23500000
+         ],
+         [
+          12000000,
+          23000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#949391FF"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 9
+       },
+       {
+        "kind": "StartBlock",
+        "index": 10,
+        "label": "sheet-pin-bidi",
+        "data_uuid": "sheet-pin-bidi",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-bidi",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-rich",
+         "sheet-name": "Child",
+         "sheet-file": "child.kicad_sch",
+         "pin": "BIDI",
+         "pin-name": "BIDI",
+         "shape": "bidirectional"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 11,
+        "x": 6000000,
+        "y": 21150000,
+        "text": "BIDI",
+        "color": "#949391FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 12,
+        "points": [
+         [
+          6000000,
+          20000000
+         ],
+         [
+          5500000,
+          20500000
+         ],
+         [
+          6000000,
+          21000000
+         ],
+         [
+          6500000,
+          20500000
+         ],
+         [
+          6000000,
+          20000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#949391FF"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 13
+       },
+       {
+        "kind": "StartBlock",
+        "index": 14,
+        "label": "sheet-pin-tri",
+        "data_uuid": "sheet-pin-tri",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-tri",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-rich",
+         "sheet-name": "Child",
+         "sheet-file": "child.kicad_sch",
+         "pin": "TRI",
+         "pin-name": "TRI",
+         "shape": "tri_state"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 15,
+        "x": 8000000,
+        "y": 24850000,
+        "text": "TRI",
+        "color": "#949391FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 16,
+        "points": [
+         [
+          8000000,
+          26000000
+         ],
+         [
+          7500000,
+          25500000
+         ],
+         [
+          8000000,
+          25000000
+         ],
+         [
+          8500000,
+          25500000
+         ],
+         [
+          8000000,
+          26000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#949391FF"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 17
+       },
+       {
+        "kind": "StartBlock",
+        "index": 18,
+        "label": "sheet-rich__sheet_pin__PASS",
+        "data_uuid": "sheet-rich__sheet_pin__PASS",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-rich__sheet_pin__PASS",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-rich",
+         "sheet-name": "Child",
+         "sheet-file": "child.kicad_sch",
+         "pin": "PASS",
+         "pin-name": "PASS",
+         "shape": "passive"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 19,
+        "x": 11150000,
+        "y": 20000000,
+        "text": "PASS",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "PlotPoly",
+        "index": 20,
+        "points": [
+         [
+          10000000,
+          19500000
+         ],
+         [
+          11000000,
+          19500000
+         ],
+         [
+          11000000,
+          20500000
+         ],
+         [
+          10000000,
+          20500000
+         ],
+         [
+          10000000,
+          19500000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#949391FF"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 21
+       },
+       {
+        "kind": "Text",
+        "index": 22,
+        "x": 5000000,
+        "y": 19000000,
+        "text": "Sheetname: Child",
+        "color": "#949391FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/sheet"
+         }
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 23,
+        "x": 11000000,
+        "y": 27000000,
+        "text": "File: child.kicad_sch",
+        "color": "#979794FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 24,
+        "x": 8000000,
+        "y": 27000000,
+        "text": "${PROJECT}",
+        "color": "#9C9B99FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 25,
+        "start_x": 193090,
+        "start_y": 18857927,
+        "end_x": 15806910,
+        "end_y": 27142073,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 26,
+        "start_x": 15806910,
+        "start_y": 18857927,
+        "end_x": 193090,
+        "end_y": 27142073,
+        "width_nm": 457200,
+        "stroke_color": "#DC090DD9"
+       }
+      ],
+      "sheet_name": "Child",
+      "sheet_file": "child.kicad_sch",
+      "at_x_nm": 4000000,
+      "at_y_nm": 20000000,
+      "size_x_nm": 8000000,
+      "size_y_nm": 6000000,
+      "dnp": true
+     },
+     {
+      "uuid": "sheet-clear",
+      "kind": "sheet",
+      "object_id": "Clear",
+      "operation_count": 3,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 16000000,
+        "y1": 20000000,
+        "x2": 20000000,
+        "y2": 23000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 16000000,
+        "y1": 20000000,
+        "x2": 20000000,
+        "y2": 23000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 18000000,
+        "y": 19000000,
+        "text": "Clear",
+        "color": "#006464FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       }
+      ],
+      "sheet_name": "Clear",
+      "sheet_file": "",
+      "at_x_nm": 16000000,
+      "at_y_nm": 20000000,
+      "size_x_nm": 4000000,
+      "size_y_nm": 3000000,
+      "dnp": false
+     }
+    ],
+    "source_path": "virtual/sheets.kicad_sch",
+    "document_id": "sheets",
+    "canvas": {
+     "width_nm": 30000000,
+     "height_nm": 30000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "hierarchical-sheet-undecorated-shapes-and-zero-width-border",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"undecorated-sheet-page\")\n  (paper \"User\" 20 20)\n  (sheet\n    (at 2 2)\n    (size 10 8)\n    (stroke (width -1) (type dot))\n    (uuid \"sheet-undecorated\")\n    (property \"Sheetname\" \"DirectiveShapes\"\n      (at 2 2 0)\n      (hide yes)\n      (effects (font (size 1 1))))\n    (property \"Sheetfile\" \"directive-shapes.kicad_sch\"\n      (at 2 2 0)\n      (hide yes)\n      (effects (font (size 1 1))))\n    (pin \"DOT\" dot\n      (at 2 3 180)\n      (uuid \"sheet-pin-dot\")\n      (effects (font (size 1 1))))\n    (pin \"ROUND\" round\n      (at 12 4 0)\n      (uuid \"sheet-pin-round\")\n      (effects (font (size 1 1))))\n    (pin \"DIAMOND\" diamond\n      (at 5 2 90)\n      (uuid \"sheet-pin-diamond\")\n      (effects (font (size 1 1))))\n    (pin \"RECTANGLE\" rectangle\n      (at 8 10 270)\n      (uuid \"sheet-pin-rectangle\")\n      (effects (font (size 1 1)))))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "virtual/undecorated-sheet-pins.kicad_sch",
+   "document_id": "undecorated-sheet-pins",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {},
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 15,
+    "records": [
+     {
+      "uuid": "undecorated-sheet-page",
+      "kind": "sheet_header",
+      "object_id": "undecorated-sheet-page",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 20000000,
+        "y2": 20000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 20.0,
+      "paper_height_mm": 20.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 20000000,
+      "sheet_height_nm": 20000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0"
+     },
+     {
+      "uuid": "sheet-undecorated",
+      "kind": "sheet",
+      "object_id": "DirectiveShapes",
+      "operation_count": 14,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 2000000,
+        "y1": 2000000,
+        "x2": 12000000,
+        "y2": 10000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF",
+        "line_style": "DOT"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 2000000,
+        "y1": 2000000,
+        "x2": 12000000,
+        "y2": 10000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#840000FF",
+        "line_style": "DOT"
+       },
+       {
+        "kind": "StartBlock",
+        "index": 2,
+        "label": "sheet-pin-dot",
+        "data_uuid": "sheet-pin-dot",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-dot",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-undecorated",
+         "sheet-name": "DirectiveShapes",
+         "sheet-file": "directive-shapes.kicad_sch",
+         "pin": "DOT",
+         "pin-name": "DOT",
+         "shape": "dot"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 3,
+        "x": 3150000,
+        "y": 3000000,
+        "text": "DOT",
+        "color": "#006464FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 4
+       },
+       {
+        "kind": "StartBlock",
+        "index": 5,
+        "label": "sheet-pin-round",
+        "data_uuid": "sheet-pin-round",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-round",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-undecorated",
+         "sheet-name": "DirectiveShapes",
+         "sheet-file": "directive-shapes.kicad_sch",
+         "pin": "ROUND",
+         "pin-name": "ROUND",
+         "shape": "round"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 6,
+        "x": 10850000,
+        "y": 4000000,
+        "text": "ROUND",
+        "color": "#006464FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 7
+       },
+       {
+        "kind": "StartBlock",
+        "index": 8,
+        "label": "sheet-pin-diamond",
+        "data_uuid": "sheet-pin-diamond",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-diamond",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-undecorated",
+         "sheet-name": "DirectiveShapes",
+         "sheet-file": "directive-shapes.kicad_sch",
+         "pin": "DIAMOND",
+         "pin-name": "DIAMOND",
+         "shape": "diamond"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 9,
+        "x": 5000000,
+        "y": 3150000,
+        "text": "DIAMOND",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 10
+       },
+       {
+        "kind": "StartBlock",
+        "index": 11,
+        "label": "sheet-pin-rectangle",
+        "data_uuid": "sheet-pin-rectangle",
+        "data_ref": "sheet_pin",
+        "object_id": "sheet-pin-rectangle",
+        "extra_attrs": {
+         "primitive": "sheet-entry",
+         "object-type": "sheet-pin",
+         "sheet-uuid": "sheet-undecorated",
+         "sheet-name": "DirectiveShapes",
+         "sheet-file": "directive-shapes.kicad_sch",
+         "pin": "RECTANGLE",
+         "pin-name": "RECTANGLE",
+         "shape": "rectangle"
+        }
+       },
+       {
+        "kind": "Text",
+        "index": 12,
+        "x": 8000000,
+        "y": 8850000,
+        "text": "RECTANGLE",
+        "color": "#006464FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "EndBlock",
+        "index": 13
+       }
+      ],
+      "sheet_name": "DirectiveShapes",
+      "sheet_file": "directive-shapes.kicad_sch",
+      "at_x_nm": 2000000,
+      "at_y_nm": 2000000,
+      "size_x_nm": 10000000,
+      "size_y_nm": 8000000,
+      "dnp": false
+     }
+    ],
+    "source_path": "virtual/undecorated-sheet-pins.kicad_sch",
+    "document_id": "undecorated-sheet-pins",
+    "canvas": {
+     "width_nm": 20000000,
+     "height_nm": 20000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  }
+ ]
+}

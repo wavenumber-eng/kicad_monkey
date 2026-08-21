@@ -1,0 +1,46 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.footprint_read.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.footprint_read.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "max_source_bytes": {
+            "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_pads": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "max_source_bytes",
+        "max_depth",
+        "max_properties",
+        "max_pads"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Controls a typed footprint summary read; source bytes are supplied out of band.",
+    "title": "Footprint read request a0"
+}

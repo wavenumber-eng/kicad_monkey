@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native design facts - Phase 6</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <h1>Rust native design facts - Phase 6</h1>
+  <p><strong>Status:</strong> P6_030 accepted and closed.</p>
+  <p>This bounded slice switches the selected Windows Cruncher design-review
+  compiled graph and version-E <code>.net</code> artifact to one validated
+  <code>kicad-monkey-native design-facts-a1</code> result. Python continues to
+  own design JSON, netlist JSON, schematic and PCB presentation, manifests,
+  README content, and command orchestration.</p>
+
+  <h2>Versioned boundary</h2>
+  <p>The accepted a0 request/result and the a0/a1 handshakes remain unchanged.
+  <code>handshake-a2</code> advertises the existing operations followed by
+  <code>design-facts-a1</code>. Strict generated A1 request/result contracts add
+  the immutable <code>design-facts-bounded-a1</code> resource profile, a native
+  source-snapshot digest, and version-E netlist byte-count and SHA-256
+  integrity fields.</p>
+  <p>The source digest is domain-separated and covers the manifest root and
+  optional project paths plus every slot's path, kind, length, and exact bytes
+  in slot order. Python computes it from the current in-memory KiCad objects;
+  Rust independently computes it from the capability-contained files it
+  actually opened. A mismatch is terminal before facts can be injected into a
+  design.</p>
+
+  <h2>Provider and compatibility</h2>
+  <p><code>NativeDesignFactsProvider</code> is selected once on Windows. Missing,
+  incompatible, timed-out, resource-rejected, malformed, stale, or metadata-
+  mismatched native output is never retried through the Python graph builder
+  or Python version-E writer. Linux and macOS retain their explicit Python
+  route until a later platform promotion.</p>
+  <p>The provider preserves Cruncher's established absolute schematic source,
+  empty date, and <code>kicad_cruncher</code> tool metadata. The validated graph
+  is injected through Monkey's public current-state fingerprint guard, then
+  reused unchanged by Design JSON, the standalone graph artifact, and
+  schematic SVG enrichment. The native version-E text is published directly.
+  Its ordering is the deterministic native serialization policy; P6_030 does
+  not claim byte equality with the retained Python serializer.</p>
+
+  <h2>Resources and publication</h2>
+  <p>Both design-facts versions receive an allocation-bounded JSON preflight
+  before generated decoding: at most 65,536 nodes and nesting depth 64. Source,
+  path, output, graph, connectivity, expansion, project, and netlist work stays
+  clamped to the named application's fixed profile and never raises a core
+  default. The A1 profile assigns wildcard matching its own 2,000,000-work-unit
+  aggregate ceiling rather than reusing the 250,000 retained-family item cap;
+  the governed Jumperless project consumes 1,025,852 units. Accepted A0 keeps
+  its original 250,000-unit behavior. Graph and netlist construction,
+  validation, hashing, and bounded serialization complete before stdout
+  publication.</p>
+  <p>Cruncher invokes the provider once immediately after loading the design
+  and before writing artifacts. The existing sibling-tree transaction publishes
+  only after the graph, netlists, SVGs, manifest, and README all succeed; a
+  later failure preserves the previous destination.</p>
+
+  <h2>Evidence</h2>
+  <p>Generated contract mutations cover missing, null, literal, tuple-order,
+  UTF-8 length, hash, and empty-netlist failures. Native tests cover exact and
+  one-over request bytes, nodes, and depth; digest slot ordering and byte
+  sensitivity; deterministic repeated output; bounded diagnostics; and no
+  partial stdout. Monkey client tests cover source, metadata, byte, hash, and
+  hostile-process rejection.</p>
+  <p>Cruncher L3_009 proves one provider call, zero Python graph/netlist-writer
+  retry, graph reuse, deterministic public aliases, provenance, and
+  transactional failure. Root Rack L3_025 composes that real-process provider
+  evidence with the four governed hierarchy projects from L3_020. The required
+  CI and publication chain composes that Rack gate with the preceding installed
+  two-wheel design-review smoke and uses the same Windows-native executable
+  shipped by Monkey; Cruncher retains only its normal public
+  <code>kicad-monkey</code> dependency. The final local Windows Rack run passed
+  its single release-acceptance case in 84.62 seconds, composing 36 focused
+  contract, client, provider, and transport tests; the independent full L3_020
+  reference-project parity suite passed 5/5 in 52.92 seconds.</p>
+  <p>The final Windows package gate rebuilt KiCad Monkey 2026.8.18 from its
+  public source distribution, installed that platform wheel with the universal
+  Cruncher wheel in isolation, and passed the real native design-review and
+  PCB workflows. Three independent contract, Python-authority, and Rust
+  reviews approved the completed boundary.</p>
+
+  <h2>Deferred</h2>
+  <p>The public <code>kicad_monkey.design.a0</code> and
+  <code>kicad_monkey.netlist.a0</code> JSON payloads remain Python-owned. The
+  internal Rust netlist model is not promoted as a public JSON contract. Full
+  CLI artifact and exit-code compatibility remains P6_040, and the final
+  platform exit remains P6_050.</p>
+</main>
+</body>
+</html>

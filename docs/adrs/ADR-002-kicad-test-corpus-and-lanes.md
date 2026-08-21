@@ -15,7 +15,11 @@ predictable.
 
 ## Decision
 
-KiCad persistent file-backed fixtures resolve from `WN_TEST_CORPUS`.
+KiCad persistent file-backed fixtures resolve from the ZIP carrier selected by
+`KM_CORPUS`. When unset, `tests/corpus/kicad.zip` is authoritative. A directory
+containing `kicad/` is accepted only for fixture-authoring workflows; runtime
+tests consume a verified, immutable, content-addressed extraction exposed
+internally as `KM_CORPUS_ROOT`. There is no implicit loose-tree fallback.
 
 Shared corpus layout rule:
 - `kicad/common/...` for reusable shared fixtures
@@ -26,12 +30,11 @@ Preferred case shape:
 - `reference_output/`
 - `output/`
 
-`output/` is transient and should remain local or temp-backed, not authoritative shared corpus data.
-Visual tests should write generated review artifacts under the owning case's
-`output/<domain>/` folder, such as `projects/<name>/output/board_svg/` or
-`pcb_foundation/<case>/output/board_svg/`. This keeps human-review outputs next
-to the corpus inputs and references while still keeping them out of version
-control.
+`output/` is transient and should remain local or temp-backed, not authoritative
+shared corpus data. Runtime tests and visual tools treat `KM_CORPUS_ROOT` as
+read-only and write generated review artifacts under the owning stratum's
+ignored `output/` tree. Fixture changes require an explicit writable authoring
+root followed by rebuilding and reviewing the ZIP.
 
 Real-world project domain tagging is file-role based. Assembly-procedure
 projects with names ending in `_assembly` are promoted for schematic
@@ -45,8 +48,8 @@ Lane model:
 - `strict` is the heavier or stricter validation lane
 
 KiCad CLI oracle tools are test dependencies, not source fixtures. Local
-resolvers may use a checked-out corpus tool directory, an explicit executable
-environment variable, a build-tree executable, or a restored immutable binary
+resolvers may use an explicit executable environment variable, a build-tree
+executable, or a restored immutable binary
 cache entry. Cache metadata lives in `tools/kicad-cli/MANIFEST.toml`, and
 restored bundles must be verified by SHA-256 before use.
 
@@ -66,7 +69,7 @@ testing or an emergency reroute.
 
 ## Consequences
 
-- Moving the shared KiCad corpus should require changing only `WN_TEST_CORPUS`.
+- Moving the shared KiCad corpus should require changing only `KM_CORPUS`.
 - Moving the package-local corpus archive transport should require updating
   `tests/corpus/kicad.archive.toml`, not workflow logic.
 - New persistent fixtures should not be introduced under repo-local `tests/test_cases/...` unless they are synthetic/local-only by design.

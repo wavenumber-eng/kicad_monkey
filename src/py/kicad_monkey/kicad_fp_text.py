@@ -25,6 +25,21 @@ from .kicad_base import (
 from .kicad_primitives import Effects, RenderCache
 
 
+def keep_upright_draw_angle(angle: float) -> float:
+    """Fold a locked (keep-upright) footprint text angle into (-90, 90].
+
+    KiCad's draw rotation for footprint text without `(unlocked yes)` keeps
+    the text readable by folding the absolute angle in half-turn steps; the
+    save oracle stores the folded value without re-normalizing to [0, 360).
+    """
+    angle = angle % 360.0
+    while angle > 90.0:
+        angle -= 180.0
+    while angle <= -90.0:
+        angle += 180.0
+    return angle
+
+
 @dataclass
 class FpText:
     """Footprint text element."""
@@ -36,6 +51,7 @@ class FpText:
     layer: str = FRONT_SILKSCREEN_LAYER
     knockout: bool = False
     hide: bool = False
+    unlocked: bool = False
     uuid: Optional[str] = None
     effects: Effects = field(default_factory=Effects)
     render_cache: Optional[RenderCache] = None
@@ -58,14 +74,15 @@ class FpText:
             or get_value(sexp, 'hide') == 'yes'
             or bool(effects.hide)
         )
+        unlocked = has_flag(sexp, 'unlocked') or get_value(sexp, 'unlocked') == 'yes'
         uuid = unquote_string(get_value(sexp, 'uuid'))
         render_cache = RenderCache.from_sexp(sexp)
 
         return cls(
             text_type=text_type, text=text,
             at_x=x, at_y=y, at_angle=angle,
-            layer=layer, knockout=knockout, hide=hide, uuid=uuid,
-            effects=effects, render_cache=render_cache,
+            layer=layer, knockout=knockout, hide=hide, unlocked=unlocked,
+            uuid=uuid, effects=effects, render_cache=render_cache,
             _raw_sexp=sexp
         )
 
@@ -150,6 +167,9 @@ class FpText:
         font = self.effects.font
         position_x = self.at_x
         position_y = self.at_y
+        angle = self.at_angle
+        if footprint is not None and not self.unlocked:
+            angle = keep_upright_draw_angle(angle)
 
         if footprint is not None:
             fp_angle = float(getattr(footprint, "at_angle", 0.0) or 0.0)
@@ -166,7 +186,7 @@ class FpText:
             size_y=font.size_y,
             position_x=position_x,
             position_y=position_y,
-            angle=self.at_angle,
+            angle=angle,
             bold=font.bold,
             italic=font.italic,
             mirrored=self.is_mirrored,
@@ -205,6 +225,9 @@ class FpText:
 
         # KiCad's reader requires the angle slot even when zero (drift inventory #1).
         result.append(['at', self.at_x, self.at_y, self.at_angle])
+
+        if self.unlocked:
+            result.append(['unlocked', 'yes'])
 
         if self.hide:
             result.append('hide')

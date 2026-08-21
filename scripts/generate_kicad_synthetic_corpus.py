@@ -25,7 +25,6 @@ Examples::
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -77,8 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--corpus-root",
         type=Path,
-        default=Path(os.environ.get("WN_TEST_CORPUS", REPO_ROOT / "tests" / "corpus")),
-        help="Root of the kicad corpus (contains kicad/pcb_foundation/).",
+        default=REPO_ROOT / "tests" / "corpus",
+        help="Writable authoring root containing kicad/pcb_foundation/.",
     )
     parser.add_argument(
         "--family",

@@ -9,9 +9,10 @@ Usage:
     uv run python tools/kicad/tests/generate_board_svg_references.py
 """
 
+import argparse
 import logging
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 
 from kicad_cli_resolver import resolve_kicad_cli
@@ -43,10 +44,10 @@ BOARD_LAYERS = [
 # All visible layers combined (for "All Layers" view)
 ALL_LAYERS_COMBINED = "F.Cu,B.Cu,F.SilkS,B.SilkS,F.Fab,B.Fab,F.Mask,B.Mask,F.CrtYd,B.CrtYd,Edge.Cuts,User.Drawings,User.Comments"
 
-# KiCad CLI fallback paths (used only if no staged corpus build is found).
+# KiCad CLI fallback paths (used only if no staged cache build is found).
 # The shared ``resolve_kicad_cli`` resolver always prefers the manifest-listed
-# corpus build (with IR/recorder emitter patches) over installed system KiCads,
-# so corpus references stay consistent with the IR oracle.
+# cache build (with IR/recorder emitter patches) over installed system KiCads,
+# so references stay consistent with the IR oracle.
 KICAD_CLI_PATHS = [
     Path("C:/Program Files/KiCad/10.0/bin/kicad-cli.exe"),
     Path("C:/Program Files/KiCad/9.0/bin/kicad-cli.exe"),
@@ -61,18 +62,18 @@ def layer_filename_token(layer: str) -> str:
 
 
 def find_kicad_cli() -> Path | None:
-    """Find kicad-cli executable, preferring the manifest-listed corpus build.
+    """Find kicad-cli executable, preferring the manifest-listed cache build.
 
     Resolution order (delegated to ``resolve_kicad_cli``):
     1. ``$KICAD_CLI`` env var override;
-    2. manifest-listed staged builds at ``<corpus>/tools/kicad-cli/<hash>/``
+    2. manifest-listed staged builds under ``$KICAD_CLI_CACHE_ROOT``
        (this is the canonical IR-oracle build with the recorder patches);
-    3. any other staged corpus build;
+    3. any other staged cache build;
     4. ``PATH``;
     5. installed KiCad 10/9.
 
     The legacy hardcoded ``KICAD_CLI_PATHS`` list is kept as a final fallback
-    only so this script remains usable on machines without a staged corpus.
+    only so this script remains usable on machines without a staged cache.
     """
     resolved = resolve_kicad_cli(required_capability="pcb_svg")
     if resolved is not None:
@@ -221,7 +222,7 @@ def generate_board_reference_svgs(
             results[board_folder] = generated
             log.info(f"  Generated {len(generated)} SVG files")
         else:
-            log.info(f"  No layers with graphics")
+            log.info("  No layers with graphics")
 
     return results
 
@@ -321,6 +322,14 @@ def _regenerate_pcb_foundation_references(
 
 def main():
     """Main entry point."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--corpus-root",
+        type=Path,
+        required=True,
+        help="Writable fixture-authoring root containing kicad/.",
+    )
+    args = parser.parse_args()
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -337,9 +346,9 @@ def main():
     # Walk the synthetic PCB foundation corpus (per-case
     # input/reference_output layout, migrated 2026-05-17 from
     # the legacy board_svg/ topic dir).
-    from kicad_monkey.testing.corpus import get_kicad_pcb_foundation_dir
-
-    pcb_foundation_dir = get_kicad_pcb_foundation_dir()
+    pcb_foundation_dir = args.corpus_root / "kicad" / "pcb_foundation"
+    if not pcb_foundation_dir.is_dir():
+        parser.error(f"PCB foundation authoring tree not found: {pcb_foundation_dir}")
     results = _regenerate_pcb_foundation_references(pcb_foundation_dir, kicad_cli)
 
     total_svgs = sum(len(svgs) for svgs in results.values())

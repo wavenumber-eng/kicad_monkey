@@ -10,6 +10,7 @@ from pathlib import Path
 import kicad_cruncher
 import kicad_monkey
 from kicad_cruncher import AltiumAssetConversionExecutor
+from kicad_cruncher.kicad_cruncher_native_design import NativeDesignFactsProvider
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -82,6 +83,15 @@ def test_workspace_cruncher_cli_uses_live_monkey() -> None:
     assert completed.returncode == 0, completed.stderr
     assert f"kicad-monkey {kicad_monkey.__version__}" in completed.stdout
     assert f"kicad-cruncher {kicad_cruncher.__version__}" in completed.stdout
+
+
+def test_cruncher_native_design_provider_uses_the_public_monkey_boundary() -> None:
+    """The cross-package hard switch depends only on exported Monkey APIs."""
+
+    assert callable(kicad_monkey.kicad_native_handshake_a2)
+    assert callable(kicad_monkey.native_design_facts_a1)
+    assert callable(kicad_monkey.native_design_facts_for_design)
+    assert NativeDesignFactsProvider.__module__.startswith("kicad_cruncher.")
 
 
 def test_repository_governance_routes_both_packages() -> None:

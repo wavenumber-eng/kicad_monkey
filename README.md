@@ -35,6 +35,38 @@ repository also contains the separately published `kicad-cruncher` workflow
 CLI under `packages/kicad_cruncher/`. The CLI depends on Monkey; Monkey never
 depends on the CLI.
 
+The Rust port has closed its Plotter-IR boundary and its bounded Windows x64
+native Cruncher delivery milestone. See
+the [native Cruncher delivery audit](docs/design/rust-phase6-native-cruncher-audit.html).
+The accepted [native base SVG slice](docs/design/rust-native-svg-phase6-slice.html)
+is followed by the accepted
+[Windows no-fallback PCB physical provider](docs/design/rust-native-physical-provider-phase6-slice.html),
+which retains Cruncher-owned enrichment and composition while replacing its
+physical-base serialization seam. The accepted
+[source-bound native design-facts slice](docs/design/rust-native-design-facts-phase6-slice.html)
+next switches the Windows compiled graph and version-E netlist while retaining
+Python Design JSON, netlist JSON, presentation, and orchestration. The
+[accepted native-backed CLI compatibility slice](docs/design/rust-native-full-cli-phase6-slice.html)
+governs the installed entry points, primary design aliases, artifact tree,
+logs, exits, and no-fallback failures without claiming a separate all-Rust
+Cruncher executable. The accepted
+[Windows x64 release exit](docs/design/rust-phase6-exit.html) binds one tested
+candidate set to CI and release publication. That milestone remains the
+historical native-provider boundary: Linux and macOS retained the established
+Python provider path, and Python still owned Cruncher orchestration and
+presentation.
+
+The accepted
+[pure-Rust design CLI follow-on](packages/kicad_cruncher/docs/design/rust-cli-phase7-audit.html)
+now supersedes that boundary for the Windows x64 `design`, `design-review`, and
+`dr` vertical slice. Release archives contain Python-free `kicad-cruncher` and
+`kcr` executables that own the complete review-bundle orchestration and
+transactional publication path, plus version reporting. This is deliberately
+not an all-command or all-platform Rust claim: other Cruncher commands remain
+available through the universal Python wheel and `python -m kicad_cruncher`,
+and Monkey remains the reusable lower-level library rather than depending on
+Cruncher.
+
 ## Install
 
 For library use inside an existing Python environment:
@@ -238,6 +270,29 @@ uv run --extra test python tests/rack.py run L0_foundation
 uv run --extra test python tests/rack.py run L99_signoff
 ```
 
+The parser-first Rust port uses the same Rack orchestrator. Its L0 gate is
+split into locked Cargo tests, shared Python/Rust vectors, generated-contract
+and executable WASM signoff, and comparative performance evidence:
+
+```powershell
+uv run python tests/rack.py run L0_044
+uv run python tests/rack.py run L0_045
+uv run python tests/rack.py run L0_046
+```
+
+Performance cases `L0_047`, `L1_023`, and `L1_024` are advisory and skip in
+ordinary fast/full development runs. Run them explicitly in the strict lane:
+
+```powershell
+uv run python tests/rack.py run L0_047 --lane strict
+uv run python tests/rack.py run L1_023 --lane strict
+uv run python tests/rack.py run L1_024 --lane strict
+```
+
+Run `npm ci` once to install the pinned TypeSpec toolchain. The executable WASM
+test also requires the lock-compatible runner documented in
+`docs/design/rust-standard.html`.
+
 `L99_signoff` checks release metadata, changelog coverage, public API contract
 resolution, API design-doc ownership, Rack test ownership, corpus archive
 hygiene, and the current ruff/pyright ratchet state.
@@ -268,6 +323,14 @@ Git LFS. CI restores that archive from the public object URL recorded in
 `KICAD_MONKEY_CORPUS_URL` may override the manifest URL for local testing or an
 emergency reroute. The loose mirror is ignored locally; test helpers extract the
 archive on demand when no external corpus is configured.
+
+Restore and verify the archive before running mandatory corpus-backed Rust
+parity gates:
+
+```powershell
+uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
+uv run --extra test python tests/rack.py run L1_029
+```
 
 ## API Shape
 

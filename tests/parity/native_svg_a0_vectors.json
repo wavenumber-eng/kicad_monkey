@@ -1,0 +1,707 @@
+{
+  "schema": "kicad_monkey.native_svg_parity.a0",
+  "profile": "plotter-base-a0",
+  "case_count": 30,
+  "svg_case_count": 29,
+  "rejected_case_count": 1,
+  "cases": [
+    {
+      "id": "footprint:solid-line-with-metadata",
+      "producer": "footprint",
+      "source_vector": "footprint_plotter_a0_vectors.json",
+      "source_id": "solid-line-with-metadata",
+      "document_sha256": "87eeb59d9fc129b50230e7bfcad35c88eb6893bba05af549840fcf08e745b584",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 482,
+      "svg_sha256": "429613db1286b3867ceead70d558d933f9c02176fb00ba82404ca1380a7308e0",
+      "tag_counts": {
+        "g": 2,
+        "line": 1,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "footprint:promoted-graphics-and-stroke-decomposition",
+      "producer": "footprint",
+      "source_vector": "footprint_plotter_a0_vectors.json",
+      "source_id": "promoted-graphics-and-stroke-decomposition",
+      "document_sha256": "650400f708324269f6fc09841c46e169bda04f36e56d3ff08e9661cf82ff387a",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 2016,
+      "svg_sha256": "9c38ef8e64647e38a980f4d54386fc79a681f5f042442268540048857bee08fe",
+      "tag_counts": {
+        "circle": 1,
+        "g": 2,
+        "line": 7,
+        "path": 1,
+        "polygon": 1,
+        "rect": 2,
+        "svg": 1
+      }
+    },
+    {
+      "id": "footprint:standard-pad-flashes-and-drills",
+      "producer": "footprint",
+      "source_vector": "footprint_plotter_a0_vectors.json",
+      "source_id": "standard-pad-flashes-and-drills",
+      "document_sha256": "c86980fbbae400d86dddf1ca4e64d7ec23063414eea7b52785f205cbc72a8762",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1612,
+      "svg_sha256": "a0989b70dc8dba3fdef42994f82c4d372dba57a644f725dfa19072913450095d",
+      "tag_counts": {
+        "circle": 4,
+        "g": 2,
+        "line": 3,
+        "polygon": 1,
+        "rect": 3,
+        "svg": 1
+      }
+    },
+    {
+      "id": "footprint:custom-and-chamfered-pad-flashes",
+      "producer": "footprint",
+      "source_vector": "footprint_plotter_a0_vectors.json",
+      "source_id": "custom-and-chamfered-pad-flashes",
+      "document_sha256": "ba95066bcc0f26eb57686101449ba29f68c72c6d577294f57c7e7b559823a29e",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 798,
+      "svg_sha256": "75704a06ba390c6595142a93b660e25bc8cd2e0bc9096988a9dfe4c2fbd8e6d3",
+      "tag_counts": {
+        "g": 2,
+        "polygon": 3,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "footprint:standalone-properties-text-and-text-box",
+      "producer": "footprint",
+      "source_vector": "footprint_plotter_a0_vectors.json",
+      "source_id": "standalone-properties-text-and-text-box",
+      "document_sha256": "6dc45a781f16d472713d76247be2873d6c8efd2d9e68a7076b2d94d8f0b72cdf",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1750,
+      "svg_sha256": "ae063ff30df66f53c5d55835fef5bc5445ff9b49f7c52363cb804dde3ba4eb5d",
+      "tag_counts": {
+        "g": 2,
+        "line": 1,
+        "rect": 2,
+        "svg": 1,
+        "text": 7
+      }
+    },
+    {
+      "id": "footprint:standalone-text-alias-and-polygon-box-edges",
+      "producer": "footprint",
+      "source_vector": "footprint_plotter_a0_vectors.json",
+      "source_id": "standalone-text-alias-and-polygon-box-edges",
+      "document_sha256": "8fda3df441e1839f296ae2df3b00f4372cc157eca6ab2f8b20aa4dc666088944",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 962,
+      "svg_sha256": "dd5134bf244de1cb71b4e6033a8af0546b7020425fb4b71ed8b83dac773a8e5b",
+      "tag_counts": {
+        "g": 2,
+        "rect": 2,
+        "svg": 1,
+        "text": 4
+      }
+    },
+    {
+      "id": "symbol:non-text-shared-body-primitives",
+      "producer": "symbol",
+      "source_vector": "symbol_plotter_a0_vectors.json",
+      "source_id": "non-text-shared-body-primitives",
+      "document_sha256": "07ac789cb8d461d8af02a8d9fab5018390cf6dca5665f44c44c11324b0347b92",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1354,
+      "svg_sha256": "50a8d91ea95e011ab854b299db02e9f0a6f15a18e339393956adb4dc201b207f",
+      "tag_counts": {
+        "circle": 1,
+        "g": 3,
+        "path": 2,
+        "polyline": 1,
+        "rect": 3,
+        "svg": 1
+      }
+    },
+    {
+      "id": "symbol:styled-body-and-pin-text",
+      "producer": "symbol",
+      "source_vector": "symbol_plotter_a0_vectors.json",
+      "source_id": "styled-body-and-pin-text",
+      "document_sha256": "5791f615fe8c824afa6beebfc878183462a2c1ebabdbca62f8ab5d6333133932",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1860,
+      "svg_sha256": "46f3656758177905a9e273a1599bfe12521323bc4a7481a5872ee904e32526e6",
+      "tag_counts": {
+        "g": 3,
+        "polyline": 2,
+        "rect": 3,
+        "svg": 1,
+        "text": 5
+      }
+    },
+    {
+      "id": "board:board-metadata-and-category-ordered-graphics",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "board-metadata-and-category-ordered-graphics",
+      "document_sha256": "52e3f9f6473ef4c0e48534fff113e10f88411aa2c48f65942f6987b1a305d13c",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1623,
+      "svg_sha256": "2aa5f50f986be2906192baf6cb7297bbf9b5a614e5098cdf2a855b351180a8c1",
+      "tag_counts": {
+        "circle": 1,
+        "g": 7,
+        "line": 1,
+        "path": 2,
+        "polygon": 1,
+        "rect": 2,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:python-defaults-and-unclamped-stroke-widths",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "python-defaults-and-unclamped-stroke-widths",
+      "document_sha256": "8f770a9aa316636ea28f9e8d575da0a8de886166b75bb9081dec8d0cd3ff58b5",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1081,
+      "svg_sha256": "caea0ec4bf92e7f2824b9ffed242f436e2cc7ec56c08d0861ab619192567cf06",
+      "tag_counts": {
+        "g": 5,
+        "line": 4,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:patterned-stroke-decomposition",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "patterned-stroke-decomposition",
+      "document_sha256": "4cc43bab1353e1660a90081f02dda7138f0f295cb0f88a57cabb7feb0e6aa68b",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 44385,
+      "svg_sha256": "8d06942249f8badc4208b324b2aa76acacb4afac16bbe41cbaa496c0670aaf7c",
+      "tag_counts": {
+        "g": 6,
+        "line": 283,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:lenient-fills-and-malformed-curves",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "lenient-fills-and-malformed-curves",
+      "document_sha256": "9bc517a9355b26df79c41a1fc2d0ee6b8f83bc71a9ad0485662879f9b693281b",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 557,
+      "svg_sha256": "c1ba0bffb776a4f36f41c236228c8334dd6401077ab24033c20249eb4236c92c",
+      "tag_counts": {
+        "circle": 1,
+        "g": 3,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:tracks-follow-graphics-with-net-extras",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "tracks-follow-graphics-with-net-extras",
+      "document_sha256": "24e55c4f605c13222404978981dd2909e9367ff39c7dab43faa9ade264ada0e9",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "rejected",
+      "error_contains": "field width_nm must be nonnegative"
+    },
+    {
+      "id": "board:via-fabrication-and-mask-edge-cases",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "via-fabrication-and-mask-edge-cases",
+      "document_sha256": "40b0c0a9ec6e8c7cf9f74a80510872910beee7955bffeb603f34b2ef4f74db35",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1644,
+      "svg_sha256": "d83519ae295a7b95a5831ad08527d69797e779081b15b7c0847d695e85539e62",
+      "tag_counts": {
+        "circle": 14,
+        "g": 6,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:zones-bundle-fill-rings-and-annotations",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "zones-bundle-fill-rings-and-annotations",
+      "document_sha256": "f24f572f6be1108e8b1ab28316861f0910db371ba70431c23fa602174f10ed79",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 892,
+      "svg_sha256": "86933e920c322a1b64003d9b47068ea434f1dd21dd198af082151ddfd9f599ab",
+      "tag_counts": {
+        "g": 5,
+        "polygon": 4,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:net-class-extras-follow-project-assignments",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "net-class-extras-follow-project-assignments",
+      "document_sha256": "8642e57a1155b3168eb6ea2a87d05fcd3e2ef56615224d2fb7a4f1b06b3529af",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1626,
+      "svg_sha256": "b5ebddafe04bb8f30194774de6229728a2d8150d8b8c896b406f00482ad0378e",
+      "tag_counts": {
+        "circle": 2,
+        "g": 9,
+        "line": 3,
+        "path": 1,
+        "polygon": 1,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:board-text-follows-python-serializer",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "board-text-follows-python-serializer",
+      "document_sha256": "b6c0506d456173585ddf1cd827a07d5a7d951f988d3c249706ce402dcf78c290",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 2077,
+      "svg_sha256": "1676994f5322b8ecf2f4ec539d71970d1a91b197e90dd172ec3a0450f62ec40b",
+      "tag_counts": {
+        "g": 10,
+        "path": 3,
+        "rect": 1,
+        "svg": 1,
+        "text": 5
+      }
+    },
+    {
+      "id": "board:text-boxes-bundle-border-and-alignment",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "text-boxes-bundle-border-and-alignment",
+      "document_sha256": "fa55b4b92da4840a2343741d210eb9a11ea00f8d4989bc319ac49e47ab2f0ad3",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 5920,
+      "svg_sha256": "4008f1fbb26be7583ee0944646bd794fb73bac8535d386c2e2d2fcbf077342ad",
+      "tag_counts": {
+        "g": 21,
+        "path": 1,
+        "rect": 4,
+        "svg": 1,
+        "text": 27
+      }
+    },
+    {
+      "id": "board:tables-precede-zones-and-bound-cached-cells",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "tables-precede-zones-and-bound-cached-cells",
+      "document_sha256": "960f47f54ada7222c016690f75407a6062075b785dfbaf07777552c8f4f01516",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 2714,
+      "svg_sha256": "e2391193d053c92cd183d5543c36bfdda8e4e0ed2f1035eac3e951a720a65c55",
+      "tag_counts": {
+        "circle": 2,
+        "g": 6,
+        "line": 8,
+        "path": 3,
+        "polygon": 1,
+        "rect": 1,
+        "svg": 1,
+        "text": 2
+      }
+    },
+    {
+      "id": "board:dimensions-follow-tables-and-precede-zones",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "dimensions-follow-tables-and-precede-zones",
+      "document_sha256": "f44bc7a70511aea4a5c0c7115fe7306a3e00d0b3d5b8e352a3130cff73a066e2",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 14616,
+      "svg_sha256": "80aab9bd3df0471aa5e4464a7d27b2dc832905ac15011a99a8e43062bf293dc5",
+      "tag_counts": {
+        "circle": 1,
+        "g": 8,
+        "line": 86,
+        "path": 1,
+        "polygon": 1,
+        "rect": 1,
+        "svg": 1
+      }
+    },
+    {
+      "id": "board:embedded-footprints-follow-zones-and-keep-local-ownership",
+      "producer": "board",
+      "source_vector": "board_plotter_a0_vectors.json",
+      "source_id": "embedded-footprints-follow-zones-and-keep-local-ownership",
+      "document_sha256": "c9bd5dfb58d1e64246f6842c2ffdb876586f3a33912591913df49dc8b2980258",
+      "viewport": {
+        "min_x_nm": -100000000,
+        "min_y_nm": -100000000,
+        "width_nm": 200000000,
+        "height_nm": 200000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 8609,
+      "svg_sha256": "4d5d5a98718627cd47a9ddb5b8954f906974a497c3432e4c8a2fe9612abe9676",
+      "tag_counts": {
+        "circle": 1,
+        "g": 17,
+        "line": 3,
+        "path": 2,
+        "polygon": 2,
+        "rect": 3,
+        "svg": 1,
+        "text": 4
+      }
+    },
+    {
+      "id": "schematic:custom-worksheet-connectivity-and-annotation-family-order",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "custom-worksheet-connectivity-and-annotation-family-order",
+      "document_sha256": "973445c903c97b12f3b90f8d2980510029e5749b1af3c41d44d89a0ec0235c98",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 80000000,
+        "height_nm": 100000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 4522,
+      "svg_sha256": "b4b51f6cdfceb6eecf21727c2730c0996836769e7e5146b3121176b6385d7527",
+      "tag_counts": {
+        "circle": 2,
+        "g": 13,
+        "line": 1,
+        "polygon": 2,
+        "polyline": 5,
+        "rect": 4,
+        "svg": 1,
+        "text": 8
+      }
+    },
+    {
+      "id": "schematic:default-worksheet-header-only",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "default-worksheet-header-only",
+      "document_sha256": "4c66464fd764365c5b739cf9f907ab73c81a723217567c21063b75f712e454f2",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 297002200,
+        "height_nm": 210007200
+      },
+      "outcome": "svg",
+      "svg_bytes": 9500,
+      "svg_sha256": "6fdcc65886f0d52f671b68591bcb78c8c251789dbfa3e97c8609a4e247b9f886",
+      "tag_counts": {
+        "g": 2,
+        "polyline": 22,
+        "rect": 5,
+        "svg": 1,
+        "text": 33
+      }
+    },
+    {
+      "id": "schematic:valid-bitmap-and-transparent-junction",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "valid-bitmap-and-transparent-junction",
+      "document_sha256": "bfbe13fd8e9c08fd5f79c26d71926669da18bd7484a8ba41992cc03d70a94e52",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 20000000,
+        "height_nm": 20000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 878,
+      "svg_sha256": "1c0a750a97839eb2a8b01ddf4969138dcbd1a101f827fe14044742b9bacfa64c",
+      "tag_counts": {
+        "circle": 1,
+        "g": 3,
+        "image": 1,
+        "rect": 2,
+        "svg": 1
+      }
+    },
+    {
+      "id": "schematic:explicit-font-metrics-for-schematic-annotations",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "explicit-font-metrics-for-schematic-annotations",
+      "document_sha256": "59cee5f4c1a636fa62998bc7e18cc9ce18db3a098e79cbffb94b6e29c91f5d5a",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 20000000,
+        "height_nm": 20000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1772,
+      "svg_sha256": "5a324a2b4b325ff04064a94d587997fb33ec472e7bfb3b4b73b8f70c49fc248b",
+      "tag_counts": {
+        "g": 5,
+        "polygon": 1,
+        "rect": 3,
+        "svg": 1,
+        "text": 4
+      }
+    },
+    {
+      "id": "schematic:schematic-graphics-rules-images-and-table-family-order",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "schematic-graphics-rules-images-and-table-family-order",
+      "document_sha256": "bfd7aa13b4244cad19c687ad3d7a80161e7fe6f129807f04f4006960eb416d41",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 30000000,
+        "height_nm": 30000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 6625,
+      "svg_sha256": "3b830090b3567811420847e8c216ad69dc400478ae0d5236b5b7be0a1dbf9c11",
+      "tag_counts": {
+        "circle": 3,
+        "g": 16,
+        "image": 3,
+        "path": 5,
+        "polygon": 1,
+        "polyline": 1,
+        "rect": 10,
+        "svg": 1,
+        "text": 3
+      }
+    },
+    {
+      "id": "schematic:explicit-font-metrics-for-schematic-table",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "explicit-font-metrics-for-schematic-table",
+      "document_sha256": "89be1c24e76b7c8cd74717be9d6e955b4348037f80e1947b092e7c398cc3f2e0",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 20000000,
+        "height_nm": 20000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 1071,
+      "svg_sha256": "f3e99c88ccf41147a30a8eb37e58840d7431a37b23a8d964c40df297540631ac",
+      "tag_counts": {
+        "g": 3,
+        "rect": 3,
+        "svg": 1,
+        "text": 2
+      }
+    },
+    {
+      "id": "schematic:placed-symbols-pins-fields-dnp-and-overplots",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "placed-symbols-pins-fields-dnp-and-overplots",
+      "document_sha256": "0bc6ec83b560c40aadc8a0f7d9ff374b50ca0d2a8d4bb394bb4f1b1c03a206fa",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 30000000,
+        "height_nm": 30000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 6654,
+      "svg_sha256": "44f7f2030d33ec8da0c3e82cc25729c27e4e01c9c31fee9ba6bef8b551cfef41",
+      "tag_counts": {
+        "g": 10,
+        "line": 4,
+        "polyline": 4,
+        "rect": 6,
+        "svg": 1,
+        "text": 16
+      }
+    },
+    {
+      "id": "schematic:hierarchical-sheets-follow-symbol-overplots",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "hierarchical-sheets-follow-symbol-overplots",
+      "document_sha256": "9093196a412690ff2acc7b6a561deb86277b16e5930b8ba8cab121ba20d9a50a",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 30000000,
+        "height_nm": 30000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 12107,
+      "svg_sha256": "c0d605906faacc5a39f67628d4dad74dbf04aed37556c6a2731f20c335b26f37",
+      "tag_counts": {
+        "g": 17,
+        "line": 6,
+        "polygon": 5,
+        "polyline": 4,
+        "rect": 10,
+        "svg": 1,
+        "text": 25
+      }
+    },
+    {
+      "id": "schematic:hierarchical-sheet-undecorated-shapes-and-zero-width-border",
+      "producer": "schematic",
+      "source_vector": "schematic_plotter_a0_vectors.json",
+      "source_id": "hierarchical-sheet-undecorated-shapes-and-zero-width-border",
+      "document_sha256": "a8a64726407941d9a0269dffc9db4d30f00bbb04ab01ed60fbb898c76dabaa49",
+      "viewport": {
+        "min_x_nm": 0,
+        "min_y_nm": 0,
+        "width_nm": 20000000,
+        "height_nm": 20000000
+      },
+      "outcome": "svg",
+      "svg_bytes": 3047,
+      "svg_sha256": "59991cd740122751afdeab2251b3c7aab1af55e9bd358491fd5fe93d30188d3e",
+      "tag_counts": {
+        "g": 7,
+        "rect": 4,
+        "svg": 1,
+        "text": 4
+      }
+    }
+  ]
+}

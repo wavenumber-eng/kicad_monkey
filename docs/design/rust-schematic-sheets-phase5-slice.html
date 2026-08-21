@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust schematic Plotter-IR Phase 5 hierarchical sheets</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust schematic Plotter-IR Phase 5 hierarchical sheets</h1>
+
+  <p>Status: accepted. P5_071 completes the bounded native schematic
+  producer by appending hierarchical sheet records after every placed-symbol
+  overplot. It retains the Python authority's sheet box, pin, visible-field,
+  DNP, identity, and source-order behavior while preserving all earlier
+  foundation, annotation, graphics, and symbol entry points.</p>
+
+  <h2>Terminal order and source boundary</h2>
+  <p>Core selects only direct top-level <code>(sheet ...)</code> spans and
+  parses each selected carrier under the existing aggregate source, depth,
+  node, and selected-form ceilings. Connectivity-oriented sheet models are
+  not reused because they deliberately omit plot styling and quantize pin
+  positions. Sheet records retain source order but are emitted only after all
+  symbol instances and overlap records.</p>
+
+  <h2>Box, pins, fields, and DNP behavior</h2>
+  <p>An opaque authored background emits a filled rectangle followed by the
+  border. A missing or transparent background emits the same no-fill border
+  twice, preserving KiCad's two plotting passes. Every identified sheet pin
+  is enclosed by a typed <code>StartBlock</code>/<code>EndBlock</code> pair
+  containing its Text. Input, output, bidirectional, tri-state, and passive
+  shapes append their exact decoration; dot, round, diamond, and rectangle
+  preserve Python's text-only block with no decoration. UUIDs win; otherwise
+  a bounded parent-and-name identity is synthesized. Pins without a valid
+  identity remain ungrouped.</p>
+
+  <p>Visible properties follow all pins in authored order. Sheetname,
+  Sheetfile, custom-field, show-name, justification, font, and hyperlink
+  behavior remains exact; sheet field and pin text deliberately do not expand
+  project variables. DNP sheets preserve an opaque background, dim every
+  subsequent colored operation, and append the two canonical diagonal marker
+  strokes over bounds that include pin and property text.</p>
+
+  <h2>Determinism and resources</h2>
+  <p>Project variables, drawing settings, worksheet bytes, occurrence context,
+  and font bytes remain explicit caller-owned sidecars. DNP text measurement
+  reuses the document's single authenticated font session; core performs no
+  filesystem, project, or platform-font discovery.</p>
+
+  <p>Independent ceilings bound sheets, authored sheet properties, and sheet
+  pins in addition to aggregate records, operations, input/output points,
+  retained text and metadata, parse work, and font work. Coordinate sums,
+  text offsets, decoration points, bounds, DNP margins, and marker endpoints
+  are checked for finite JavaScript-safe results before publication. Malformed
+  or resource-exhausted inputs return no partial document.</p>
+
+  <p>Native geometry deliberately fails closed where Python's permissive model
+  would publish a contract-incoherent result: positive dimensions must remain
+  positive after nanometre rounding, independently rounded position, size,
+  and far corner must agree, and pin angles must fit the exact JavaScript-safe
+  conversion range. Authored negative sheet strokes are not rejected because
+  Python defines them as a zero-width border; the native record and strict
+  semantic contract preserve that result.</p>
+
+  <h2>Contract and evidence</h2>
+  <p>The strict schematic contract gains one terminal <code>sheet</code>
+  record and a producer-local six-kind operation union for Rect, Text,
+  PlotPoly, ThickSegment, and typed sheet-pin block markers. Semantic
+  validation enforces record identity, positive size, exact local indexes,
+  body-pass ordering, block ownership, parent linkage, layerless state, and
+  terminal DNP marker state. Generated Rust, Python, TypeScript, and JSON
+  Schema projections regenerate atomically during the pre-freeze a0 window.</p>
+
+  <p>The hermetic Python vectors declare sheets before symbols in source yet
+  prove their terminal output phase. They cover an opaque DNP sheet, a
+  transparent duplicate-border sheet, all nine pin shapes, five exact
+  decorations, four decoration-free directive shapes, cardinal and fallback
+  rotations, bus and slash display rules, authored and synthesized pin IDs,
+  hyperlinks, visible/hidden/custom fields, literal project tokens, ignored
+  instance metadata, zero-width negative-stroke authority, dimming, and exact
+  DNP bounds with the checked-in fixture font. Rack <code>L1_036</code>,
+  focused resource tests, semantic mutations, and generation checks own
+  executable evidence. No WASM or Cruncher endpoint is added by this
+  native-first slice.</p>
+</body>
+</html>

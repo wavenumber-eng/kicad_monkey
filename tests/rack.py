@@ -9,7 +9,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _suite_paths import KICAD_PACKAGE_ROOT, TESTS_DIR, TESTS_REPO_ROOT
+from _suite_paths import (
+    KICAD_PACKAGE_ROOT,
+    TEST_CORPUS_ARCHIVE,
+    TEST_CORPUS_ROOT,
+    TEST_GENERATED_CORPUS_ROOT,
+    TESTS_DIR,
+    TESTS_REPO_ROOT,
+)
 
 
 def _prepend_pythonpath(env: dict[str, str], *paths: Path | None) -> None:
@@ -36,6 +43,14 @@ def main() -> int:
     env["RACK_TESTS_DIR"] = str(TESTS_DIR)
     env["WN_RACK_TESTS_DIR"] = str(TESTS_DIR)
     env.setdefault("WN_TEST_SUITES_ROOT", str(TESTS_REPO_ROOT))
+    if TEST_CORPUS_ARCHIVE.is_file() and not env.get("KM_CORPUS"):
+        env["KM_CORPUS"] = str(TEST_CORPUS_ARCHIVE)
+    env["KM_CORPUS_ROOT"] = str(TEST_CORPUS_ROOT)
+    env["KM_CORPUS_OUTPUT_ROOT"] = str(TEST_GENERATED_CORPUS_ROOT)
+    env["KM_CORPUS_RESOLVED_FROM"] = str(
+        Path(env["KM_CORPUS"]).expanduser().resolve()
+    )
+    env.pop("WN_TEST_CORPUS", None)
     _prepend_pythonpath(env, KICAD_PACKAGE_ROOT / "src" / "py")
 
     rack_exe_name = "rack.exe" if os.name == "nt" else "rack"

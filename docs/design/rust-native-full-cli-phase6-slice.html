@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust-backed Cruncher CLI compatibility - Phase 6</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <h1>Rust-backed Cruncher CLI compatibility - Phase 6</h1>
+  <p><strong>Status:</strong> P6_040 accepted and closed.</p>
+
+  <h2>Decision and boundary</h2>
+  <p>P6_040 preserves the installed <code>kicad-cruncher</code>,
+  <code>kcr</code>, and <code>python -m kicad_cruncher</code> entry points and
+  the primary <code>design</code>, <code>design-review</code>, and
+  <code>dr</code> workflow. On the selected Windows path, the existing Python
+  facade remains responsible for argument parsing, project discovery, Design
+  JSON, netlist JSON, presentation, manifest and README assembly, logging,
+  and transactional publication. Its promoted PCB physical-base SVG,
+  compiled-graph, and version-E netlist providers are the packaged Rust
+  operations and have no Python retry.</p>
+  <p>This is the bounded meaning of native CLI delivery for the current Phase
+  6 sequence. It is not a claim that the universal Cruncher wheel contains a
+  separately compiled Rust <code>kicad-cruncher</code> executable or that all
+  public Cruncher workflows have been rewritten in Rust. A literal all-Rust
+  command and application-orchestration replacement would require a new
+  decision and separately versioned contracts.</p>
+
+  <h2>Public compatibility</h2>
+  <p>The existing command manifest remains authoritative for the public
+  command inventory. Every listed command and alias retains command-level
+  help. The release-acceptance workflow exercises the three installed entry
+  mechanisms, while full artifact acceptance is deliberately scoped to the
+  design alias family. Its established arguments remain an optional
+  <code>.kicad_pro</code> or <code>.kicad_sch</code> positional input,
+  <code>-o</code>/<code>--output</code>, and <code>--no-indexes</code>.</p>
+  <p>Exit status <code>0</code> means success, help, or version reporting;
+  argparse syntax and unknown-argument failures use status <code>2</code> and
+  stderr; resolved-input, malformed-source, provider, resource, and runtime
+  failures use status <code>1</code>. Cruncher command logging retains its
+  established stdout channel. Evidence normalizes terminal color, absolute
+  temporary paths, and elapsed-time text without weakening message order or
+  channel assertions.</p>
+
+  <h2>Artifact and failure contract</h2>
+  <p>The design-review manifest remains Cruncher-owned. Its strict package
+  schema and semantic checks cover the existing a0 artifact index, relative
+  output references, graph metadata and linkage, schematic and PCB SVG
+  records, native design-facts provenance, netlist byte count and digest, and
+  the README. Every referenced artifact must remain beneath the selected
+  output root and must exist before publication.</p>
+  <p>Repeated entry points over the same input produce the same governed
+  facts and artifact structure. The <code>--no-indexes</code> switch changes
+  only its documented Design JSON lookup-index surface. Missing native
+  executables, incompatible handshakes, timeout, truncated or malformed
+  results, resource rejection, malformed KiCad input, and invalid manifests
+  return failure without invoking a Python physical, graph, or version-E
+  writer fallback. The sibling-tree transaction preserves a prior destination
+  and removes unpublished staging output.</p>
+
+  <h2>Contracts and packaging</h2>
+  <p>P6_040 introduces no Monkey transport operation and does not change the
+  frozen Phase 5 Plotter-IR roots or the accepted Phase 6 A0/A1/A2 native
+  envelopes. Command arguments, streams, exit status, and the output tree are
+  Cruncher process and artifact contracts rather than Monkey TypeSpec
+  transport. The universal Cruncher wheel continues to declare an ordinary
+  public <code>kicad-monkey&gt;=2026.8.18</code> dependency. The selected
+  Windows Monkey wheel supplies the package-owned native executable; neither
+  distribution embeds workspace paths or the other package's source tree.</p>
+
+  <h2>Evidence and promotion</h2>
+  <p>Cruncher owns focused public-CLI and installed-artifact tests for entry
+  points, aliases, arguments, normalized logs, exits, exact manifest and
+  artifact topology, repeatability, hostile provider behavior, and
+  transaction cleanup. Root Rack L3_026 composes those tests with the accepted
+  no-fallback physical-provider and source-bound design-facts gates. The
+  reusable Windows workflow builds the native executable, runs L3_026 under
+  the four-job/two-thread cap, and is ordered after P6_030 in CI and release.</p>
+  <p>The final local Windows run passed L3_026 1/1 in 239.86 seconds
+  (240.86 seconds including Rack orchestration), composing 116 focused
+  transport, provider, manifest, CLI, artifact-build, and isolated-install
+  tests.</p>
+  <p>P6_040 closed after executable evidence, three independent approvals, and
+  the recorded Rack runtime agreed with this boundary. Native application
+  delivery remains in progress: P6_050 still owns the final selected Windows bot/public-release
+  hard switch, clean public-distribution installation, artifact provenance,
+  corpus/oracle evidence, and final runtime decision.</p>
+</main>
+</body>
+</html>

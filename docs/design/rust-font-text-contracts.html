@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust font, shaping, and outline contracts</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust font, shaping, and outline contracts</h1>
+
+  <p>Status: accepted at commit <code>34c0424</code>. This slice establishes TypeSpec-owned
+  interchange before native shaping or outline extraction is implemented. The
+  accepted boundary is consumed by the maintained HarfRust successor selected
+  in <a href="rust-native-text-shaping.html">Rust native text shaping</a>.
+  It does not promote a browser operation or require ambient font discovery.</p>
+
+  <h2>Boundary</h2>
+  <p><code>FontBundleManifestA0</code> carries metadata only. Font files are
+  separate byte buffers indexed by numeric slots, so native callers retain
+  ownership and a future browser ABI can accept separate
+  <code>Uint8Array</code> values without base64 expansion. A valid bundle has
+  unique nonempty IDs, unique in-range slots, exactly one entry per supplied
+  buffer, exact lowercase SHA-256 hashes, finite unique variation axes, and no
+  unreferenced extra buffers.</p>
+
+  <p>Callers provide resource ceilings. Every slot, per-font size, aggregate
+  size, and metadata-string budget is preflighted before any font is hashed.
+  The defaults are permissive safety ceilings, not
+  product-size claims, and operations may select lower or higher values based
+  on their trust boundary. Font face existence and supported variation axes
+  require parsing the actual OpenType bytes and remain implementation gates for
+  the shaping slice.</p>
+
+  <h2>Deterministic resolution</h2>
+  <p>Successful validation returns a private-field indexed bundle handle. An
+  explicit font ID takes precedence over aliases. Without an ID, aliases
+  must select exactly one entry; zero matches report <code>missing_font</code>
+  and multiple matches report <code>ambiguous_font</code>. Native and generated
+  Python resolvers use ID/alias indexes and caller-bounded request alias/string
+  budgets, rather than rescanning every manifest alias. Invalid manifests
+  cannot produce the handle. Browser callers will receive no
+  system-font fallback: only embedded or caller-supplied bundle bytes are in
+  scope.</p>
+
+  <h2>Attributable text evidence</h2>
+  <p><code>ShapingRecordA0</code> gives every oracle a stable case ID and exact
+  comparison policy. It freezes the font hash, face index, ordered
+  variations, scale, direction, script, language, feature ranges, glyph IDs,
+  clusters, advances, offsets, safety flags, cluster level, text-boundary
+  state, default-ignorable policy, dotted-circle policy, and requested output
+  flags. No HarfBuzz buffer default remains implicit.</p>
+
+  <p>Text positions use UTF-8 byte offsets. The Rust implementation must feed
+  the complete string through <code>UnicodeBuffer::push_str</code>, whose
+  <code>char_indices</code> clusters are UTF-8 byte offsets, and pass each
+  feature's half-open <code>[start, end)</code> range to HarfRust unchanged.
+  Non-global endpoints must be UTF-8 code-point boundaries; the sole global
+  sentinel is <code>start=0, end=4294967295</code>. Output glyph clusters use
+  the same unit but only scalar-start offsets: the terminal byte length is a
+  valid feature endpoint, never a glyph cluster, and empty text admits no
+  glyphs. The structural combining-mark vector contains byte offsets
+  larger than Unicode-scalar indices so implementations cannot silently
+  substitute scalar or UTF-16 units.</p>
+
+  <p><code>OutlineVectorA0</code> separately freezes raw move, line, quadratic,
+  cubic, and close commands in finite <code>float64</code> font design units,
+  paired with positive <code>units_per_em</code>, a nonempty stable case ID,
+  and a coordinate-only absolute tolerance in those same units. Font hashes,
+  font/case IDs, glyph IDs, command kinds/order, face indices, variations, and
+  UPEM remain exact even when coordinates use a tolerance. Fractional
+  coordinates are intentional so
+  TrueType, CFF, and CFF2 outlines share one a0 representation; downstream
+  KiCad scaling and rounding are not part of this record. Generated Rust
+  finite-float newtypes prevent programmatic NaN/infinity construction through
+  the public fields; generated Python decoding and semantic validators enforce
+  the same finite boundary. Final render-cache
+  comparison remains a third gate. Keeping all
+  three layers separate makes a parity failure attributable to shaping,
+  outline extraction, or placement/transformation.</p>
+
+  <h2>Generation and evidence</h2>
+  <p>The four JSON Schemas plus strict Python, TypeScript, and Rust DTOs are
+  generated from <code>font-text-a0.tsp</code>. Rack <code>L0_052</code> consumes
+  one language-neutral vector file and checks strict roots, out-of-band bytes,
+  slot/hash semantics, inclusive resource limits, deterministic resolution,
+  and the independent shaping/outline records. Rack <code>L0_049</code> retains
+  reproducible generation, while <code>L0_046</code> owns the parity registry
+  and Rust hygiene gate.</p>
+
+  <h2>Retained implementation gates</h2>
+  <ul>
+    <li>Keep the pinned HarfRust shaper and ttf-parser/Skrifa outline stack
+    governed by real shaping/outline oracle corpora and dependency review.</li>
+    <li>Validate face indices and requested variation axes against font bytes.</li>
+    <li>Preflight untrusted JSON collection sizes before generated DTO
+    allocation at any public operation boundary.</li>
+    <li>Close shaping-record parity, outline parity, and final render-cache
+    parity independently before text plotting promotion.</li>
+    <li>Document the native workflag and byte-buffer ABI before any optional
+    downstream WASM packaging.</li>
+  </ul>
+</body>
+</html>

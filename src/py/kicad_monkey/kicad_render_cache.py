@@ -99,7 +99,9 @@ class RenderCacheResolver:
         elif not isclose(cache.angle, request.angle, abs_tol=request.angle_tolerance):
             reasons.append("angle_mismatch")
 
-        if not cache.polygons:
+        # KiCad saves polygon-less caches for empty resolved text, so an
+        # empty cache is only stale when the text is nonempty.
+        if not cache.polygons and request.text:
             reasons.append("empty_cache")
 
         for index, polygon in enumerate(cache.polygons):
@@ -172,7 +174,7 @@ class RenderCacheResolver:
         )
         reasons: list[str] = []
         warnings = ["python_generated_cache_not_kicad_exact"]
-        if not cache.polygons:
+        if not cache.polygons and request.text:
             reasons.append("empty_cache")
         if cache.text != request.text:
             reasons.append("resolved_text_mismatch")
@@ -215,25 +217,102 @@ def _point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, flo
     return inside
 
 
+def _signed_area(points: list[tuple[float, float]]) -> float:
+    total = 0.0
+    count = len(points)
+    for index in range(count):
+        x1, y1 = points[index]
+        x2, y2 = points[(index + 1) % count]
+        total += x1 * y2 - x2 * y1
+    return total / 2.0
+
+
+def _fracture_seam_index(points: list[tuple[float, float]]) -> int:
+    """Approximate the ring seam `Fracture()`'s Clipper2 `Simplify()` stores.
+
+    Simplified rings start just past the exit of a min-y run: the maximal
+    stretch of consecutive stored points at the ring's minimum y.  The seam
+    lands at the min-y top that closes the ring LAST in Clipper2's sweep:
+    `DoTopOfScanbeam` handles single-point maxima left-to-right but defers
+    horizontal maxima onto a LIFO stack processed right-to-left afterwards.
+    So a multi-point (horizontal) run always closes after every single-point
+    run, and among horizontal runs the leftmost closes last (Wavenumber 'W'),
+    while among single-point runs the rightmost closes last (tiny_tapeout
+    FreeMono 'P').
+    """
+
+    count = len(points)
+    min_y = min(point[1] for point in points)
+    runs = _min_y_runs(points, min_y)
+    if not runs:
+        # Every stored point sits at min y; keep the smallest-x anchor.
+        return min(range(count), key=lambda index: points[index][0])
+    def run_min_x(run: tuple[int, int]) -> float:
+        index, x = run[0], points[run[0]][0]
+        while index != run[1]:
+            index = (index + 1) % count
+            x = min(x, points[index][0])
+        return x
+
+    horizontal = [run for run in runs if run[1] != run[0]]
+    if horizontal:
+        chosen = min(horizontal, key=run_min_x)
+    else:
+        chosen = max(runs, key=lambda run: points[run[0]][0])
+    return (chosen[1] + 1) % count
+
+
+def _min_y_runs(
+    points: list[tuple[float, float]],
+    min_y: float,
+) -> list[tuple[int, int]]:
+    """Maximal cyclic (start, end) stretches of consecutive min-y points."""
+
+    count = len(points)
+    runs: list[tuple[int, int]] = []
+    for index in range(count):
+        if points[index][1] != min_y or points[(index - 1) % count][1] == min_y:
+            continue
+        end = index
+        while points[(end + 1) % count][1] == min_y:
+            end = (end + 1) % count
+        runs.append((index, end))
+    return runs
+
+
 def _rotate_exterior_for_fracture(
     points: list[tuple[float, float]],
 ) -> list[tuple[float, float]]:
     """Approximate KiCad's pre-fracture simplify vertex ordering.
 
     `SHAPE_POLY_SET::Fracture()` simplifies holed glyph polygons before
-    bridging holes.  For the outline-font glyphs under test, the simplified
-    exterior starts immediately after the top-most point.
+    bridging holes, restarting every ring at its Simplify seam.
     """
 
     if not points:
         return points
-    top_index = min(range(len(points)), key=lambda i: (points[i][1], -points[i][0]))
-    start = (top_index + 1) % len(points)
+    start = _fracture_seam_index(points)
     return points[start:] + points[:start]
 
 
 def _leftmost_index(points: list[tuple[float, float]]) -> int:
-    return min(range(len(points)), key=lambda i: (points[i][0], points[i][1]))
+    """Approximate KiCad's hole bridge-vertex selection.
+
+    `fractureSingleCacheFriendly()` bridges each hole at the first stored
+    point whose x equals the hole's minimum (strict `<` scan, no tie-break).
+    The stored order comes from `Fracture()`'s Clipper2 `Simplify()`, so the
+    scan starts at the ring's Simplify seam and returns the first min-x
+    point it reaches in stored traversal order.
+    """
+
+    count = len(points)
+    seam = _fracture_seam_index(points)
+    x_min = min(point[0] for point in points)
+    for offset in range(count):
+        index = (seam + offset) % count
+        if points[index][0] == x_min:
+            return index
+    raise AssertionError("hole ring has no min-x point")
 
 
 def _edge_matches_y(
@@ -362,7 +441,11 @@ def _fracture_exterior_with_holes(
     current_index = 0
     while True:
         edge = edges[current_index]
-        fractured.append(edge["p1"])
+        # KiCad assembles the fractured ring through SHAPE_LINE_CHAIN::Append,
+        # which drops points equal to the last one; a bridge split point can
+        # coincide with the hole's bridge vertex at small glyph sizes.
+        if not fractured or fractured[-1] != edge["p1"]:
+            fractured.append(edge["p1"])
         next_index = int(edge["next"])
         if next_index == 0:
             break
@@ -371,35 +454,139 @@ def _fracture_exterior_with_holes(
     return fractured
 
 
-def _fracture_render_cache_contours(
+def _clipper_simplify_order_key(
+    points: list[tuple[float, float]],
+) -> tuple[float, float]:
+    """Approximate Clipper2's `LocMinSorter` outer output order.
+
+    KiCad's `Fracture()` runs `Simplify()` per glyph `SHAPE_POLY_SET`, and
+    Clipper2's sweep emits each disjoint outer at its bottom-most local
+    minimum: bottom-most first (largest y in the y-down cache frame), ties by
+    smallest x, otherwise stable in input order.
+    """
+
+    max_y = max(point[1] for point in points)
+    min_x = min(point[0] for point in points if point[1] == max_y)
+    return (-max_y, min_x)
+
+
+def _fracture_contour_group(
     contours: list[list[tuple[float, float]]],
 ) -> list[list[tuple[float, float]]]:
+    """Fracture one glyph's contours with KiCad's holed-glyph normalization.
+
+    KiCad only calls `Fracture()` when the glyph polygon set has holes, and
+    `Fracture()` runs Clipper2 `Simplify()` over the whole set first.  A holed
+    group therefore gets every ring's seam rewritten (including hole-free
+    outers) and its outers reordered; a hole-free group keeps font order and
+    ring starts untouched.
+    """
+
+    retained = [contour for contour in contours if contour]
+
+    # KiCad's `Fracture()` classifies rings by containment, not storage order:
+    # Noto faces store a glyph's hole contours before the exterior that owns
+    # them.  Containment-depth parity reproduces that order-independently:
+    # even depth = exterior, odd depth = hole, and a hole's parent is its
+    # first stored containing exterior one level up.  Degenerate (<3 point)
+    # rings — contours collapsed by cache-frame quantization — are standalone:
+    # they never contain, never count as holes, and stay at their stored
+    # position among the exteriors.
+    containers: list[list[int]] = []
+    for index, contour in enumerate(retained):
+        containers.append(
+            [
+                other_index
+                for other_index, other in enumerate(retained)
+                if other_index != index
+                and len(other) >= 3
+                and _point_in_polygon(contour[0], other)
+            ]
+        )
+
     polygons: list[dict[str, Any]] = []
+    polygon_by_contour: dict[int, dict[str, Any]] = {}
+    for index, contour in enumerate(retained):
+        if len(contour) < 3 or len(containers[index]) % 2 == 0:
+            polygon: dict[str, Any] = {"exterior": contour, "holes": []}
+            polygons.append(polygon)
+            polygon_by_contour[index] = polygon
 
-    for contour in contours:
-        if len(contour) < 3:
+    for index, contour in enumerate(retained):
+        depth = len(containers[index])
+        if len(contour) < 3 or depth % 2 == 0:
             continue
-
-        parent = None
-        for candidate in polygons:
-            if _point_in_polygon(contour[0], candidate["exterior"]):
-                parent = candidate
-                break
-
+        parent = next(
+            (
+                polygon_by_contour[other_index]
+                for other_index in containers[index]
+                if len(containers[other_index]) == depth - 1
+            ),
+            None,
+        )
         if parent is None:
             polygons.append({"exterior": contour, "holes": []})
         else:
             parent["holes"].append(contour)
 
+    group_has_holes = any(polygon["holes"] for polygon in polygons)
+    if group_has_holes:
+        # `Fracture()`'s Clipper2 `Simplify()` emits rings in a fixed
+        # orientation (exteriors positive shoelace area in the cache frame,
+        # holes negative) regardless of input winding.  Mirrored text flips
+        # every ring's winding, so normalize before the seam/bridge rules;
+        # hole-free groups skip Simplify and keep their stored winding.
+        for polygon in polygons:
+            if _signed_area(polygon["exterior"]) < 0.0:
+                polygon["exterior"] = list(reversed(polygon["exterior"]))
+            polygon["holes"] = [
+                list(reversed(hole)) if _signed_area(hole) > 0.0 else hole
+                for hole in polygon["holes"]
+            ]
     fractured: list[list[tuple[float, float]]] = []
     for polygon in polygons:
-        fractured.append(
-            _fracture_exterior_with_holes(
-                polygon["exterior"],
-                polygon["holes"],
+        if polygon["holes"]:
+            fractured.append(
+                _fracture_exterior_with_holes(
+                    polygon["exterior"],
+                    polygon["holes"],
+                )
             )
-        )
+        elif group_has_holes:
+            # `Fracture()`'s Clipper2 `Simplify()` drops degenerate rings, so
+            # they only survive in hole-free groups that skip `Fracture()`.
+            if len(polygon["exterior"]) >= 3:
+                fractured.append(_rotate_exterior_for_fracture(polygon["exterior"]))
+        else:
+            fractured.append(polygon["exterior"])
 
+    if group_has_holes:
+        fractured.sort(key=_clipper_simplify_order_key)
+    return fractured
+
+
+def _fracture_render_cache_contours(
+    contours: list[list[tuple[float, float]]],
+    group_sizes: Optional[list[int]] = None,
+) -> list[list[tuple[float, float]]]:
+    """Fracture cache contours, scoped per glyph group when sizes are known.
+
+    KiCad's saved-cache writer fractures each drawn glyph's polygon set
+    independently, so hole containment, hole bridging, and the Simplify seam
+    and outer reordering are all scoped to one glyph group while glyph draw
+    order is preserved.  Without group sizes the whole input is one group.
+    """
+
+    if group_sizes is None:
+        return _fracture_contour_group(contours)
+    if sum(group_sizes) != len(contours):
+        raise ValueError("contour group sizes do not partition the contours")
+
+    fractured: list[list[tuple[float, float]]] = []
+    start = 0
+    for size in group_sizes:
+        fractured.extend(_fracture_contour_group(contours[start:start + size]))
+        start += size
     return fractured
 
 
@@ -432,8 +619,11 @@ def generate_render_cache_from_text_params(
         _trim_repeated_closing_point(list(contour.points))
         for contour in geometry.contours
     ]
-    for points in _fracture_render_cache_contours(contours):
-        if len(points) >= 3:
+    group_sizes = list(getattr(geometry, "contour_group_sizes", []) or []) or None
+    for points in _fracture_render_cache_contours(contours, group_sizes):
+        # KiCad's saved-cache writer publishes degenerate (collapsed) rings
+        # as their own polygons, so keep every non-empty fractured contour.
+        if points:
             polygons.append(
                 RenderCachePolygon(
                     contours=[RenderCacheContour(points=points)],
@@ -542,9 +732,9 @@ def render_cache_request_for_footprint_text(
 ) -> RenderCacheRequest:
     """Build a render-cache request for footprint `fp_text`.
 
-    Footprint-local angle exactness is deliberately left unknown until the
-    request builder models flipped footprints and KiCad's property angle
-    normalization.
+    Locked (keep-upright) text folds its absolute angle into (-90, 90] inside
+    `to_text_params` via `keep_upright_draw_angle`; `(unlocked yes)` passes
+    the angle through unchanged.
     """
 
     variables = footprint_text_variables(footprint)

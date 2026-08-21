@@ -1,0 +1,83 @@
+{
+  "schema": "kicad_monkey.sexpr_parity_vectors.a0",
+  "cases": [
+    {
+      "id": "sexpr.simple_integer",
+      "source": "(test 123)",
+      "phase": "ok",
+      "built": "(test 123)"
+    },
+    {
+      "id": "sexpr.adjacent_lists",
+      "source": "(root(child 1)(next 2))",
+      "phase": "ok",
+      "built": "(root\n\t(child 1)\n\t(next 2)\n)"
+    },
+    {
+      "id": "sexpr.number_boundaries",
+      "source": "(root 123 -2. +0.5 .25 1e-3 1e 1abc +. -)",
+      "phase": "ok",
+      "built": "(root 123 -2 0.5 0.25 0.001 1e 1abc +. -)"
+    },
+    {
+      "id": "sexpr.kicad_escapes",
+      "source": "(root \"\\101\\x42\\n\\t\\\"\\\\\")",
+      "phase": "ok",
+      "built": "(root \"AB\\n\t\\\"\\\\\")"
+    },
+    {
+      "id": "sexpr.teardrops_bare_value",
+      "source": "(teardrops (curved_edges no)filter_ratio 0.9)(enabled yes))",
+      "phase": "ok",
+      "built": "(teardrops\n\t(curved_edges no)\n\t(filter_ratio 0.9)\n\t(enabled yes)\n)"
+    },
+    {
+      "id": "sexpr.quoted_newline_and_nested_xy",
+      "source": "(root \"Line 1\\nLine 2\" (xy 1.5 -2.25))",
+      "phase": "ok",
+      "built": "(root \"Line 1\\nLine 2\"\n\t(xy 1.5 -2.25)\n)"
+    },
+    {
+      "id": "sexpr.inline_hash_atom",
+      "source": "(root #not-a-comment)",
+      "phase": "ok",
+      "built": "(root #not-a-comment)"
+    },
+    {
+      "id": "sexpr.inline_quote_atom",
+      "source": "(root a\"b)",
+      "phase": "ok",
+      "built": "(root a\"b)"
+    },
+    {
+      "id": "sexpr.whole_line_comments",
+      "source": "# leading\n(root\n  # inner\n  (child 1)\n)\n# trailing\n",
+      "phase": "ok",
+      "built": "(root\n\t(child 1)\n)"
+    },
+    {
+      "id": "sexpr.unterminated_string",
+      "source": "(root \"unterminated)",
+      "phase": "lex",
+      "message_contains": "Unterminated delimited string"
+    },
+    {
+      "id": "sexpr.missing_open",
+      "source": "root child 1)",
+      "phase": "tree",
+      "message_contains": "Missing initial opening parenthesis"
+    },
+    {
+      "id": "sexpr.unbalanced_close",
+      "source": "(root))",
+      "phase": "tree",
+      "message_contains": "Unbalanced closing parenthesis"
+    },
+    {
+      "id": "sexpr.leftover_garbage",
+      "source": "(root) extra",
+      "phase": "tree",
+      "message_contains": "Leftover garbage"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 compiled schematic graph contract</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 compiled schematic graph contract</h1>
+  <p>
+    Status: accepted at <code>86247f2</code>. This slice establishes the transport and identity
+    authority before implementing the native schematic compiler. It does not
+    change the accepted Python producer and does not add a WASM operation.
+  </p>
+
+  <h2>Contract boundary</h2>
+  <p>
+    <code>compiled-schematic-graph-a0.tsp</code> owns the complete a0 envelope
+    and its ten row collections. TypeSpec generates strict JSON Schema, Rust,
+    Python/msgspec, and TypeScript projections. Unknown record fields and
+    unregistered enum values fail during transport decoding. Wire names such
+    as <code>type</code> and the registered dotted source-identity selectors
+    are preserved even when a target language requires a safe local name.
+    The a0 shape is closed: every additive field, source selector, enum value,
+    or row family requires a new schema version and an explicit migration.
+  </p>
+  <p>
+    Generated projections are structural DTOs. Graph-wide reference closure,
+    UUIDv7 validity, uniqueness, topology, role-dependent fields, and identity
+    replay remain semantic checks. Phase 4's native compiler step must port
+    the accepted Python validator and may add handwritten Rust validation
+    beside generated types; it must not hand-edit generated files.
+  </p>
+
+  <h2>Identity authority</h2>
+  <p>
+    <code>compiled_schematic_graph_a0_vectors.json</code> freezes project-scope
+    normalization plus source-derived and topology-derived UUIDv7 results.
+    The current Python allocator replays those values. The vectors cover every
+    row type, both source and derived branches, UUIDv7 version/variant bits,
+    selector precedence, normalization, and fail-closed inputs. The native
+    allocator must consume the same vector file before it may emit a compiled graph.
+    This keeps identity behavior language neutral without prematurely moving
+    compiler logic into the transport generator.
+  </p>
+
+  <h2>Evidence and ownership</h2>
+  <ul>
+    <li>Rack L0_049 checks Python and TypeScript regeneration and use.</li>
+    <li>Rack L0_050 decodes all ten row families and replays identity vectors.</li>
+    <li>The Rust contracts crate uses a package-owned strict envelope and row-literal decoder over the generated DTO.</li>
+    <li>Rack L3_018 decodes all four reference-project producer outputs through the generated contract.</li>
+    <li>TypeSpec remains the only editable transport source of truth.</li>
+    <li>WASM packaging remains deferred under the native-first ADR.</li>
+  </ul>
+
+  <h2>Next gate</h2>
+  <p>
+    Promotion of this contract authorizes the native validator, deterministic
+    allocator, named multi-file source bundle, and schematic compiler. Compiler
+    promotion requires Python differential evidence on generated and corpus
+    schematics; merely decoding this structural fixture is not compiler parity.
+  </p>
+</body>
+</html>

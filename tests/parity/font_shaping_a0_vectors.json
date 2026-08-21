@@ -1,0 +1,643 @@
+{
+  "oracle": {
+    "engine": "uharfbuzz",
+    "harfbuzz_version": "14.2.0",
+    "text_input_api": "hb_buffer_add_utf8"
+  },
+  "fonts": [
+    {
+      "font_id": "kicad_stroke_regular",
+      "font_path": "assets/fonts/kicad-stroke.ttf",
+      "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+      "face_index": 0,
+      "units_per_em": 1000
+    },
+    {
+      "font_id": "shaping_variable_fixture",
+      "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+      "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+      "face_index": 0,
+      "units_per_em": 1000
+    }
+  ],
+  "records": [
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "kicad_stroke_latin_ffi",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "kicad_stroke_regular",
+        "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+        "face_index": 0,
+        "variations": [],
+        "text": "ffi",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [],
+        "buffer_properties": {
+          "cluster_level": "monotone_graphemes",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "normal",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": false,
+          "produce_safe_to_insert_tatweel": false
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 71,
+          "cluster": 0,
+          "x_advance": 366,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 71,
+          "cluster": 1,
+          "x_advance": 366,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 74,
+          "cluster": 2,
+          "x_advance": 305,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "kicad_stroke_unicode_combining",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "kicad_stroke_regular",
+        "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+        "face_index": 0,
+        "variations": [],
+        "text": "Aé́B",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [],
+        "buffer_properties": {
+          "cluster_level": "monotone_graphemes",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "normal",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": true,
+          "produce_safe_to_insert_tatweel": true
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 34,
+          "cluster": 0,
+          "x_advance": 549,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 201,
+          "cluster": 1,
+          "x_advance": 549,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 737,
+          "cluster": 1,
+          "x_advance": 0,
+          "y_advance": 0,
+          "x_offset": -640,
+          "y_offset": 812,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 35,
+          "cluster": 5,
+          "x_advance": 640,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "kicad_stroke_scaled_rtl",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "kicad_stroke_regular",
+        "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+        "face_index": 0,
+        "variations": [],
+        "text": "ABCD",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1375,
+        "scale_y": 625,
+        "direction": "right_to_left",
+        "script": "Latn",
+        "language": "en",
+        "features": [
+          {
+            "tag": "kern",
+            "value": 0,
+            "start": 0,
+            "end": 4294967295
+          }
+        ],
+        "buffer_properties": {
+          "cluster_level": "monotone_characters",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "normal",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": true,
+          "produce_safe_to_insert_tatweel": false
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 37,
+          "cluster": 3,
+          "x_advance": 880,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 36,
+          "cluster": 2,
+          "x_advance": 880,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 35,
+          "cluster": 1,
+          "x_advance": 880,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 34,
+          "cluster": 0,
+          "x_advance": 755,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "kicad_stroke_remove_default_ignorable",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "kicad_stroke_regular",
+        "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+        "face_index": 0,
+        "variations": [],
+        "text": "A‍B",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [],
+        "buffer_properties": {
+          "cluster_level": "characters",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "remove",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": false,
+          "produce_safe_to_insert_tatweel": false
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 34,
+          "cluster": 0,
+          "x_advance": 549,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 35,
+          "cluster": 4,
+          "x_advance": 640,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "kicad_stroke_preserve_default_ignorable",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "kicad_stroke_regular",
+        "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+        "face_index": 0,
+        "variations": [],
+        "text": "A‍B",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [],
+        "buffer_properties": {
+          "cluster_level": "characters",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "preserve",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": false,
+          "produce_safe_to_insert_tatweel": false
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 34,
+          "cluster": 0,
+          "x_advance": 549,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 0,
+          "cluster": 1,
+          "x_advance": 640,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": true,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 35,
+          "cluster": 4,
+          "x_advance": 640,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "kicad_stroke_arabic_unsafe_concat",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "kicad_stroke_regular",
+        "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+        "face_index": 0,
+        "variations": [],
+        "text": "اب",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "right_to_left",
+        "script": "Arab",
+        "language": "ar",
+        "features": [],
+        "buffer_properties": {
+          "cluster_level": "monotone_graphemes",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "normal",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": true,
+          "produce_safe_to_insert_tatweel": true
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 1541,
+          "cluster": 2,
+          "x_advance": 731,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": true
+        },
+        {
+          "glyph_id": 1540,
+          "cluster": 0,
+          "x_advance": 731,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": true
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "fixture_non_global_utf8_feature",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "shaping_variable_fixture",
+        "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+        "face_index": 0,
+        "variations": [],
+        "text": "éAB",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [
+          {
+            "tag": "dlig",
+            "value": 1,
+            "start": 2,
+            "end": 4
+          }
+        ],
+        "buffer_properties": {
+          "cluster_level": "monotone_characters",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "normal",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": false,
+          "produce_safe_to_insert_tatweel": false
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 4,
+          "cluster": 0,
+          "x_advance": 500,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        },
+        {
+          "glyph_id": 3,
+          "cluster": 2,
+          "x_advance": 500,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "fixture_default_variation_axis",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "shaping_variable_fixture",
+        "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+        "face_index": 0,
+        "variations": [],
+        "text": "A",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [],
+        "buffer_properties": {
+          "cluster_level": "monotone_graphemes",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "normal",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": false,
+          "produce_safe_to_insert_tatweel": false
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 1,
+          "cluster": 0,
+          "x_advance": 500,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    },
+    {
+      "schema": "kicad_monkey.shaping_record.a0",
+      "type": "kicad_monkey.shaping_record",
+      "version": "a0",
+      "case_id": "fixture_supported_variation_axis",
+      "comparison": {
+        "mode": "exact"
+      },
+      "input": {
+        "font_id": "shaping_variable_fixture",
+        "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+        "face_index": 0,
+        "variations": [
+          {
+            "axis": "wght",
+            "value": 700.0
+          }
+        ],
+        "text": "A",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [],
+        "buffer_properties": {
+          "cluster_level": "monotone_graphemes",
+          "beginning_of_text": true,
+          "end_of_text": true,
+          "default_ignorables": "normal",
+          "do_not_insert_dotted_circle": false,
+          "produce_unsafe_to_concat": false,
+          "produce_safe_to_insert_tatweel": false
+        }
+      },
+      "glyphs": [
+        {
+          "glyph_id": 1,
+          "cluster": 0,
+          "x_advance": 620,
+          "y_advance": 0,
+          "x_offset": 0,
+          "y_offset": 0,
+          "unsafe_to_break": false,
+          "safe_to_insert_tatweel": false,
+          "unsafe_to_concat": false
+        }
+      ]
+    }
+  ],
+  "versioned_optional_flag_evidence": {
+    "case_id": "kicad_stroke_arabic_safe_tatweel",
+    "comparison": "geometry_exact_flag_presence",
+    "input": {
+      "font_id": "kicad_stroke_regular",
+      "font_sha256": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+      "face_index": 0,
+      "variations": [],
+      "text": "لا",
+      "text_index_unit": "utf8_byte_offset",
+      "scale_x": 1000,
+      "scale_y": 1000,
+      "direction": "right_to_left",
+      "script": "Arab",
+      "language": "ar",
+      "features": [],
+      "buffer_properties": {
+        "cluster_level": "monotone_graphemes",
+        "beginning_of_text": true,
+        "end_of_text": true,
+        "default_ignorables": "normal",
+        "do_not_insert_dotted_circle": false,
+        "produce_unsafe_to_concat": true,
+        "produce_safe_to_insert_tatweel": true
+      }
+    },
+    "uharfbuzz_glyphs": [
+      {
+        "glyph_id": 1540,
+        "cluster": 2,
+        "x_advance": 731,
+        "y_advance": 0,
+        "x_offset": 0,
+        "y_offset": 0,
+        "unsafe_to_break": true,
+        "safe_to_insert_tatweel": true,
+        "unsafe_to_concat": true
+      },
+      {
+        "glyph_id": 1569,
+        "cluster": 0,
+        "x_advance": 731,
+        "y_advance": 0,
+        "x_offset": 0,
+        "y_offset": 0,
+        "unsafe_to_break": false,
+        "safe_to_insert_tatweel": false,
+        "unsafe_to_concat": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+[package]
+name = "kicad-monkey-native"
+description = "Bounded native process transport for KiCad Monkey"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+cap-std.workspace = true
+kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
+kicad-monkey-core = { path = "../kicad-monkey-core" }
+kicad-monkey-svg = { path = "../kicad-monkey-svg" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true

@@ -1,0 +1,86 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.sexpr_scan.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.sexpr_scan.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "selector": {
+            "$ref": "#/$defs/Selector"
+        },
+        "max_source_bytes": {
+            "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_selected_forms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "selector",
+        "max_source_bytes",
+        "max_depth",
+        "max_selected_forms"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Metadata envelope for a byte-buffer structural scan operation.",
+    "title": "S-expression scan request a0",
+    "$defs": {
+        "Selector": {
+            "type": "object",
+            "properties": {
+                "heads": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "min_depth": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "prune_heads": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Generic structural selector; source bytes are always supplied out of band."
+        }
+    }
+}

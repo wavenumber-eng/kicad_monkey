@@ -1,0 +1,475 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.schematic_plot.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "source_path": {
+            "type": "string"
+        },
+        "document_id": {
+            "type": "string"
+        },
+        "sheet_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+        },
+        "sheet_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+        },
+        "sheet_path": {
+            "type": "string"
+        },
+        "sheet_name": {
+            "type": "string"
+        },
+        "worksheet_mode": {
+            "$ref": "#/$defs/SchematicWorksheetMode"
+        },
+        "text_variables": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/SchematicTextVariable"
+            }
+        },
+        "text_offset_ratio": {
+            "$ref": "#/$defs/SchematicTextOffsetRatio"
+        },
+        "default_line_width_nm": {
+            "$ref": "#/$defs/SchematicDefaultLineWidthNm"
+        },
+        "max_source_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_bytes": {
+            "type": "string"
+        },
+        "max_output_bytes": {
+            "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_parse_nodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_selected_forms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_records": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_input_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_bytes": {
+            "type": "string"
+        },
+        "max_metadata_bytes": {
+            "type": "string"
+        },
+        "max_wires": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_buses": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_bus_entries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_junctions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_no_connects": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_labels": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_global_labels": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_hierarchical_labels": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_netclass_flags": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_netclass_flag_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_texts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_boxes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_box_lines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_polylines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_arcs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_circles": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_rectangles": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_beziers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_rule_areas": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_images": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_tables": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_table_cells": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_table_cell_lines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_data_parts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_encoded_bytes": {
+            "type": "string"
+        },
+        "max_image_decoded_bytes": {
+            "type": "string"
+        },
+        "max_image_width_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_height_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_pixels": {
+            "type": "string"
+        },
+        "max_image_decode_work": {
+            "type": "string"
+        },
+        "max_symbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_overplots": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_pins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_library_symbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_library_subsymbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_library_pins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_overlap_checks": {
+            "type": "string"
+        },
+        "max_sheets": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_sheet_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_sheet_pins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_variables": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_variable_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_repeats": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_point_sets": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_data_parts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_encoded_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_bitmap_decoded_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_bitmap_width_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_height_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_pixels": {
+            "type": "string"
+        },
+        "max_worksheet_bitmap_decode_work": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "sheet_index",
+        "sheet_count",
+        "sheet_path",
+        "sheet_name",
+        "worksheet_mode",
+        "text_offset_ratio",
+        "default_line_width_nm",
+        "max_source_bytes",
+        "max_worksheet_bytes",
+        "max_output_bytes",
+        "max_depth",
+        "max_parse_nodes",
+        "max_selected_forms",
+        "max_records",
+        "max_operations",
+        "max_points",
+        "max_input_points",
+        "max_text_bytes",
+        "max_metadata_bytes",
+        "max_wires",
+        "max_buses",
+        "max_bus_entries",
+        "max_junctions",
+        "max_no_connects",
+        "max_labels",
+        "max_global_labels",
+        "max_hierarchical_labels",
+        "max_netclass_flags",
+        "max_netclass_flag_properties",
+        "max_texts",
+        "max_text_boxes",
+        "max_text_box_lines",
+        "max_polylines",
+        "max_arcs",
+        "max_circles",
+        "max_rectangles",
+        "max_beziers",
+        "max_rule_areas",
+        "max_images",
+        "max_tables",
+        "max_table_cells",
+        "max_table_cell_lines",
+        "max_image_data_parts",
+        "max_image_encoded_bytes",
+        "max_image_decoded_bytes",
+        "max_image_width_px",
+        "max_image_height_px",
+        "max_image_pixels",
+        "max_image_decode_work",
+        "max_symbols",
+        "max_symbol_overplots",
+        "max_symbol_properties",
+        "max_symbol_pins",
+        "max_library_symbols",
+        "max_library_subsymbols",
+        "max_library_pins",
+        "max_symbol_overlap_checks",
+        "max_sheets",
+        "max_sheet_properties",
+        "max_sheet_pins",
+        "max_text_variables",
+        "max_text_variable_bytes",
+        "max_worksheet_items",
+        "max_worksheet_repeats",
+        "max_worksheet_point_sets",
+        "max_worksheet_points",
+        "max_worksheet_bitmap_data_parts",
+        "max_worksheet_bitmap_encoded_bytes",
+        "max_worksheet_bitmap_decoded_bytes",
+        "max_worksheet_bitmap_width_px",
+        "max_worksheet_bitmap_height_px",
+        "max_worksheet_bitmap_pixels",
+        "max_worksheet_bitmap_decode_work"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Resource-bounded schematic plot operation. Source bytes are out of band.",
+    "title": "Schematic plot request a0",
+    "$defs": {
+        "SchematicWorksheetMode": {
+            "type": "string",
+            "enum": [
+                "default",
+                "provided"
+            ],
+            "description": "Selection of the drawing-sheet byte sidecar supplied out of band."
+        },
+        "SchematicTextVariable": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One exact-case project text variable supplied by the caller."
+        },
+        "SchematicTextOffsetRatio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.7976931348623157e+308,
+            "description": "Finite nonnegative project text-offset ratio used by schematic plotting."
+        },
+        "SchematicDefaultLineWidthNm": {
+            "type": "integer",
+            "minimum": 84700,
+            "maximum": 9007199254740991,
+            "description": "Effective schematic plot width after KiCad's minimum-pen clamp."
+        }
+    }
+}

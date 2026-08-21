@@ -1,0 +1,164 @@
+{
+  "buffers_utf8": ["font-a", "font-b"],
+  "manifest": {
+    "schema": "kicad_monkey.font_bundle.a0",
+    "type": "kicad_monkey.font_bundle",
+    "version": "a0",
+    "fonts": [
+      {
+        "id": "primary",
+        "slot": 0,
+        "sha256": "44a0b3eae3f38762361e3d51bd3f954e00a9d62d7fdb87f8da4a9772236dd987",
+        "face_index": 0,
+        "variations": [{"axis": "wght", "value": 400.0}],
+        "aliases": ["Primary Sans", "Shared Sans"],
+        "family": "Primary Sans",
+        "style": "Regular",
+        "postscript_name": "PrimarySans-Regular"
+      },
+      {
+        "id": "secondary",
+        "slot": 1,
+        "sha256": "df8bd60b75bcf363f90a64dfc5389e3bb0a06ea52aa8b72069bf49eb3abac731",
+        "face_index": 2,
+        "variations": [],
+        "aliases": ["Secondary Sans", "Shared Sans"]
+      }
+    ]
+  },
+  "resolution_requests": {
+    "explicit": {
+      "schema": "kicad_monkey.font_resolution_request.a0",
+      "type": "kicad_monkey.font_resolution_request",
+      "version": "a0",
+      "selection": {"font_id": "primary", "aliases": ["Shared Sans"]}
+    },
+    "unique_alias": {
+      "schema": "kicad_monkey.font_resolution_request.a0",
+      "type": "kicad_monkey.font_resolution_request",
+      "version": "a0",
+      "selection": {"aliases": ["Secondary Sans"]}
+    },
+    "ambiguous_alias": {
+      "schema": "kicad_monkey.font_resolution_request.a0",
+      "type": "kicad_monkey.font_resolution_request",
+      "version": "a0",
+      "selection": {"aliases": ["Shared Sans"]}
+    },
+    "missing": {
+      "schema": "kicad_monkey.font_resolution_request.a0",
+      "type": "kicad_monkey.font_resolution_request",
+      "version": "a0",
+      "selection": {"aliases": ["Absent Sans"]}
+    }
+  },
+  "shaping_record": {
+    "schema": "kicad_monkey.shaping_record.a0",
+    "type": "kicad_monkey.shaping_record",
+    "version": "a0",
+    "case_id": "stroke_regular_latin_ltr_ffi",
+    "comparison": {"mode": "exact"},
+    "input": {
+      "font_id": "primary",
+      "font_sha256": "44a0b3eae3f38762361e3d51bd3f954e00a9d62d7fdb87f8da4a9772236dd987",
+      "face_index": 0,
+      "variations": [{"axis": "wght", "value": 400.0}],
+      "text": "ffi",
+      "text_index_unit": "utf8_byte_offset",
+      "scale_x": 1000,
+      "scale_y": 1000,
+      "direction": "left_to_right",
+      "script": "Latn",
+      "language": "en",
+      "features": [{"tag": "liga", "value": 1, "start": 0, "end": 3}],
+      "buffer_properties": {
+        "cluster_level": "monotone_graphemes",
+        "beginning_of_text": true,
+        "end_of_text": true,
+        "default_ignorables": "normal",
+        "do_not_insert_dotted_circle": false,
+        "produce_unsafe_to_concat": true,
+        "produce_safe_to_insert_tatweel": true
+      }
+    },
+    "glyphs": [
+      {
+        "glyph_id": 5044,
+        "cluster": 0,
+        "x_advance": 946,
+        "y_advance": 0,
+        "x_offset": 0,
+        "y_offset": 0,
+        "unsafe_to_break": true,
+        "safe_to_insert_tatweel": false,
+        "unsafe_to_concat": false
+      }
+    ]
+  },
+  "shaping_index_record": {
+    "schema": "kicad_monkey.shaping_record.a0",
+    "type": "kicad_monkey.shaping_record",
+    "version": "a0",
+    "case_id": "unicode_combining_utf8_offsets",
+    "comparison": {"mode": "exact"},
+    "input": {
+      "font_id": "primary",
+      "font_sha256": "44a0b3eae3f38762361e3d51bd3f954e00a9d62d7fdb87f8da4a9772236dd987",
+      "face_index": 0,
+      "variations": [],
+      "text": "Aé́B",
+      "text_index_unit": "utf8_byte_offset",
+      "scale_x": 1000,
+      "scale_y": 1000,
+      "direction": "left_to_right",
+      "script": "Latn",
+      "language": "en",
+      "features": [{"tag": "kern", "value": 0, "start": 1, "end": 5}],
+      "buffer_properties": {
+        "cluster_level": "monotone_graphemes",
+        "beginning_of_text": true,
+        "end_of_text": true,
+        "default_ignorables": "normal",
+        "do_not_insert_dotted_circle": false,
+        "produce_unsafe_to_concat": false,
+        "produce_safe_to_insert_tatweel": false
+      }
+    },
+    "glyphs": [
+      {"glyph_id": 1, "cluster": 0, "x_advance": 500, "y_advance": 0, "x_offset": 0, "y_offset": 0, "unsafe_to_break": false, "safe_to_insert_tatweel": false, "unsafe_to_concat": false},
+      {"glyph_id": 2, "cluster": 1, "x_advance": 500, "y_advance": 0, "x_offset": 0, "y_offset": 0, "unsafe_to_break": true, "safe_to_insert_tatweel": false, "unsafe_to_concat": false},
+      {"glyph_id": 3, "cluster": 5, "x_advance": 500, "y_advance": 0, "x_offset": 0, "y_offset": 0, "unsafe_to_break": false, "safe_to_insert_tatweel": false, "unsafe_to_concat": false}
+    ]
+  },
+  "outline_vector": {
+    "schema": "kicad_monkey.outline_vector.a0",
+    "type": "kicad_monkey.outline_vector",
+    "version": "a0",
+    "case_id": "fractional_outline_glyph_5044",
+    "coordinate_format": "font_design_units_f64",
+    "coordinate_comparison": {"mode": "absolute_tolerance", "absolute_tolerance": 0.000001},
+    "font_id": "primary",
+    "font_sha256": "44a0b3eae3f38762361e3d51bd3f954e00a9d62d7fdb87f8da4a9772236dd987",
+    "face_index": 0,
+    "variations": [{"axis": "wght", "value": 400.0}],
+    "glyph_id": 5044,
+    "units_per_em": 1000,
+    "commands": [
+      {"kind": "move_to", "x": 0.0, "y": 0.0},
+      {"kind": "line_to", "x": 100.0, "y": 0.0},
+      {"kind": "quad_to", "control_x": 150.0, "control_y": 50.0, "x": 100.0, "y": 100.0},
+      {"kind": "curve_to", "control1_x": 75.125, "control1_y": 125.0, "control2_x": 25.0, "control2_y": 125.0, "x": 0.0, "y": 100.0},
+      {"kind": "close"}
+    ]
+  },
+  "safe_integer_cases": [
+    {"id": "glyph_offset_min", "root": "shaping_record", "pointer": "/glyphs/0/x_offset", "value": -9007199254740991, "valid": true},
+    {"id": "glyph_offset_below", "root": "shaping_record", "pointer": "/glyphs/0/x_offset", "value": -9007199254740992, "valid": false}
+  ],
+  "scale_integer_cases": [
+    {"id": "scale_min", "value": -2147483648, "valid": true},
+    {"id": "scale_below", "value": -2147483649, "valid": false},
+    {"id": "scale_max", "value": 2147483647, "valid": true},
+    {"id": "scale_above", "value": 2147483648, "valid": false}
+  ]
+}

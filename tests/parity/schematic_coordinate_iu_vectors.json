@@ -1,0 +1,24 @@
+{
+  "schema": "kicad_monkey.schematic_coordinate_iu_vectors.a0",
+  "cases": [
+    {"name": "zero", "millimetres": "0", "expected_iu": "0"},
+    {"name": "positive_half_to_even_zero", "millimetres": "0.00005", "expected_iu": "0"},
+    {"name": "positive_half_to_even_two", "millimetres": "0.00015", "expected_iu": "2"},
+    {"name": "negative_half_to_even_two", "millimetres": "-0.00015", "expected_iu": "-2"},
+    {"name": "fraction_rounds_up", "millimetres": "1.23456", "expected_iu": "12346"},
+    {"name": "exponent_half_to_even", "millimetres": "1.5e-4", "expected_iu": "2"},
+    {"name": "positive_upper_bound", "millimetres": "922337203685477.5807", "expected_iu": "9223372036854775807"},
+    {"name": "positive_rounds_to_upper_bound", "millimetres": "922337203685477.58074", "expected_iu": "9223372036854775807"},
+    {"name": "positive_just_over_bound", "millimetres": "922337203685477.58075", "expected_iu": null},
+    {"name": "negative_lower_bound", "millimetres": "-922337203685477.5808", "expected_iu": "-9223372036854775808"},
+    {"name": "negative_half_rounds_to_lower_bound", "millimetres": "-922337203685477.58085", "expected_iu": "-9223372036854775808"},
+    {"name": "negative_just_over_bound", "millimetres": "-922337203685477.5809", "expected_iu": null},
+    {"name": "large_positive_exponent", "millimetres": "1e1000", "expected_iu": null},
+    {"name": "large_negative_exponent", "millimetres": "1e-1000", "expected_iu": "0"},
+    {"name": "malformed", "millimetres": "1.2.3", "expected_iu": null},
+    {"name": "missing_exponent", "millimetres": "1e", "expected_iu": null},
+    {"name": "non_finite_nan", "millimetres": "nan", "expected_iu": null},
+    {"name": "non_finite_positive", "millimetres": "inf", "expected_iu": null},
+    {"name": "non_finite_negative", "millimetres": "-inf", "expected_iu": null}
+  ]
+}

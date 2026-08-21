@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 from kicad_cruncher import kicad_cruncher_cmd_pcb_svg as pcb_svg_cmd
+from kicad_cruncher import kicad_cruncher_pcb_svg_compositor as pcb_svg_compositor
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_cmd_design import (
     _PCB_TRACE_COLOR,
@@ -559,8 +560,10 @@ def _review_svgs_by_source_uuid(
 def test_cached_pcb_review_renderer_matches_direct_to_svg_contract(
     pcb_path: Path,
     layers: tuple[str, ...] | None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Verify cached design-review rendering preserves direct SVG semantics."""
+    monkeypatch.setattr(pcb_svg_compositor, "use_native_physical_provider", lambda: False)
     pcb = KiCadPcb.from_file(pcb_path)
     render_cache = PcbSvgCompositionRenderCache(pcb)
     selected_layers = _pcb_copper_layers(pcb) if layers is None else list(layers)

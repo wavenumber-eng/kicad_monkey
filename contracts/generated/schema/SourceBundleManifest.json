@@ -1,0 +1,95 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.source_bundle_manifest:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad_monkey.source_bundle_manifest.a0"
+        },
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.source_bundle_manifest"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "root_schematic_path": {
+            "type": "string"
+        },
+        "project_path": {
+            "type": "string"
+        },
+        "sources": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/SourceBundleSource"
+            }
+        }
+    },
+    "required": [
+        "schema",
+        "type",
+        "version",
+        "root_schematic_path",
+        "sources"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Portable inventory for a named multi-file schematic compiler input.",
+    "title": "Source bundle manifest a0",
+    "$defs": {
+        "SourceBundleSource": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/$defs/SourceKind"
+                },
+                "slot": {
+                    "$ref": "#/$defs/SourceSlot"
+                },
+                "source_bytes": {
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
+                }
+            },
+            "required": [
+                "path",
+                "kind",
+                "slot",
+                "source_bytes"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Metadata for one named byte buffer supplied out of band."
+        },
+        "SourceKind": {
+            "type": "string",
+            "enum": [
+                "project",
+                "schematic",
+                "symbol_library",
+                "symbol_table",
+                "worksheet",
+                "other"
+            ],
+            "description": "KiCad source role within one schematic compiler input bundle."
+        },
+        "SourceSlot": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "description": "Zero-based byte-buffer slot within one manifest."
+        },
+        "CanonicalUint64Decimal": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,19})$",
+            "description": "Canonical decimal wire encoding for an unsigned 64-bit byte count."
+        }
+    }
+}

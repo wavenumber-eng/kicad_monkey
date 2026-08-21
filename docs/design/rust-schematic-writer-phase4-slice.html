@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 native schematic writer slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 native schematic writer slice</h1>
+  <p><strong>Status:</strong> accepted native product slice.</p>
+
+  <section>
+    <h2>Decision and boundary</h2>
+    <p><code>SchematicDocument</code> owns one exact UTF-8 schematic source and
+    its resource limits. It does not retain a generic S-expression tree or a
+    self-referential typed model. <code>definition()</code> rebuilds the
+    promoted typed schematic model on demand, while writes patch exact source
+    ranges and reparse the complete promoted model before committing.</p>
+    <p>The combined <code>parse_named_with_definition</code> and
+    <code>from_named_reader_with_definition</code> constructors additionally
+    return the owned typed definition validated during the same bounded source
+    admission. Existing constructors delegate to this path and discard the
+    snapshot. The snapshot cannot observe later document edits; callers use
+    <code>definition()</code> when they need a fresh post-mutation model.</p>
+    <p>This establishes native schematic writeback without claiming a
+    canonical pretty-printer. Unrecognized top-level and nested KiCad forms
+    remain byte-for-byte unchanged. The first promoted mutations address a
+    placed symbol by its nonempty UUID and create, update, or remove an
+    unambiguous property. Missing identities and duplicate UUID/property
+    matches fail closed. An absent removal and a repeated write are stable
+    no-ops. A newly created property includes KiCad's required three-value
+    <code>(at 0 0 0)</code> placement child; the zero placement is the
+    deterministic default until a caller-facing placement operation is
+    promoted.</p>
+  </section>
+
+  <section>
+    <h2>Resource and safety behavior</h2>
+    <p>Reader admission consumes at most <code>max_source_bytes + 1</code> and
+    reports named UTF-8 and I/O failures. Every write checks
+    <code>max_output_bytes</code> before cloning or publishing source. Property
+    insertion respects the existing per-symbol property ceiling; scalar
+    decoding remains bounded by the schematic parser limit. Candidate output
+    is fully parsed before replacing the owned source, so failed edits leave
+    the document unchanged.</p>
+    <p>The mutation index performs one structural source scan and one
+    source-ordered pass over selected placed-symbol, UUID, and property spans.
+    Child ownership is assigned to the latest enclosing direct symbol, avoiding
+    carrier-by-child rescans. Property/UUID lookup is linear in the selected
+    source footprint. The crate continues to forbid unsafe code and adds no
+    dependency.</p>
+  </section>
+
+  <section>
+    <h2>Evidence and retained work</h2>
+    <p>Rack case L1_032 requires all eight package-local schematic references.
+    The native gate performs two complete promoted semantic decodes per file,
+    compares the typed definitions, and proves exact first and stable second
+    owned writes across 4,206,216 source bytes. Focused Rust tests cover
+    transactional create/update/remove behavior, unknown-form preservation,
+    escaped values, CRLF and one-line insertion, ambiguity, source/property/
+    output limits, and named UTF-8/I/O diagnostics.</p>
+    <p>The mutation gate independently parses the emitted property structure
+    and reads it through the Python schematic model. That Python acceptance is
+    mandatory. When a schematic-capable <code>kicad-cli</code> is resolvable,
+    L1_032 also exports a netlist from the mutated schematic; this is optional
+    ongoing application coverage, while the accepted Phase 4 exit run recorded
+    KiCad 10 acceptance of the evidence file.</p>
+    <p>Broader schematic carrier mutation remains outside this focused property
+    writer. Symbol-library, worksheet, project, compiler, and graph obligations
+    are covered by the accepted Phase 4 exit under separate governed surfaces;
+    native Cruncher and packaging behavior are governed by later accepted
+    phases.</p>
+  </section>
+</body>
+</html>

@@ -1,0 +1,151 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.board_plot.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.board_plot.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "source_path": {
+            "type": "string"
+        },
+        "document_id": {
+            "type": "string"
+        },
+        "max_source_bytes": {
+            "type": "string"
+        },
+        "max_output_bytes": {
+            "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_graphics": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_bytes": {
+            "type": "string"
+        },
+        "max_parse_nodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_input_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_input_polygons": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_cache_polygons": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_cache_contours": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "net_class_assignments": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/BoardNetClassAssignment"
+            }
+        },
+        "text_variables": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/BoardTextVariable"
+            }
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "max_source_bytes",
+        "max_output_bytes",
+        "max_depth",
+        "max_graphics",
+        "max_operations",
+        "max_points",
+        "max_text_bytes",
+        "max_parse_nodes",
+        "max_input_points",
+        "max_input_polygons",
+        "max_cache_polygons",
+        "max_cache_contours"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Resource-bounded board plotter operation. Source bytes are out of band.",
+    "title": "Board plot request a0",
+    "$defs": {
+        "BoardNetClassAssignment": {
+            "type": "object",
+            "properties": {
+                "net_name": {
+                    "type": "string"
+                },
+                "classes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "net_name",
+                "classes"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One exact net-name to ordered net-class assignment mirrored from the\nproject sidecar's `net_settings.netclass_assignments` entries."
+        },
+        "BoardTextVariable": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One project-sidecar text variable. The producer case-expands names to\noriginal/lower/upper aliases and overlays board `(property ...)` values,\nmatching the established `board_text_variables` merge."
+        }
+    }
+}

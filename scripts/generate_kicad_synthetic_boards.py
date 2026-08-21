@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 import sys
@@ -1131,8 +1130,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--corpus-root",
         type=Path,
-        default=Path(os.environ.get("WN_TEST_CORPUS", REPO_ROOT / "tests" / "corpus")),
-        help="Root containing the kicad corpus folder.",
+        default=REPO_ROOT / "tests" / "corpus",
+        help="Writable authoring root containing the kicad corpus folder.",
     )
     parser.add_argument(
         "--layout",

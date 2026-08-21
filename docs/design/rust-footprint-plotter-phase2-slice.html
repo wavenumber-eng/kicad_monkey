@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 2 Footprint Plotter-IR Slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 2 Footprint Plotter-IR Slice</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      The footprint bytes-to-plotter proof now promotes standalone-footprint
+      metadata, graphical properties, <code>fp_text</code>,
+      <code>fp_text_box</code>, lines, three-point arcs, circles, rectangles,
+      and polygons.
+      Patterned line and arc strokes are decomposed into thick segments using
+      the Python path's dash rules. Standard circle, oval, rectangle,
+      round-rectangle, and trapezoid pads emit pad flashes; through-hole and
+      NPTH pads also emit circular or slotted drill operations. Custom-pad
+      <code>gr_poly</code> primitives and zero-radius chamfered roundrect pads
+      emit the shared custom flash. It emits a
+      strict TypeSpec-owned subset of the established
+      <code>kicad.plotter_ir.a0</code> document. The Phase 5 text extension
+      closes the current standalone Python producer surface; non-polygon custom
+      primitives, symbols, and embedded PCB footprints remain separate work.
+    </p>
+  </section>
+
+  <section>
+    <h2>Architecture</h2>
+    <ul>
+      <li>
+        <code>FootprintView</code> first enforces one standalone footprint root
+        and selects dedicated property, text, text-box, and pad spans. Its
+        standalone text ownership types are intentionally distinct from
+        board-nested footprint children. The plotter reader selects the
+        remaining exact top-level metadata and graphic spans. Each small form
+        is parsed independently; no generic tree is built for the complete file.
+      </li>
+      <li>
+        Coordinates cross the boundary as integer nanometres with Y down.
+        Conversion uses ties-to-even rounding and the same default, negative,
+        and minimum-pen-width rules as the Python path.
+      </li>
+      <li>
+        <code>PlotterOperation</code> is producer-neutral. Footprint and future
+        PCB converters use the same geometry, pad-flash, and drill variants.
+        Symbol and schematic converters likewise extend and consume this one
+        operation vocabulary instead of defining parallel DTO families.
+      </li>
+      <li>
+        Output order follows Python's canonical grouping: Reference and Value
+        properties, remaining graphical properties, <code>fp_text</code>,
+        <code>fp_text_box</code> border/text pairs, lines, arcs, circles,
+        rectangles, polygons, then pads. Source order is retained within each group.
+        Solid/default strokes remain native operations; dash, dot,
+        dash-dot, and dash-dot-dot strokes are deterministically decomposed.
+        Pads follow all graphics in source order, with each pad flash preceding
+        its drill overlay.
+      </li>
+      <li>
+        Source bytes, nesting depth, metadata-form count, text-carrier count,
+        retained text bytes, operation count, retained polygon-point count,
+        and serialized output bytes are
+        independently caller bounded. Custom-pad and footprint polygons
+        enforce the point allowance while parsing, before oversized geometry
+        is retained. Metadata duplicates therefore cannot consume a geometry
+        allowance. The JSON writer stops at the output limit instead of first
+        allocating an unbounded result.
+        The Phase 5 text-carrier and text-byte request fields are optional for
+        compatibility with earlier <code>a0</code> callers; omission selects
+        the same finite core defaults rather than an unbounded path.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Contract And WASM Boundary</h2>
+    <p>
+      TypeSpec owns the request, result metadata, exact point/quad shapes, fill
+      vocabulary, and shared tagged operation union. The pad variants carry
+      layer lists and resolved mask margins; shared circle and segment variants
+      carry optional drill roles and NPTH size hints. Generated Rust, Python,
+      and TypeScript types stay deterministic. Browser
+      callers pass KiCad and request bytes separately to
+      <code>plotFootprintIr</code>. The operation returns result JSON and
+      plotter-IR JSON as separate byte arrays, avoiding base64 and preserving a
+      resource-limit diagnostic envelope.
+    </p>
+    <p>
+      Shared <code>Circle</code> and <code>ThickSegment</code> payloads have
+      three mutually exclusive semantic states: graphic, plated drill, and
+      NPTH drill. TypeSpec restricts the role vocabulary; generated Python
+      decoding and the Rust contract boundary run mandatory cross-field
+      validation. A graphic requires <code>layer</code> and forbids drill
+      fields; a drill requires <code>role</code> plus non-empty
+      <code>layers</code>; NPTH additionally requires mask and pad-size hints.
+      Operation counts and pad-flash layer lists are validated at the same
+      boundary. Custom-pad polygon widths are optional, but a non-empty width
+      list must contain exactly one value per polygon.
+    </p>
+    <p>
+      Every numeric document field declared as a JavaScript-safe integer is
+      bounded to ±9,007,199,254,740,991 in JSON Schema. Native conversion and
+      the generated Rust and Python transport types enforce the same range so
+      an out-of-range integer cannot silently lose precision in JavaScript.
+    </p>
+    <p>
+      Standalone text operations carry their exact layer and the cache-free
+      state emitted by Python's <code>footprint_to_ir</code>. The semantic
+      boundary requires canonical document/record identity, one footprint
+      record, sequential operation indices, and forbids board-only cache and
+      marker fields on footprint text.
+    </p>
+  </section>
+
+  <section>
+    <h2>Parity Evidence</h2>
+    <p>
+      Rack L1_026 makes Python, generated Python types, native Rust, and the
+      host adapter consume shared vectors and requires the exact same document.
+      An interleaved input proves canonical grouping, and the corpus covers
+      patterned line/arc decomposition plus every promoted operation and fill.
+      A standard-pad vector covers every promoted flash shape, inherited and
+      clamped mask margins, rotated drill offsets, slots, and suppressed NPTH
+      copper flashes.
+      A custom-pad vector proves local polygon coordinates, per-polygon widths,
+      anchor metadata, ignored non-polygon primitives, and exact chamfered
+      roundrect polygon construction.
+      A Phase 5 vector proves property ordering/skip rules, Reference/Value and
+      local property-variable substitution, font/color/alignment mapping,
+      hidden text, bordered text-box wrapping, and text-before-geometry order.
+      Documents validate against both the strict generated slice schema and the
+      established plotter-IR schema. Rack L0_046 owns real Node-hosted WASM
+      execution and Rust quality; L0_049 owns generated-language cleanliness.
+      The Phase 5 extension passed independent core, parity, and contract
+      reviews and is closed in the parity ledger.
+    </p>
+    <p>
+      Pattern decomposition is fail-closed. The fixed safety-step cap and any
+      zero-progress pattern produce a resource-limit diagnostic and no output
+      document; neither segment nor arc conversion may return truncated
+      geometry.
+    </p>
+  </section>
+
+  <section>
+    <h2>Retained Work</h2>
+    <p>
+      Promote symbol body/pin text next. The companion symbol-body slice now
+      reuses this operation vocabulary. Standalone footprint text deliberately
+      matches the cache-free Python producer; board-nested outline-cache
+      placement remains owned by the embedded-footprint slice.
+      Embedded PCB footprints will
+      reuse the shared operations but require their own placement and record
+      parity. The Phase 2 boundary review remains gated on that wider proof.
+      Performance tuning remains profile-driven.
+    </p>
+  </section>
+</body>
+</html>

@@ -36,7 +36,7 @@ objectives = [
 file = "test_L4_001_project_verification.py"
 name = "Project Verification"
 description = "Validate real KiCad project processing end-to-end"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/board/input/speedy"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/board/input/speedy"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -57,7 +57,7 @@ secondary = [
 file = "test_L4_002_kicad_cli_validation.py"
 name = "KiCad CLI Validation"
 description = "Validate outputs against kicad-cli tool"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/footprints/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/footprints/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]

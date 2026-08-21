@@ -1,0 +1,53 @@
+name: Phase 6 Native Physical Provider
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_BUILD_JOBS: "4"
+  RUST_TEST_THREADS: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  native-physical-provider:
+    name: Phase 6 native physical provider (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Sync monorepo packages
+        run: uv sync --all-packages --all-extras
+      - name: Run the no-fallback provider Rack gate
+        run: uv run --extra test python tests/rack.py run L3_024
+      - name: Build public package artifacts
+        shell: pwsh
+        run: |
+          uv build --sdist --out-dir dist-sdist
+          $monkeySdist = Get-ChildItem dist-sdist\kicad_monkey-*.tar.gz | Select-Object -First 1
+          if (-not $monkeySdist) { throw "Monkey sdist build produced no archive" }
+          uv build $monkeySdist.FullName --wheel --out-dir dist
+          Push-Location packages\kicad_cruncher
+          uv build --sdist --wheel --out-dir dist
+          Pop-Location
+      - name: Verify installed two-wheel native provider
+        shell: pwsh
+        run: |
+          $monkeyWheel = Get-ChildItem dist\kicad_monkey-*.whl | Select-Object -First 1
+          $cruncherWheel = Get-ChildItem packages\kicad_cruncher\dist\kicad_cruncher-*.whl | Select-Object -First 1
+          $monkeySdist = Get-ChildItem dist-sdist\kicad_monkey-*.tar.gz | Select-Object -First 1
+          $cruncherSdist = Get-ChildItem packages\kicad_cruncher\dist\kicad_cruncher-*.tar.gz | Select-Object -First 1
+          uv run --extra test python tests/support_scripts/toolchain_install_test.py `
+            --monkey-wheel $monkeyWheel `
+            --cruncher-wheel $cruncherWheel `
+            --monkey-sdist $monkeySdist `
+            --cruncher-sdist $cruncherSdist

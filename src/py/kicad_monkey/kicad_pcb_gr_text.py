@@ -44,6 +44,11 @@ class Font:
     `thickness` is `None` when the source omitted `(thickness ...)` —
     KiCad's "auto thickness" form, elided on canonical emit per
     ``EDA_TEXT::Format`` in `kicad/common/eda_text.cpp`.
+
+    KiCad serializes ``(size height width)`` even though the in-memory
+    ``TEXT_ATTRIBUTES`` vector stores ``x=width`` and ``y=height``
+    (``parseEDA_TEXT`` reads height then width), so ``size_x`` holds the
+    second file value and ``size_y`` the first.
     """
     face: Optional[str] = None
     size_x: float = 1.27
@@ -62,8 +67,8 @@ class Font:
 
         face = get_value(font_elem, 'face')
         size_elem = find_element(font_elem, 'size')
-        size_x = float(size_elem[1]) if size_elem and len(size_elem) > 1 else 1.27
-        size_y = float(size_elem[2]) if size_elem and len(size_elem) > 2 else 1.27
+        size_y = float(size_elem[1]) if size_elem and len(size_elem) > 1 else 1.27
+        size_x = float(size_elem[2]) if size_elem and len(size_elem) > 2 else 1.27
         thickness_elem = find_element(font_elem, 'thickness')
         thickness = float(thickness_elem[1]) if thickness_elem and len(thickness_elem) > 1 else None
         line_spacing_elem = find_element(font_elem, 'line_spacing')
@@ -104,7 +109,7 @@ class Font:
         result: SexpList = ['font']
         if self.face:
             result.append(['face', QuotedString(self.face)])
-        result.append(['size', self.size_x, self.size_y])
+        result.append(['size', self.size_y, self.size_x])
         if self.line_spacing is not None and self.line_spacing != 1.0:
             result.append(['line_spacing', self.line_spacing])
         if self.thickness is not None:

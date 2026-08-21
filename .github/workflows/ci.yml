@@ -8,6 +8,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_BUILD_JOBS: "4"
+  RUST_TEST_THREADS: "2"
 
 jobs:
   test:
@@ -23,10 +25,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
       - name: Set up Python
         run: uv python install 3.14
       - name: Sync monorepo packages
         run: uv sync --all-packages --all-extras
+      - name: Install Rust and contract gate toolchains
+        run: |
+          npm install --global npm@11.6.2
+          npm ci
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - name: Install public font dependencies
         if: runner.os == 'Linux'
         run: |
@@ -35,7 +51,7 @@ jobs:
       - name: Validate public corpus archive metadata
         run: uv run --extra test python scripts/kicad_corpus_archive.py metadata
       - name: Restore public corpus archive
-        run: uv run --extra test python scripts/kicad_corpus_archive.py restore
+        run: uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
       - name: Prepare public corpus archive
         run: |
           uv run --extra test python scripts/package_kicad_corpus.py --check
@@ -43,12 +59,18 @@ jobs:
       - name: Run public test and signoff baseline
         run: |
           uv run --extra test python tests/rack.py run L0_foundation
+          uv run --extra test python tests/rack.py run L1_029
+          uv run --extra test python tests/rack.py run L1_030
           uv run --extra test python tests/rack.py run L99_signoff
       - name: Run cross-package source gate
         run: uv run --all-packages --all-extras python -m pytest tests/cross_package -q
       - name: Run Cruncher Rack gates against workspace Monkey
         working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test rack run --all
+        env:
+          KICAD_MONKEY_NATIVE: ${{ github.workspace }}/target/debug/kicad-monkey-native${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: |
+          cargo build --locked --jobs 4 --package kicad-monkey-native
+          uv run --package kicad-cruncher --extra test rack run --all
       - name: Build Monkey package
         run: uv run --extra test python -m build
       - name: Build Cruncher package
@@ -65,3 +87,25 @@ jobs:
         run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
       - name: Run installed two-wheel compatibility test
         run: uv run --extra test python tests/support_scripts/toolchain_install_test.py
+
+  phase5-exit:
+    uses: ./.github/workflows/phase5-exit.yml
+
+  phase6-native-svg:
+    uses: ./.github/workflows/phase6-native-svg.yml
+
+  phase6-native-physical-provider:
+    needs: phase6-native-svg
+    uses: ./.github/workflows/phase6-native-physical-provider.yml
+
+  phase6-native-design-facts:
+    needs: phase6-native-physical-provider
+    uses: ./.github/workflows/phase6-native-design-facts.yml
+
+  phase6-native-full-cli:
+    needs: phase6-native-design-facts
+    uses: ./.github/workflows/phase6-native-full-cli.yml
+
+  phase6-exit:
+    needs: phase6-native-full-cli
+    uses: ./.github/workflows/phase6-exit.yml

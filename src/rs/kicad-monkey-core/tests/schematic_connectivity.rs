@@ -1,0 +1,708 @@
+use kicad_monkey_contracts::generated::source_bundle_manifest::{
+    SourceBundleManifestA0, SourceBundleSource, SourceKind,
+};
+use kicad_monkey_core::{
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDriverPriority,
+    SchematicOccurrenceConnectivityLimits, SchematicPoint, SchematicWireDriverKind, SourceBundle,
+    SourceBundleErrorKind, SourceBundleLimits, build_schematic_occurrence_subgraphs,
+    build_schematic_scalar_design_nets,
+};
+
+#[test]
+fn occurrence_subgraphs_attach_exact_carriers_without_attaching_pins_mid_segment() {
+    let index = index(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Part"
+              (symbol "Demo:Part_1_1"
+                (pin passive line (at 0 0 0) (name "P1") (number "1"))
+                (pin passive line (at 7 0 0) (name "MID") (number "2")))))
+          (wire (pts (xy 0 0) (xy 10 0)) (uuid horizontal))
+          (wire (pts (xy 5 5) (xy 5 0)) (uuid vertical))
+          (junction (at 5 0) (uuid junction))
+          (label "SIG" (at 8 0 0) (uuid label))
+          (no_connect (at 0 0) (uuid nc))
+          (symbol (lib_id "Demo:Part") (lib_name "Demo:Part")
+            (at 0 0 0) (uuid placed)
+            (property "Reference" "U1") (property "Value" "Part")))"#,
+    );
+    let subgraphs = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits::default(),
+    )
+    .expect("occurrence connectivity");
+
+    let signal = subgraphs
+        .iter()
+        .find(|subgraph| subgraph.chosen_name == "SIG")
+        .expect("labelled wire subgraph");
+    assert_eq!(signal.chosen_priority, SchematicDriverPriority::LocalLabel);
+    assert_eq!(
+        signal.chosen_kind,
+        Some(SchematicWireDriverKind::LocalLabel)
+    );
+    assert_eq!(
+        points(&signal.coords),
+        [
+            [0, 0],
+            [50_000, 0],
+            [50_000, 50_000],
+            [80_000, 0],
+            [100_000, 0]
+        ]
+    );
+    assert!(signal.no_connect);
+    assert_eq!(signal.pin_drivers.len(), 1);
+    assert_eq!(signal.pin_drivers[0].pin_number, "1");
+
+    let middle_pin = subgraphs
+        .iter()
+        .find(|subgraph| {
+            subgraph
+                .pin_drivers
+                .iter()
+                .any(|driver| driver.pin_number == "2")
+        })
+        .expect("middle pin singleton");
+    assert_eq!(points(&middle_pin.coords), [[70_000, 0]]);
+    assert!(middle_pin.label_drivers.is_empty());
+}
+
+#[test]
+fn canonical_bus_members_merge_distinct_wire_label_spellings() {
+    let index = index(
+        br#"(kicad_sch
+          (uuid root)
+          (bus_alias "BUS" (members "A/B"))
+          (bus (pts (xy 0 20) (xy 10 20)) (uuid bus))
+          (bus_entry (at 2 20) (size 0 -5) (uuid tap-a))
+          (bus_entry (at 8 20) (size 0 -5) (uuid tap-b))
+          (wire (pts (xy 2 15) (xy 2 10)) (uuid wire-a))
+          (wire (pts (xy 8 15) (xy 8 10)) (uuid wire-b))
+          (label "A{slash}B" (at 2 10 0) (uuid label-a))
+          (label "A/B" (at 8 10 0) (uuid label-b))
+          (global_label "BUS" (shape output) (at 0 20 0) (uuid bus-name)))"#,
+    );
+    let subgraphs = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits::default(),
+    )
+    .expect("bus member connectivity");
+    let member = subgraphs
+        .iter()
+        .find(|subgraph| subgraph.chosen_name == "A/B")
+        .expect("canonical member subgraph");
+    assert_eq!(member.label_drivers.len(), 2);
+    assert_eq!(
+        points(&member.coords),
+        [
+            [20_000, 100_000],
+            [20_000, 150_000],
+            [80_000, 100_000],
+            [80_000, 150_000]
+        ]
+    );
+}
+
+#[test]
+fn stacked_pins_power_priority_and_hidden_no_connects_are_materialized() {
+    let index = index(
+        br##"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Stacked"
+              (symbol "Demo:Stacked_1_1"
+                (pin passive line (at 0 0 0) (name "PAD") (number "[A1-A4, B7]"))))
+            (symbol "power:LOCAL" (power local)
+              (symbol "power:LOCAL_1_1"
+                (pin power_in line (at 0 0 0) (name "PWR") (number "1"))))
+            (symbol "Demo:NC"
+              (symbol "Demo:NC_1_1"
+                (pin no_connect line (at 0 0 0) (name "NC1") (number "1") (hide yes))
+                (pin no_connect line (at 0 0 0) (name "NC2") (number "2") (hide yes)))))
+          (symbol (lib_id "Demo:Stacked") (lib_name "Demo:Stacked")
+            (at 0 0 0) (uuid stacked)
+            (property "Reference" "J1") (property "Value" "Stacked"))
+          (symbol (lib_id "power:LOCAL") (lib_name "power:LOCAL")
+            (at 20 0 0) (uuid power)
+            (property "Reference" "#PWR01") (property "Value" "+3V3_LOCAL"))
+          (symbol (lib_id "Demo:NC") (lib_name "Demo:NC")
+            (at 40 0 0) (uuid nc)
+            (property "Reference" "U1") (property "Value" "NC")))"##,
+    );
+    let subgraphs = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits::default(),
+    )
+    .expect("pin semantics");
+
+    let stacked = subgraphs
+        .iter()
+        .find(|subgraph| subgraph.pin_drivers.iter().any(|pin| pin.reference == "J1"))
+        .expect("stacked pin subgraph");
+    assert_eq!(
+        stacked
+            .pin_drivers
+            .iter()
+            .map(|pin| (pin.pin_number.as_str(), pin.pin_name.as_str()))
+            .collect::<Vec<_>>(),
+        [
+            ("A1", "PAD_A1"),
+            ("A2", "PAD_A2"),
+            ("A3", "PAD_A3"),
+            ("A4", "PAD_A4"),
+            ("B7", "PAD_B7"),
+        ]
+    );
+
+    let power = subgraphs
+        .iter()
+        .find(|subgraph| subgraph.chosen_name == "+3V3_LOCAL")
+        .expect("local power subgraph");
+    assert_eq!(
+        power.chosen_priority,
+        SchematicDriverPriority::LocalPowerPin
+    );
+    assert_eq!(
+        power.chosen_kind,
+        Some(SchematicWireDriverKind::LocalPowerPin)
+    );
+
+    let hidden = subgraphs
+        .iter()
+        .filter(|subgraph| subgraph.pin_drivers.iter().any(|pin| pin.reference == "U1"))
+        .collect::<Vec<_>>();
+    assert_eq!(hidden.len(), 2);
+    assert_ne!(hidden[0].coords, hidden[1].coords);
+}
+
+#[test]
+fn pin_svg_ids_require_an_actually_rendered_pin_operation() {
+    let index = index(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Collapsed"
+              (pin_numbers (hide yes))
+              (pin_names (offset 0) (hide yes))
+              (symbol "Demo:Collapsed_1_1"
+                (pin passive line (at 0 0 0) (length 0)
+                  (name "~") (number "1"))))
+            (symbol "Demo:Length"
+              (pin_numbers (hide yes))
+              (pin_names (hide yes))
+              (symbol "Demo:Length_1_1"
+                (pin passive line (at 0 0 0) (length 2.54)
+                  (name "~") (number "1"))))
+            (symbol "Demo:Decorated"
+              (pin_numbers (hide yes))
+              (pin_names (hide yes))
+              (symbol "Demo:Decorated_1_1"
+                (pin passive inverted (at 0 0 0) (length 0)
+                  (name "~") (number "1"))))
+            (symbol "Demo:Named"
+              (pin_numbers (hide yes))
+              (symbol "Demo:Named_1_1"
+                (pin passive line (at 0 0 0) (length 0)
+                  (name "VISIBLE") (number "1"))))
+            (symbol "Demo:ZeroText"
+              (pin_numbers (hide yes))
+              (symbol "Demo:ZeroText_1_1"
+                (pin passive line (at 0 0 0) (length 0)
+                  (name "SUPPRESSED" (effects (font (size 0 1.27))))
+                  (number "1")))))
+          (symbol (lib_id "Demo:Collapsed") (lib_name "Demo:Collapsed")
+            (at 0 0 0) (uuid collapsed)
+            (property "Reference" "P1")
+            (pin "1" (uuid collapsed-pin)))
+          (symbol (lib_id "Demo:Length") (lib_name "Demo:Length")
+            (at 20 0 0) (uuid length)
+            (property "Reference" "P2")
+            (pin "1" (uuid length-pin)))
+          (symbol (lib_id "Demo:Decorated") (lib_name "Demo:Decorated")
+            (at 40 0 0) (uuid decorated)
+            (property "Reference" "P3")
+            (pin "1" (uuid decorated-pin)))
+          (symbol (lib_id "Demo:Named") (lib_name "Demo:Named")
+            (at 60 0 0) (uuid named)
+            (property "Reference" "P4")
+            (pin "1" (uuid named-pin)))
+          (symbol (lib_id "Demo:ZeroText") (lib_name "Demo:ZeroText")
+            (at 80 0 0) (uuid zero-text)
+            (property "Reference" "P5")
+            (pin "1" (uuid zero-text-pin))))"#,
+    );
+    let subgraphs = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits::default(),
+    )
+    .expect("pin SVG selector semantics");
+
+    let pin_svg_id = |reference: &str| {
+        subgraphs
+            .iter()
+            .flat_map(|subgraph| &subgraph.pin_drivers)
+            .find(|driver| driver.reference == reference)
+            .expect("pin driver")
+            .pin_svg_id
+            .clone()
+    };
+    assert_eq!(pin_svg_id("P1"), "");
+    assert_eq!(pin_svg_id("P2"), "length-pin");
+    assert_eq!(pin_svg_id("P3"), "decorated-pin");
+    assert_eq!(pin_svg_id("P4"), "named-pin");
+    assert_eq!(pin_svg_id("P5"), "");
+
+    let design = build_schematic_scalar_design_nets(&index, 1, Default::default())
+        .expect("design net SVG fallbacks");
+    let terminal_svg_id = |designator: &str| {
+        design
+            .nets
+            .iter()
+            .flat_map(|net| &net.terminals)
+            .find(|terminal| terminal.designator == designator)
+            .expect("design net terminal")
+            .svg_id
+            .clone()
+    };
+    assert_eq!(terminal_svg_id("P1"), "collapsed");
+    assert_eq!(terminal_svg_id("P2"), "length-pin");
+}
+
+#[test]
+fn occurrence_connectivity_limits_fail_closed_independently() {
+    let index = index(
+        br#"(kicad_sch
+          (uuid root)
+          (wire (pts (xy 0 0) (xy 10 0)) (uuid wire))
+          (bus_entry (at 20 20) (size 1 1) (uuid entry))
+          (label "A" (at 0 0 0) (uuid a))
+          (label "B" (at 30 30 0) (uuid b)))"#,
+    );
+    let exact = SchematicOccurrenceConnectivityLimits {
+        max_entry_segments: 1,
+        max_entry_index_nodes: 1,
+        max_graph_points: 5,
+        max_label_drivers: 2,
+        max_subgraphs: 4,
+        max_retained_points: 5,
+        max_retained_string_bytes: 14,
+        max_attachment_query_work: 5,
+        ..SchematicOccurrenceConnectivityLimits::default()
+    };
+    build_schematic_occurrence_subgraphs(&index, 1, exact).expect("simultaneous exact limits");
+    for (limits, message) in [
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_attachment_query_work: 4,
+                ..exact
+            },
+            "query work",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_entry_segments: 0,
+                ..exact
+            },
+            "bus-entry segment count",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_entry_index_nodes: 0,
+                ..exact
+            },
+            "index node count",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_graph_points: 4,
+                ..exact
+            },
+            "graph point count",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_label_drivers: 1,
+                ..exact
+            },
+            "label driver count",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_subgraphs: 3,
+                ..exact
+            },
+            "subgraph count",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_retained_points: 4,
+                ..exact
+            },
+            "retained subgraph points",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_retained_string_bytes: 13,
+                ..exact
+            },
+            "retained string bytes",
+        ),
+    ] {
+        let error = build_schematic_occurrence_subgraphs(&index, 1, limits)
+            .expect_err("independent occurrence connectivity limit");
+        assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+        assert!(error.message.contains(message), "{}", error.message);
+    }
+}
+
+#[test]
+fn wide_graphical_ids_are_batched_deduplicated_and_exactly_bounded() {
+    let wire_count = 2_048;
+    let ids = (0..wire_count)
+        .map(|ordinal| format!("wire-{ordinal:04}"))
+        .collect::<Vec<_>>();
+    let wires = ids
+        .iter()
+        .map(|id| format!("(wire (pts (xy 0 0) (xy 10 0)) (uuid {id}))"))
+        .collect::<String>();
+    let source = format!("(kicad_sch (uuid root) {wires})");
+    let index = index(source.as_bytes());
+    let exact_bytes = ids.iter().map(String::len).sum::<usize>();
+    let exact = SchematicOccurrenceConnectivityLimits {
+        max_retained_string_bytes: exact_bytes,
+        ..Default::default()
+    };
+    let subgraphs = build_schematic_occurrence_subgraphs(&index, 1, exact)
+        .expect("wide graphical IDs at exact retained-string limit");
+    assert_eq!(subgraphs.len(), 1);
+    assert_eq!(subgraphs[0].graphical.wires, ids);
+
+    let error = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits {
+            max_retained_string_bytes: exact_bytes - 1,
+            ..exact
+        },
+    )
+    .expect_err("wide graphical IDs one byte above their allowance");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("retained string bytes"));
+}
+
+#[test]
+fn uuidless_sheet_pin_render_id_is_owned_and_exactly_bounded() {
+    let sheet_uuid = "s".repeat(256);
+    let pin_name = "PIN".repeat(64);
+    let root = format!(
+        r#"(kicad_sch
+          (uuid root)
+          (sheet (uuid {sheet_uuid})
+            (property "Sheetname" "Child")
+            (property "Sheetfile" "child.kicad_sch")
+            (pin "{pin_name}" input (at 0 0 0))))"#
+    );
+    let index = two_sheet_index(root.into_bytes(), b"(kicad_sch (uuid child))".to_vec());
+    let render_id = format!("{sheet_uuid}__sheet_pin__{pin_name}");
+    let exact_bytes = pin_name.len() * 2 + "input".len() + render_id.len() * 2;
+    let exact = SchematicOccurrenceConnectivityLimits {
+        max_retained_string_bytes: exact_bytes,
+        ..Default::default()
+    };
+    let subgraphs = build_schematic_occurrence_subgraphs(&index, 1, exact)
+        .expect("UUID-less sheet pin at exact retained-string limit");
+    assert_eq!(subgraphs[0].label_drivers[0].render_id, render_id);
+    assert_eq!(subgraphs[0].graphical.sheet_entries, [render_id]);
+
+    let error = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits {
+            max_retained_string_bytes: exact_bytes - 1,
+            ..exact
+        },
+    )
+    .expect_err("UUID-less sheet-pin render ID one byte above its allowance");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("retained string bytes"));
+}
+
+#[test]
+fn pin_expansion_and_jumper_work_limits_are_independent() {
+    let stacked_index = index(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Stacked"
+              (symbol "Demo:Stacked_1_1"
+                (pin passive line (at 0 0 0) (name "PAD") (number "[1-3]")))))
+          (symbol (lib_id "Demo:Stacked") (lib_name "Demo:Stacked")
+            (at 0 0 0) (uuid placed)
+            (property "Reference" "J1") (property "Value" "Stacked")))"#,
+    );
+    let exact = SchematicOccurrenceConnectivityLimits {
+        max_graph_points: 1,
+        max_pin_drivers: 3,
+        max_subgraphs: 1,
+        max_retained_points: 1,
+        max_retained_string_bytes: 121,
+        max_expanded_pins: 3,
+        max_expanded_pin_bytes: 3,
+        ..SchematicOccurrenceConnectivityLimits::default()
+    };
+    build_schematic_occurrence_subgraphs(&stacked_index, 1, exact)
+        .expect("simultaneous exact pin limits");
+    for (limits, message) in [
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_pin_drivers: 2,
+                ..exact
+            },
+            "pin driver count",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_expanded_pins: 2,
+                ..exact
+            },
+            "expanded pin count",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_expanded_pin_bytes: 2,
+                ..exact
+            },
+            "expanded pin bytes",
+        ),
+        (
+            SchematicOccurrenceConnectivityLimits {
+                max_retained_string_bytes: 120,
+                ..exact
+            },
+            "retained string bytes",
+        ),
+    ] {
+        let error = build_schematic_occurrence_subgraphs(&stacked_index, 1, limits)
+            .expect_err("independent pin connectivity limit");
+        assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+        assert!(error.message.contains(message), "{}", error.message);
+    }
+
+    let jumper_index = index(jumper_source());
+    let jumper_library = &jumper_index
+        .definition("design/root.kicad_sch")
+        .expect("jumper definition")
+        .library_symbols[0];
+    assert!(jumper_library.duplicate_pin_numbers_are_jumpers);
+    assert_eq!(jumper_library.jumper_pin_groups, [["2", "3"]]);
+    let exact_jumper = SchematicOccurrenceConnectivityLimits {
+        max_jumper_union_work: 6,
+        ..SchematicOccurrenceConnectivityLimits::default()
+    };
+    let subgraphs = build_schematic_occurrence_subgraphs(&jumper_index, 1, exact_jumper)
+        .expect("exact jumper union work");
+    let jumper_groups = subgraphs
+        .iter()
+        .filter(|subgraph| !subgraph.pin_drivers.is_empty())
+        .collect::<Vec<_>>();
+    assert_eq!(jumper_groups.len(), 2);
+    assert_eq!(jumper_groups[0].pin_drivers.len(), 2);
+    assert_eq!(jumper_groups[1].pin_drivers.len(), 2);
+    let error = build_schematic_occurrence_subgraphs(
+        &jumper_index,
+        1,
+        SchematicOccurrenceConnectivityLimits {
+            max_jumper_union_work: 5,
+            ..exact_jumper
+        },
+    )
+    .expect_err("one-under jumper union work");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("jumper union work"));
+}
+
+#[test]
+fn jumper_metadata_limits_fail_before_publication() {
+    let source = source_bundle(jumper_source());
+    for (limits, message) in [
+        (
+            SchematicBundleLimits {
+                max_jumper_groups_per_source: 0,
+                ..SchematicBundleLimits::default()
+            },
+            "jumper group count",
+        ),
+        (
+            SchematicBundleLimits {
+                max_jumper_members_per_source: 1,
+                ..SchematicBundleLimits::default()
+            },
+            "jumper member count",
+        ),
+        (
+            SchematicBundleLimits {
+                max_jumper_member_bytes_per_source: 1,
+                ..SchematicBundleLimits::default()
+            },
+            "jumper member bytes",
+        ),
+    ] {
+        let error = SchematicBundleIndex::build(&source, limits)
+            .expect_err("independent jumper metadata limit");
+        assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+        assert!(error.message.contains(message), "{}", error.message);
+    }
+}
+
+#[test]
+fn jumper_group_capacity_wins_before_member_decoding() {
+    let source = source_bundle(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Jumper"
+              (jumper_pin_groups ("a deliberately long member")))))
+        "#,
+    );
+    let error = SchematicBundleIndex::build(
+        &source,
+        SchematicBundleLimits {
+            max_jumper_groups_per_source: 0,
+            max_jumper_members_per_source: 0,
+            max_jumper_member_bytes_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
+    )
+    .expect_err("group capacity must be checked before any member");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(
+        error.message.contains("jumper group count"),
+        "{}",
+        error.message
+    );
+}
+
+#[test]
+fn empty_jumper_groups_do_not_consume_capacity_or_decode_members() {
+    let empty_source = source_bundle(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Jumper" (jumper_pin_groups ()))))
+        "#,
+    );
+    let zero_limits = SchematicBundleLimits {
+        max_jumper_groups_per_source: 0,
+        max_jumper_members_per_source: 0,
+        max_jumper_member_bytes_per_source: 0,
+        ..SchematicBundleLimits::default()
+    };
+    SchematicBundleIndex::build(&empty_source, zero_limits)
+        .expect("an empty jumper group consumes no capacity");
+
+    let mixed_source = source_bundle(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Jumper"
+              (jumper_pin_groups () ("must not be decoded")))))
+        "#,
+    );
+    let error = SchematicBundleIndex::build(&mixed_source, zero_limits)
+        .expect_err("the first nonempty group must be admitted before decoding");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(
+        error.message.contains("jumper group count"),
+        "{}",
+        error.message
+    );
+}
+
+fn jumper_source() -> &'static [u8] {
+    br#"(kicad_sch
+      (uuid root)
+      (lib_symbols
+        (symbol "Demo:Jumper" (duplicate_pin_numbers_are_jumpers yes)
+          (jumper_pin_groups ("2" "3"))
+          (symbol "Demo:Jumper_1_1"
+            (pin passive line (at 0 0 0) (name "A") (number "1"))
+            (pin passive line (at 10 0 0) (name "B") (number "1"))
+            (pin passive line (at 20 0 0) (name "C") (number "2"))
+            (pin passive line (at 30 0 0) (name "D") (number "3")))))
+      (symbol (lib_id "Demo:Jumper") (lib_name "Demo:Jumper")
+        (at 0 0 0) (uuid placed)
+        (property "Reference" "J1") (property "Value" "Jumper")))"#
+}
+
+fn index(root: &[u8]) -> SchematicBundleIndex {
+    SchematicBundleIndex::build(&source_bundle(root), SchematicBundleLimits::default())
+        .expect("schematic bundle index")
+}
+
+fn source_bundle(root: &[u8]) -> SourceBundle {
+    let project = b"{}".to_vec();
+    let root = root.to_vec();
+    let sources = vec![
+        descriptor("design/demo.kicad_pro", SourceKind::Project, 0, &project),
+        descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+    ];
+    SourceBundle::from_manifest(
+        SourceBundleManifestA0 {
+            project_path: Some("design/demo.kicad_pro".to_owned()),
+            root_schematic_path: "design/root.kicad_sch".to_owned(),
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources,
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        },
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("source bundle")
+}
+
+fn two_sheet_index(root: Vec<u8>, child: Vec<u8>) -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let sources = vec![
+        descriptor("design/demo.kicad_pro", SourceKind::Project, 0, &project),
+        descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        descriptor("design/child.kicad_sch", SourceKind::Schematic, 2, &child),
+    ];
+    let bundle = SourceBundle::from_manifest(
+        SourceBundleManifestA0 {
+            project_path: Some("design/demo.kicad_pro".to_owned()),
+            root_schematic_path: "design/root.kicad_sch".to_owned(),
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources,
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        },
+        vec![project, root, child],
+        SourceBundleLimits::default(),
+    )
+    .expect("two-sheet source bundle");
+    SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("two-sheet schematic index")
+}
+
+fn descriptor(path: &str, kind: SourceKind, slot: u32, bytes: &[u8]) -> SourceBundleSource {
+    SourceBundleSource {
+        kind,
+        path: path.to_owned(),
+        slot: slot.into(),
+        source_bytes: bytes.len().to_string().into(),
+    }
+}
+
+fn points(values: &[SchematicPoint]) -> Vec<[i64; 2]> {
+    values
+        .iter()
+        .map(|point| [point.x_iu, point.y_iu])
+        .collect()
+}

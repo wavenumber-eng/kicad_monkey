@@ -1,0 +1,42 @@
+schema = "kicad_monkey.performance_corpus.a0"
+archive_sha256 = "2f0ab3ae70a4b7dfe7a8acb0030687b152c45dbd97d8a443015e06d6c28f9f26"
+status = "measurement"
+operations = ["parse", "roundtrip"]
+
+[[cases]]
+id = "small_footprint"
+tier = "small"
+path = "common/complex_hierarchy/input/complex_hierarchy.pretty/CP_Axial_L11.0mm_D6.0mm_P18.00mm_Horizontal.kicad_mod"
+bytes = 7977
+sha256 = "b515e3d5a18e3a67c6c01ac82a77ea1b6e1d77005270a6be9b451e4083ddcd90"
+
+[[cases]]
+id = "medium_schematic"
+tier = "medium"
+path = "board_svg/input/speedy/ZYNQ_CONFIG.kicad_sch"
+bytes = 996306
+sha256 = "0a2015aad423ba54940b706dbaf3f7659131c2bc73b8131bfc47729e0b6e700e"
+
+[[cases]]
+id = "large_board"
+tier = "large"
+path = "common/vme-wren/input/vme-wren.kicad_pcb"
+bytes = 71556836
+sha256 = "98bb12606c3798d10dc5c9713c8d4a2a3338768eacfe80a431397686efd2ee42"
+
+[promotion]
+threshold_status = "pending_cross_platform_ratification"
+required_platforms = ["windows", "linux"]
+required_metrics = [
+    "input_bytes",
+    "output_bytes",
+    "operation",
+    "read_ns",
+    "parse_ns",
+    "build_ns",
+    "reparse_ns",
+    "compare_ns",
+    "second_build_ns",
+    "total_operation_ns",
+    "peak_rss_bytes",
+]

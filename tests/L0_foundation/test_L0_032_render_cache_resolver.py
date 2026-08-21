@@ -358,6 +358,51 @@ def test_render_cache_coverage_report_tracks_states_and_gaps():
     assert report["histograms"]["object_type"] == {"gr_text": 3}
 
 
+def test_empty_text_objects_collect_requests_and_accept_empty_caches():
+    # KiCad saves a polygon-less render_cache for empty outline-font texts
+    # (blank fp_text placeholders and Datasheet properties in the corpus),
+    # so empty texts still yield requests, an existing empty file cache
+    # validates, and the generator emits a matching empty cache.
+    pcb = KiCadPcb.from_string("""(kicad_pcb
+\t(version 20240108)
+\t(generator "pcbnew")
+\t(layers (0 "F.Cu" signal) (37 "F.SilkS" user))
+\t(footprint "Test:Empty"
+\t\t(layer "F.Cu")
+\t\t(at 0 0)
+\t\t(fp_text user ""
+\t\t\t(at 1 1 90)
+\t\t\t(layer "F.SilkS")
+\t\t\t(effects (font (face "Arial") (size 1 1) (thickness 0.1)))
+\t\t\t(render_cache "" 90)
+\t\t)
+\t)
+)
+""")
+
+    requests = [
+        request
+        for request in collect_render_cache_requests_from_pcb(pcb)
+        if request.object_path.endswith("/fp_text[0]")
+    ]
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.text == ""
+
+    existing = RenderCacheResolver().ensure_cache(request)
+    assert existing.usable
+    assert existing.source == RenderCacheSource.EXISTING_FILE_CACHE
+    assert existing.cache is not None
+    assert not existing.cache.polygons
+
+    generated = RenderCacheResolver().generate_cache(request)
+    assert generated.usable
+    assert generated.cache is not None
+    assert generated.cache.text == ""
+    assert generated.cache.angle == 90.0
+    assert not generated.cache.polygons
+
+
 def test_board_text_request_resolves_board_variables_and_known_angle():
     pcb = KiCadPcb.from_string("""(kicad_pcb
 \t(version 20240108)

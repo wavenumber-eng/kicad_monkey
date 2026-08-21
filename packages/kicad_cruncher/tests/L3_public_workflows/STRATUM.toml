@@ -73,6 +73,132 @@ test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions = "Detect close
 test_pcb_svg_assembly_view_uses_geometer_hlr = "Generate assembly HLR SVG using an embedded STEP model"
 
 [[subtests]]
+id = "L3_008"
+file = "test_L3_008_native_physical_provider.py"
+name = "Native PCB Physical Provider"
+description = "Validate the Windows no-fallback native base-SVG provider and transactional publication"
+concerns = ["contracts", "rendering", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "governed board vectors, mask-view fixture, public design fixture, and synthetic provider failures"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_native_physical"
+compositor_module = "kicad_cruncher.kicad_cruncher_pcb_svg_compositor"
+pcb_svg_module = "kicad_cruncher.kicad_cruncher_cmd_pcb_svg"
+design_module = "kicad_cruncher.kicad_cruncher_cmd_design"
+
+[subtests.objectives]
+native_only = "A real native render succeeds while both legacy Python render entry points are forbidden"
+normalization = "Native nm geometry is adapted to the established mm canvas, enriched record topology, and governed pad-mask view"
+cache = "Repeated layer sets reuse one native artifact and bound the sequential per-board root/process and retained-byte work"
+failure = "Native failures do not retry through Python and publish no cache entry"
+transactions = "Later PCB/design provider failures preserve existing destinations exactly, leave new artifact destinations absent, and retain the intentionally authored input-adjacent pcb-svg config template"
+
+[[subtests]]
+id = "L3_010"
+file = "test_L3_010_design_cli_compatibility.py"
+name = "Design CLI Compatibility"
+description = "Validate all public design aliases and entry mechanisms against the exact native-backed bundle contract"
+concerns = ["cli", "contracts", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "public hlr_test project, real native executable, all three aliases and entry mechanisms, and hostile missing-native failures"
+
+[subtests.code_under_test]
+design_module = "kicad_cruncher.kicad_cruncher_cmd_design"
+manifest_contract = "docs/contracts/design_review_manifest.a0.schema.json"
+entrypoint_module = "kicad_cruncher._cli"
+
+[subtests.objectives]
+entrypoints = "kicad-cruncher design, kcr design-review, and python -m kicad_cruncher dr publish byte-identical bundles"
+artifacts = "Every published file is indexed and native graph, netlist, and PCB provenance are exact"
+exit_codes = "Successful, handled runtime failure, and usage-error invocations return 0, 1, and 2 without tracebacks"
+no_partial = "A failed new invocation leaves the requested destination absent"
+native_only = "Selected native graph, netlist, and physical rendering never retry through legacy Python builders"
+
+[[subtests]]
+id = "L3_009"
+file = "test_L3_009_native_design_facts_provider.py"
+name = "Native Design Facts Provider"
+description = "Validate the Windows no-fallback compiled-graph and version-E netlist provider"
+concerns = ["contracts", "connectivity", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "synthetic file-backed design, hostile provider failure, public aliases, and real native a1 process"
+
+[subtests.code_under_test]
+provider_module = "kicad_cruncher.kicad_cruncher_native_design"
+design_module = "kicad_cruncher.kicad_cruncher_cmd_design"
+monkey_module = "kicad_monkey.kicad_native"
+
+[subtests.objectives]
+native_only = "Selected native facts inject one validated graph and version-E netlist with zero Python graph or netlist-writer retry"
+snapshot = "Native result provenance is bound to the exact current in-memory source snapshot and requested netlist metadata"
+linkage = "Design JSON, standalone graph, and schematic SVG graph views consume the same injected graph"
+transactions = "Native failure preserves the complete previously published design-review tree"
+public_cli = "design, design-review, and dr produce deterministic native facts through the real process"
+
+[[subtests]]
+id = "L3_011"
+file = "test_L3_011_rust_design_cli_compatibility.py"
+name = "Rust Design CLI Compatibility"
+description = "Keep the complete pure-Rust design command and bundle aligned with the canonical Python migration oracle"
+concerns = ["cli", "contracts", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "all three design aliases; command help and invalid-option failures; transactional replacement, rollback, and project auto-detection; HLR, taillight, Yoshi, 4-channel backplane, Charge Indicator, and Speedy projects; synthetic embedded-font and custom-worksheet cases"
+
+[subtests.code_under_test]
+python_entrypoint = "kicad_cruncher._cli"
+rust_crate = "src/rs/kicad-cruncher-cli"
+
+[subtests.objectives]
+help = "Rust design, design-review, and dr help retain the canonical Python workflow contract"
+usage_errors = "Rust aliases return 2 on invalid options, write usage only to stderr, and create no traceback"
+transactions = "All aliases publish the same complete bundle transactionally, preserve the prior bundle on failure, and auto-detect exactly one project"
+netlist_json = "Direct Rust structured facts reproduce Python's exact KiCad-native netlist JSON on the HLR project"
+design_json = "Direct Rust facts reproduce exact indexed/no-index HLR Design JSON plus taillight, Yoshi, and large hierarchical 4-channel graph, graphics, multi-unit, and PnP cases"
+schematic_instances = "Rust occurrence and page metadata reproduce Python across simple and repeated hierarchy"
+plot_documents = "Rust plot documents reproduce Python records, worksheets, images, and built-in or embedded font-family/style selection"
+base_svg = "Rust native schematic SVGs preserve Python plot identity for flat and hierarchical designs"
+schematic_review_svg = "Rust schematic review SVGs reproduce Python occurrence binding, graph links, view indexes, metadata, and black-and-white theme behavior"
+pcb_review_svg = "Rust all-copper PCB review SVGs reproduce Python viewport, enrichment, record identity, geometry, and color contracts"
+
+[subtests.test_functions]
+test_rust_design_help_matches_the_python_cli_contract = "Compare help for design, design-review, and dr"
+test_rust_usage_errors_match_the_python_cli_contract = "Compare invalid-option exit, stderr, and no-artifact behavior for every alias"
+test_rust_design_aliases_publish_the_same_complete_transactional_bundle = "Compare the complete transactional bundle from every Rust alias"
+test_rust_design_failure_preserves_the_previous_bundle = "Verify a failed publication leaves the previous tree intact"
+test_rust_design_auto_detects_one_project_and_honors_no_indexes = "Verify project auto-detection and the no-indexes bundle option"
+test_rust_netlist_json_matches_the_python_design_oracle_exactly = "Compare Rust and Python KiCad-native netlist JSON exactly"
+test_rust_design_json_matches_the_python_oracle_exactly = "Compare indexed and no-index Design JSON exactly on HLR"
+test_rust_design_json_matches_hierarchy_graphics_multi_unit_and_pnp_oracles = "Compare Design JSON on taillight and Yoshi hierarchy, graphics, multi-unit, and PnP cases"
+test_rust_design_json_matches_large_hierarchical_net_naming_oracle = "Compare Design JSON net naming on the 4-channel hierarchy"
+test_rust_schematic_instances_match_the_python_hierarchy_oracle = "Compare occurrence and page metadata across representative hierarchies"
+test_rust_schematic_plot_documents_match_the_python_oracle_exactly = "Compare complete plot documents across representative projects"
+test_rust_plot_document_uses_generic_embedded_font_family_and_style = "Verify generic embedded font family/style selection on Speedy"
+test_rust_plot_documents_load_custom_worksheet_and_missing_italic_face = "Verify custom worksheet loading and missing italic-face fallback"
+test_rust_schematic_base_svg_preserves_python_plot_identity = "Compare flat and hierarchical native schematic SVG plot identity"
+test_rust_schematic_review_svg_matches_python_enrichment_contract = "Compare enriched schematic SVG occurrence, graph, metadata, and theme contracts"
+test_rust_pcb_review_svg_matches_python_enrichment_contract = "Compare PCB review viewport, identity, geometry, enrichment, and colors"
+
+[[subtests]]
+id = "L3_012"
+file = "test_L3_012_rust_cli_install.py"
+name = "Installed Rust Design CLI"
+description = "Install the Windows x64 Rust binaries and run a complete design-review bundle without Python at runtime"
+concerns = ["cli", "contracts", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "isolated Cargo install prefix and the reviewed led_component project extracted from KM_CORPUS/kicad.zip"
+
+[subtests.code_under_test]
+rust_crate = "src/rs/kicad-cruncher-cli"
+install_harness = "tests/support_scripts/rust_cli_install_test.py"
+
+[subtests.objectives]
+entrypoints = "cargo install publishes both kicad-cruncher.exe and kcr.exe from one Rust dispatch surface"
+native_runtime = "the installed kcr design-review command publishes a complete bundle with Python removed from its runtime environment"
+source_hygiene = "installed executables contain no UTF-8 or UTF-16 workspace path"
+release_artifact = "the exact smoke-tested binaries produce a hash-bound Windows x64 archive and release manifest"
+
+[[subtests]]
 id = "L3_004"
 file = "test_L3_004_pcb_clean_workflow.py"
 name = "PCB Clean Workflow"
