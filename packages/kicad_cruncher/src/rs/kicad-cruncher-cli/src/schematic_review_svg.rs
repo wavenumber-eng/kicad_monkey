@@ -1388,13 +1388,22 @@ impl Write for LimitedBytes {
 struct XmlTextWriter<'a>(&'a mut LimitedBytes);
 impl Write for XmlTextWriter<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        for byte in buf {
-            match byte {
-                b'&' => self.0.write_all(b"&amp;")?,
-                b'<' => self.0.write_all(b"&lt;")?,
-                b'>' => self.0.write_all(b"&gt;")?,
-                _ => self.0.write_all(&[*byte])?,
+        let mut span_start = 0_usize;
+        for (index, byte) in buf.iter().enumerate() {
+            let replacement: &[u8] = match byte {
+                b'&' => b"&amp;",
+                b'<' => b"&lt;",
+                b'>' => b"&gt;",
+                _ => continue,
+            };
+            if span_start < index {
+                self.0.write_all(&buf[span_start..index])?;
             }
+            self.0.write_all(replacement)?;
+            span_start = index + 1;
+        }
+        if span_start < buf.len() {
+            self.0.write_all(&buf[span_start..])?;
         }
         Ok(buf.len())
     }
@@ -1465,7 +1474,27 @@ impl Write for CountingWriter {
 
 #[cfg(test)]
 mod tests {
-    use super::black_and_white;
+    use std::io::Write;
+
+    use super::{LimitedBytes, XmlTextWriter, black_and_white};
+
+    #[test]
+    fn xml_text_writer_preserves_utf8_and_escapes_only_xml_text_bytes() {
+        let input = "plain & <tag> \"quoted\" café";
+        let expected = "plain &amp; &lt;tag&gt; \"quoted\" café";
+        let mut output = LimitedBytes::new(expected.len());
+        XmlTextWriter(&mut output)
+            .write_all(input.as_bytes())
+            .unwrap();
+        assert_eq!(output.finish().unwrap(), expected);
+
+        let mut under = LimitedBytes::new(expected.len() - 1);
+        assert!(
+            XmlTextWriter(&mut under)
+                .write_all(input.as_bytes())
+                .is_err()
+        );
+    }
 
     #[test]
     fn review_theme_changes_color_attributes_but_not_literal_hex_text() {
