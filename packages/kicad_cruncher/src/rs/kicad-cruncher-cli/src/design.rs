@@ -270,6 +270,27 @@ impl io::Write for SerializedSize {
     }
 }
 
+struct LimitedSerializedSize {
+    written: usize,
+    limit: usize,
+}
+
+impl io::Write for LimitedSerializedSize {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        let total = self
+            .written
+            .checked_add(buffer.len())
+            .filter(|total| *total <= self.limit)
+            .ok_or_else(|| io::Error::other("serialized board plot limit exceeded"))?;
+        self.written = total;
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BoardPlotDocumentLimits {
     pub max_copper_layers: usize,
@@ -1039,12 +1060,15 @@ fn build_board_plot_document_internal(
     .map_err(|error| DesignError::context("could not project board plot document", error))?;
     profile.contract_projection_ns = profile_elapsed_ns(projection_started);
     let serialization_started = profile_enabled.then(std::time::Instant::now);
-    let mut writer = LimitedVecWriter::new(limits.max_contract_bytes);
+    let mut writer = LimitedSerializedSize {
+        written: 0,
+        limit: limits.max_contract_bytes,
+    };
     serde_json::to_writer(&mut writer, &contract)
         .map_err(|error| DesignError::context("board plot contract exceeds its limit", error))?;
     profile.contract_serialization_ns = profile_elapsed_ns(serialization_started);
     let materialization_started = profile_enabled.then(std::time::Instant::now);
-    let value = serde_json::from_slice(writer.bytes()).map_err(|error| {
+    let value = serde_json::to_value(contract).map_err(|error| {
         DesignError::context("could not materialize board plot document", error)
     })?;
     profile.contract_materialization_ns = profile_elapsed_ns(materialization_started);
@@ -1629,42 +1653,6 @@ fn design_embedded_files(
 struct AggregateLimitedWriter<'a> {
     written: &'a mut usize,
     limit: usize,
-}
-
-struct LimitedVecWriter {
-    bytes: Vec<u8>,
-    limit: usize,
-}
-
-impl LimitedVecWriter {
-    fn new(limit: usize) -> Self {
-        Self {
-            bytes: Vec::new(),
-            limit,
-        }
-    }
-
-    fn bytes(&self) -> &[u8] {
-        &self.bytes
-    }
-}
-
-impl io::Write for LimitedVecWriter {
-    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        let next = self
-            .bytes
-            .len()
-            .checked_add(buffer.len())
-            .filter(|next| *next <= self.limit)
-            .ok_or_else(|| io::Error::other(format!("output exceeds {} bytes", self.limit)))?;
-        self.bytes.reserve(next.saturating_sub(self.bytes.len()));
-        self.bytes.extend_from_slice(buffer);
-        Ok(buffer.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
 }
 
 impl<'a> AggregateLimitedWriter<'a> {

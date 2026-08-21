@@ -48,18 +48,24 @@ impl SvgSink {
 
     pub(crate) fn escaped(&mut self, value: &str) -> Result<(), SvgError> {
         reject_xml_controls(value)?;
-        for character in value.chars() {
-            match character {
-                '&' => self.raw("&amp;")?,
-                '<' => self.raw("&lt;")?,
-                '>' => self.raw("&gt;")?,
-                '"' => self.raw("&quot;")?,
-                '\'' => self.raw("&apos;")?,
-                _ => {
-                    let mut buffer = [0u8; 4];
-                    self.raw(character.encode_utf8(&mut buffer))?;
-                }
+        let mut span_start = 0_usize;
+        for (index, byte) in value.bytes().enumerate() {
+            let replacement = match byte {
+                b'&' => "&amp;",
+                b'<' => "&lt;",
+                b'>' => "&gt;",
+                b'"' => "&quot;",
+                b'\'' => "&apos;",
+                _ => continue,
+            };
+            if span_start < index {
+                self.raw(&value[span_start..index])?;
             }
+            self.raw(replacement)?;
+            span_start = index + 1;
+        }
+        if span_start < value.len() {
+            self.raw(&value[span_start..])?;
         }
         Ok(())
     }
@@ -131,5 +137,17 @@ mod tests {
         assert!(sink.id_attribute("owned").is_err());
         assert!(sink.escaped("\u{fffe}").is_err());
         assert!(sink.escaped("\u{ffff}").is_err());
+    }
+
+    #[test]
+    fn escaped_writes_utf8_spans_and_exact_xml_entities() {
+        let mut sink = SvgSink::new(1024, 10, 1024);
+        sink.escaped("café & <tag attr=\"x\">'ok'")
+            .expect("escaped text");
+        let (output, _, _) = sink.finish().expect("finished output");
+        assert_eq!(
+            output,
+            "café &amp; &lt;tag attr=&quot;x&quot;&gt;&apos;ok&apos;"
+        );
     }
 }

@@ -115,7 +115,7 @@ pub fn render_svg(request: &NativeSvgRenderRequestA0) -> Result<SvgArtifact, Svg
 
 fn document_value(
     document: &NativeSvgPlotDocument,
-) -> Result<(&'static str, String, Value), SvgError> {
+) -> Result<(&'static str, String, &Value), SvgError> {
     match document {
         NativeSvgPlotDocument::FootprintSvgDocument(wrapper) => {
             document_parts("MOD", &wrapper.value)
@@ -128,15 +128,15 @@ fn document_value(
     }
 }
 
-fn document_parts(
+fn document_parts<'a>(
     source_kind: &'static str,
-    document: &Value,
-) -> Result<(&'static str, String, Value), SvgError> {
+    document: &'a Value,
+) -> Result<(&'static str, String, &'a Value), SvgError> {
     let document_id = document
         .get("document_id")
         .and_then(Value::as_str)
         .ok_or_else(|| SvgError("plot document_id is missing".to_owned()))?;
-    Ok((source_kind, document_id.to_owned(), document.clone()))
+    Ok((source_kind, document_id.to_owned(), document))
 }
 
 fn preflight(records: &[Value], limits: Limits) -> Result<Preflight, SvgError> {
