@@ -185,7 +185,7 @@ def _canonical_json_sha256(path: Path) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
-def _require_archive_and_fonts() -> Path:
+def _require_archive() -> Path:
     carrier_text = os.environ.get("KM_CORPUS", "").strip()
     assert carrier_text, "KM_CORPUS must name the reviewed kicad.zip"
     carrier = Path(carrier_text).expanduser()
@@ -195,6 +195,11 @@ def _require_archive_and_fonts() -> Path:
     )
     root = get_kicad_corpus_root()
     assert (root / "manifest.json").is_file(), f"corpus manifest not found under {root}"
+    return root
+
+
+def _require_archive_and_fonts() -> Path:
+    root = _require_archive()
     assert _FIXTURE_FONT.is_file(), f"declared fixture font not found: {_FIXTURE_FONT}"
     assert _sha256(_FIXTURE_FONT) == _FIXTURE_FONT_SHA256
     assert _ARIAL.is_file(), f"declared live KiCad cache font not found: {_ARIAL}"
@@ -422,7 +427,7 @@ def _assert_phase5_freeze() -> None:
 
 
 def test_phase5_contract_freeze_and_codegen_are_current() -> None:
-    _require_archive_and_fonts()
+    _require_archive()
     cargo = shutil.which("cargo")
     npm = shutil.which("npm")
     assert cargo is not None, "Cargo is required by mandatory L3_022"
