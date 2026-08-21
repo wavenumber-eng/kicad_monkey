@@ -77,7 +77,7 @@ name = "Speedy Performance Probe"
 description = "Validate reviewed-corpus extraction safety and semantic SVG parity enforcement in the release benchmark"
 concerns = ["cli", "contracts", "release"]
 test_case_type = "contract"
-test_cases = "Synthetic hostile ZIP paths and scaled legacy/native schematic SVGs"
+test_cases = "Synthetic hostile ZIP paths, scaled legacy/native schematic SVGs, and native performance-profile records"
 
 [subtests.code_under_test]
 module = "tests.support_scripts.speedy_dr_performance_probe"
@@ -85,7 +85,9 @@ module = "tests.support_scripts.speedy_dr_performance_probe"
 [subtests.objectives]
 corpus_safety = "Windows traversal and drive-like ZIP members cannot escape the temporary Speedy source root"
 svg_parity = "The benchmark accepts renderer scale and identity-carrier differences while rejecting missing SVG record geometry"
+profile_binding = "Profile mode requires exactly one valid native trace bound to measured bundle artifact counts and bytes"
 
 [subtests.test_functions]
 test_speedy_probe_rejects_windows_archive_escape_members = "Reviewed-corpus selection rejects Windows backslash traversal before extraction"
 test_speedy_probe_semantically_validates_schematic_svg_bodies = "Semantic schematic SVG validation accepts known carrier differences and detects a corrupted body"
+test_speedy_probe_requires_a_bundle_bound_rust_profile = "Profile capture rejects missing, unexpected, malformed, arithmetically invalid, or bundle-mismatched records"

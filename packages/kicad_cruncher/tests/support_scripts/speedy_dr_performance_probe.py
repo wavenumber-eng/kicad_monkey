@@ -37,6 +37,25 @@ SPEEDY_PROJECT = "11-10084__speedy_processing_module__B.kicad_pro"
 JsonObject = dict[str, Any]
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
+_RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a0"
+_RUST_PROFILE_STAGES = (
+    "resolve_and_validate_output",
+    "create_staging_directory",
+    "load_design_sources",
+    "build_structured_design_facts",
+    "write_structured_artifacts",
+    "build_schematic_plot_documents",
+    "render_schematic_base_svgs",
+    "enrich_schematic_review_svgs",
+    "write_schematic_svgs",
+    "build_board_plot_document",
+    "build_pcb_review_svgs",
+    "write_pcb_svgs",
+    "build_and_write_bundle_metadata",
+    "publish_staged_tree",
+    "cleanup_transaction",
+)
 
 
 def _run_checked(
@@ -529,6 +548,78 @@ def _assert_svg_parity(python_output: Path, rust_output: Path) -> JsonObject:
     }
 
 
+def _performance_profile(
+    stderr_lines: list[str],
+    *,
+    expected: bool,
+    signature: JsonObject,
+) -> JsonObject | None:
+    profile_lines = [
+        line.removeprefix(_RUST_PROFILE_PREFIX)
+        for line in stderr_lines
+        if line.startswith(_RUST_PROFILE_PREFIX)
+    ]
+    if len(profile_lines) != int(expected):
+        raise AssertionError(
+            f"expected {int(expected)} Rust performance profile, got {len(profile_lines)}"
+        )
+    if not profile_lines:
+        return None
+    profile = json.loads(profile_lines[0])
+    if not isinstance(profile, dict):
+        raise AssertionError("Rust performance profile must be a JSON object")
+    expected_keys = {
+        "schema",
+        "total_elapsed_ns",
+        "accounted_elapsed_ns",
+        "unattributed_elapsed_ns",
+        "artifact_count",
+        "artifact_bytes",
+        "stages",
+    }
+    if profile.keys() != expected_keys:
+        raise AssertionError("Rust performance profile fields do not match the contract")
+    if profile["schema"] != _RUST_PROFILE_SCHEMA:
+        raise AssertionError("Rust performance profile schema is not recognized")
+    integer_fields = (
+        "total_elapsed_ns",
+        "accounted_elapsed_ns",
+        "unattributed_elapsed_ns",
+        "artifact_count",
+        "artifact_bytes",
+    )
+    if any(not isinstance(profile[name], int) or profile[name] < 0 for name in integer_fields):
+        raise AssertionError("Rust performance profile counters must be unsigned integers")
+    if profile["total_elapsed_ns"] == 0 or profile["accounted_elapsed_ns"] == 0:
+        raise AssertionError("Rust performance profile timing must be nonzero")
+    stages = profile["stages"]
+    if not isinstance(stages, list) or any(
+        not isinstance(stage, dict)
+        or stage.keys() != {"name", "elapsed_ns"}
+        or not isinstance(stage["name"], str)
+        or not isinstance(stage["elapsed_ns"], int)
+        or stage["elapsed_ns"] < 0
+        for stage in stages
+    ):
+        raise AssertionError("Rust performance profile stages are malformed")
+    stage_names = [stage["name"] for stage in stages]
+    if tuple(stage_names) != _RUST_PROFILE_STAGES or len(set(stage_names)) != len(stage_names):
+        raise AssertionError("Rust performance profile stage inventory is incomplete")
+    stage_total = sum(stage["elapsed_ns"] for stage in stages)
+    if stage_total != profile["accounted_elapsed_ns"]:
+        raise AssertionError("Rust performance profile accounted time does not match its stages")
+    if (
+        profile["accounted_elapsed_ns"] + profile["unattributed_elapsed_ns"]
+        != profile["total_elapsed_ns"]
+    ):
+        raise AssertionError("Rust performance profile total time arithmetic is invalid")
+    if profile["artifact_count"] != signature["file_count"]:
+        raise AssertionError("Rust performance profile artifact count does not match the bundle")
+    if profile["artifact_bytes"] != signature["total_bytes"]:
+        raise AssertionError("Rust performance profile artifact bytes do not match the bundle")
+    return profile
+
+
 def _run_round(
     *,
     implementation: str,
@@ -536,6 +627,7 @@ def _run_round(
     cwd: Path,
     env: dict[str, str],
     output: Path,
+    expect_profile: bool,
 ) -> JsonObject:
     if output.exists():
         shutil.rmtree(output)
@@ -543,13 +635,21 @@ def _run_round(
     completed = _run_checked(command, cwd=cwd, env=env)
     elapsed = time.perf_counter() - started
     signature = _bundle_signature(output)
+    stderr_lines = completed.stderr.strip().splitlines()
+    performance_profile = _performance_profile(
+        stderr_lines, expected=expect_profile, signature=signature
+    )
     result: JsonObject = {
         "implementation": implementation,
         "seconds": elapsed,
         "stdout_tail": completed.stdout.strip().splitlines()[-1:],
-        "stderr_tail": completed.stderr.strip().splitlines()[-1:],
+        "stderr_tail": [line for line in stderr_lines if not line.startswith(_RUST_PROFILE_PREFIX)][
+            -1:
+        ],
         "signature": signature,
     }
+    if performance_profile is not None:
+        result["performance_profile"] = performance_profile
     return result
 
 
@@ -616,6 +716,8 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
         python_env = os.environ.copy()
         python_env["KICAD_MONKEY_NATIVE"] = str(native)
         rust_env = os.environ.copy()
+        if args.rust_profile:
+            rust_env["KICAD_CRUNCHER_PERFORMANCE_PROFILE"] = "1"
         commands = {
             "python": [
                 sys.executable,
@@ -647,6 +749,7 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
                         cwd=runtime,
                         env=environments[implementation],
                         output=outputs[implementation],
+                        expect_profile=args.rust_profile and implementation == "rust",
                     )
                 )
             svg_parity = _assert_svg_parity(python_output, rust_output)
@@ -671,6 +774,7 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
         "platform": platform.platform(),
         "python": sys.version,
         "release_build_performed": build_release,
+        "rust_profile_enabled": args.rust_profile,
         "probe": {
             "path": str(Path(__file__).resolve()),
             "sha256": _sha256_file(Path(__file__).resolve()),
@@ -714,6 +818,11 @@ def main(argv: list[str] | None = None) -> int:
         "--skip-release-build",
         action="store_true",
         help="reuse existing release binaries (report is non-authoritative)",
+    )
+    parser.add_argument(
+        "--rust-profile",
+        action="store_true",
+        help="capture native whole-pipeline stage timings from each Rust round",
     )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)

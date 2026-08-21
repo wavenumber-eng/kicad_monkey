@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
 use kicad_monkey_core::{ENGINE_VERSION, KiCadSchematicInstance};
@@ -37,6 +37,8 @@ const NPTH_DRILL_COLOR: &str = "#DC2626";
 const NPTH_SLOT_COLOR: &str = "#F97316";
 const UNKNOWN_HOLE_COLOR: &str = "#6B7280";
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+const PERFORMANCE_PROFILE_ENV: &str = "KICAD_CRUNCHER_PERFORMANCE_PROFILE";
+const PERFORMANCE_PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a0";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DesignReviewBundleLimits {
@@ -65,6 +67,80 @@ pub struct DesignReviewBundle {
     pub net_count: usize,
     pub schematic_svg_count: usize,
     pub pcb_svg_count: usize,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct DesignReviewPerformanceStage {
+    pub name: &'static str,
+    pub elapsed_ns: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct DesignReviewPerformanceProfile {
+    pub schema: &'static str,
+    pub total_elapsed_ns: u64,
+    pub accounted_elapsed_ns: u64,
+    pub unattributed_elapsed_ns: u64,
+    pub artifact_count: usize,
+    pub artifact_bytes: usize,
+    pub stages: Vec<DesignReviewPerformanceStage>,
+}
+
+struct PerformanceRecorder {
+    enabled: bool,
+    total_started: Option<Instant>,
+    stages: Vec<DesignReviewPerformanceStage>,
+}
+
+impl PerformanceRecorder {
+    fn new(enabled: bool) -> Self {
+        Self {
+            enabled,
+            total_started: enabled.then(Instant::now),
+            stages: Vec::new(),
+        }
+    }
+
+    fn start(&self) -> Option<Instant> {
+        self.enabled.then(Instant::now)
+    }
+
+    fn finish(&mut self, name: &'static str, started: Option<Instant>) {
+        if let Some(started) = started {
+            self.stages.push(DesignReviewPerformanceStage {
+                name,
+                elapsed_ns: duration_ns(started.elapsed()),
+            });
+        }
+    }
+
+    fn complete(
+        self,
+        artifact_count: usize,
+        artifact_bytes: usize,
+    ) -> DesignReviewPerformanceProfile {
+        let total_elapsed_ns = self
+            .total_started
+            .map_or(0, |started| duration_ns(started.elapsed()));
+        let accounted_elapsed_ns = self
+            .stages
+            .iter()
+            .map(|stage| stage.elapsed_ns)
+            .sum::<u64>();
+        DesignReviewPerformanceProfile {
+            schema: PERFORMANCE_PROFILE_SCHEMA,
+            total_elapsed_ns,
+            accounted_elapsed_ns,
+            unattributed_elapsed_ns: total_elapsed_ns.saturating_sub(accounted_elapsed_ns),
+            artifact_count,
+            artifact_bytes,
+            stages: self.stages,
+        }
+    }
+}
+
+fn duration_ns(duration: std::time::Duration) -> u64 {
+    u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX)
 }
 
 #[derive(Serialize)]
@@ -147,12 +223,17 @@ pub fn run_design(options: &DesignOptions) -> Result<DesignReviewBundle, DesignE
         .output
         .clone()
         .unwrap_or_else(|| PathBuf::from("output").join("design"));
-    write_design_review_bundle(
-        &input,
-        &output,
-        options.include_indexes,
-        DesignReviewBundleLimits::default(),
-    )
+    let limits = DesignReviewBundleLimits::default();
+    if std::env::var_os(PERFORMANCE_PROFILE_ENV).as_deref() == Some(std::ffi::OsStr::new("1")) {
+        let (bundle, profile) =
+            write_design_review_bundle_profiled(&input, &output, options.include_indexes, limits)?;
+        if let Ok(payload) = serde_json::to_string(&profile) {
+            eprintln!("KICAD_CRUNCHER_PERFORMANCE_PROFILE={payload}");
+        }
+        Ok(bundle)
+    } else {
+        write_design_review_bundle(&input, &output, options.include_indexes, limits)
+    }
 }
 
 pub fn resolve_design_input(input: Option<&Path>) -> Result<PathBuf, DesignError> {
@@ -198,31 +279,85 @@ pub fn write_design_review_bundle(
     include_indexes: bool,
     limits: DesignReviewBundleLimits,
 ) -> Result<DesignReviewBundle, DesignError> {
+    write_design_review_bundle_internal(
+        input,
+        output,
+        include_indexes,
+        limits,
+        PerformanceRecorder::new(false),
+    )
+    .map(|(bundle, _profile)| bundle)
+}
+
+pub fn write_design_review_bundle_profiled(
+    input: &Path,
+    output: &Path,
+    include_indexes: bool,
+    limits: DesignReviewBundleLimits,
+) -> Result<(DesignReviewBundle, DesignReviewPerformanceProfile), DesignError> {
+    write_design_review_bundle_internal(
+        input,
+        output,
+        include_indexes,
+        limits,
+        PerformanceRecorder::new(true),
+    )
+}
+
+fn write_design_review_bundle_internal(
+    input: &Path,
+    output: &Path,
+    include_indexes: bool,
+    limits: DesignReviewBundleLimits,
+    mut performance: PerformanceRecorder,
+) -> Result<(DesignReviewBundle, DesignReviewPerformanceProfile), DesignError> {
+    let resolve_started = performance.start();
     validate_limits(limits)?;
     let (destination, parent) = resolve_destination(output)?;
+    performance.finish("resolve_and_validate_output", resolve_started);
+    let staging_started = performance.start();
     let temporary = create_temporary_directory(&parent)?;
     let staging = temporary.join("output");
     fs::create_dir(&staging).map_err(|error| {
         DesignError::context("could not create bundle staging directory", error)
     })?;
-    let staged = write_staged_bundle(input, &staging, &destination, include_indexes, limits);
+    performance.finish("create_staging_directory", staging_started);
+    let staged = write_staged_bundle(
+        input,
+        &staging,
+        &destination,
+        include_indexes,
+        limits,
+        &mut performance,
+    );
     let (result, preserve_transaction) = match staged {
-        Ok(result) => match publish_staged_tree(&staging, &destination, &temporary) {
-            Ok(()) => (Ok(result), false),
-            Err(failure) => (Err(failure.error), failure.preserve_transaction),
-        },
+        Ok(result) => {
+            let publish_started = performance.start();
+            let published = publish_staged_tree(&staging, &destination, &temporary);
+            performance.finish("publish_staged_tree", publish_started);
+            match published {
+                Ok(()) => (Ok(result), false),
+                Err(failure) => (Err(failure.error), failure.preserve_transaction),
+            }
+        }
         Err(error) => (Err(error), false),
     };
+    let cleanup_started = performance.start();
     cleanup_transaction(&temporary, preserve_transaction);
+    performance.finish("cleanup_transaction", cleanup_started);
     match result {
-        Ok(staged) => Ok(DesignReviewBundle {
-            output_dir: destination.clone(),
-            manifest_path: destination.join("design_review_manifest.json"),
-            component_count: staged.component_count,
-            net_count: staged.net_count,
-            schematic_svg_count: staged.schematic_svg_count,
-            pcb_svg_count: staged.pcb_svg_count,
-        }),
+        Ok(staged) => {
+            let bundle = DesignReviewBundle {
+                output_dir: destination.clone(),
+                manifest_path: destination.join("design_review_manifest.json"),
+                component_count: staged.component_count,
+                net_count: staged.net_count,
+                schematic_svg_count: staged.schematic_svg_count,
+                pcb_svg_count: staged.pcb_svg_count,
+            };
+            let profile = performance.complete(staged.artifact_count, staged.artifact_bytes);
+            Ok((bundle, profile))
+        }
         Err(error) => Err(error),
     }
 }
@@ -297,6 +432,8 @@ struct StagedSummary {
     net_count: usize,
     schematic_svg_count: usize,
     pcb_svg_count: usize,
+    artifact_count: usize,
+    artifact_bytes: usize,
 }
 
 #[allow(
@@ -309,10 +446,15 @@ fn write_staged_bundle(
     destination: &Path,
     include_indexes: bool,
     limits: DesignReviewBundleLimits,
+    performance: &mut PerformanceRecorder,
 ) -> Result<StagedSummary, DesignError> {
+    let load_started = performance.start();
     let loaded = load_design_sources(input)?;
+    performance.finish("load_design_sources", load_started);
     validate_destination_source_separation(&loaded, destination)?;
+    let facts_started = performance.start();
     let facts = build_structured_design_facts_with_options(&loaded, include_indexes)?;
+    performance.finish("build_structured_design_facts", facts_started);
     let stem = loaded
         .input_path
         .file_stem()
@@ -326,6 +468,7 @@ fn write_staged_bundle(
     let manifest_path = "design_review_manifest.json";
     let mut budget = ArtifactBudget::new(limits);
 
+    let structured_write_started = performance.start();
     write_json(staging, &design_path, &facts.design_json, &mut budget)?;
     write_json(
         staging,
@@ -345,15 +488,23 @@ fn write_staged_bundle(
         facts.kicad_netlist.as_bytes(),
         &mut budget,
     )?;
+    performance.finish("write_structured_artifacts", structured_write_started);
 
     budget.ensure_future_artifacts(facts.schematic_instances.len().saturating_add(2))?;
+    let schematic_documents_started = performance.start();
     let documents = build_schematic_plot_document_artifacts(&loaded, &facts.schematic_instances)?;
+    performance.finish(
+        "build_schematic_plot_documents",
+        schematic_documents_started,
+    );
     let mut base_limits = SchematicSvgDocumentsLimits::default();
     base_limits.max_total_svg_bytes = base_limits
         .max_total_svg_bytes
         .min(budget.remaining_bytes());
+    let schematic_base_started = performance.start();
     let base_svgs =
         build_schematic_base_svgs_for_plot_documents_with_limits(&documents, base_limits)?;
+    performance.finish("render_schematic_base_svgs", schematic_base_started);
     let mut review_limits = SchematicReviewSvgLimits::default();
     review_limits.max_total_output_bytes = review_limits
         .max_total_output_bytes
@@ -362,6 +513,7 @@ fn write_staged_bundle(
         .max_output_bytes_per_document
         .min(budget.remaining_bytes())
         .min(limits.max_artifact_bytes);
+    let schematic_review_started = performance.start();
     let reviews = build_schematic_review_svgs_with_limits(
         &documents,
         &base_svgs,
@@ -370,6 +522,7 @@ fn write_staged_bundle(
         &format!("../{graph_path}"),
         review_limits,
     )?;
+    performance.finish("enrich_schematic_review_svgs", schematic_review_started);
     if reviews.len() != facts.schematic_instances.len() {
         return Err(DesignError::new(
             "schematic review output count does not match design instances",
@@ -377,6 +530,7 @@ fn write_staged_bundle(
     }
     let mut used_names = HashSet::new();
     let mut schematic_artifacts = Vec::with_capacity(reviews.len());
+    let schematic_write_started = performance.start();
     for (instance, review) in facts.schematic_instances.iter().zip(reviews) {
         let filename = schematic_filename(instance, &mut used_names);
         let path = format!("schematics/{filename}");
@@ -396,9 +550,12 @@ fn write_staged_bundle(
             resolved_svg_identity_count: review.resolved_svg_identity_count,
         });
     }
+    performance.finish("write_schematic_svgs", schematic_write_started);
 
     let mut pcb_artifacts = Vec::new();
+    let board_document_started = performance.start();
     if let Some(document) = build_board_plot_document(&loaded)? {
+        performance.finish("build_board_plot_document", board_document_started);
         budget.ensure_future_artifacts(document.copper_layer_count().saturating_add(2))?;
         let board_name = safe_filename(
             loaded
@@ -416,7 +573,11 @@ fn write_staged_bundle(
             .max_svg_bytes_per_layer
             .min(budget.remaining_bytes())
             .min(limits.max_artifact_bytes);
-        for review in build_pcb_review_svgs_with_limits(&loaded, &document, pcb_limits)? {
+        let pcb_reviews_started = performance.start();
+        let pcb_reviews = build_pcb_review_svgs_with_limits(&loaded, &document, pcb_limits)?;
+        performance.finish("build_pcb_review_svgs", pcb_reviews_started);
+        let pcb_write_started = performance.start();
+        for review in pcb_reviews {
             let layer_name = safe_filename(&review.layer, "layer");
             let path = format!("pcb/copper_layers/{board_name}__{layer_name}__review.svg");
             write_text(staging, &path, review.svg.as_bytes(), &mut budget)?;
@@ -427,8 +588,12 @@ fn write_staged_bundle(
                 drill_slot_record_count: review.drill_slot_record_count,
             });
         }
+        performance.finish("write_pcb_svgs", pcb_write_started);
+    } else {
+        performance.finish("build_board_plot_document", board_document_started);
     }
 
+    let metadata_started = performance.start();
     let graph_sha256 = canonical_json_sha256(&facts.design_json["compiled_schematic_graph"])?;
     let netlist_sha256 = sha256_hex(facts.kicad_netlist.as_bytes());
     let manifest = Manifest {
@@ -473,6 +638,7 @@ fn write_staged_bundle(
     )?;
     validate_manifest_artifacts(&manifest, staging, limits)?;
     write_json(staging, manifest_path, &manifest, &mut budget)?;
+    performance.finish("build_and_write_bundle_metadata", metadata_started);
     Ok(StagedSummary {
         component_count: facts.design_json["components"]
             .as_array()
@@ -480,6 +646,8 @@ fn write_staged_bundle(
         net_count: facts.design_json["nets"].as_array().map_or(0, Vec::len),
         schematic_svg_count: schematic_artifacts.len(),
         pcb_svg_count: pcb_artifacts.len(),
+        artifact_count: budget.artifacts,
+        artifact_bytes: budget.bytes,
     })
 }
 
@@ -1007,6 +1175,60 @@ mod tests {
         assert!(write_text(&root, "e", b"a", &mut budget).is_err());
         assert!(validate_relative_path("abc", 3).is_ok());
         assert!(validate_relative_path("abc", 2).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn profiled_bundle_reports_each_whole_pipeline_stage() {
+        let root = std::env::temp_dir().join(format!(
+            "kicad-cruncher-profile-{}-{}",
+            std::process::id(),
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let output = root.join("review");
+        let project = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../tests/corpus/kicad/projects/hlr_test/hlr_test.kicad_pro");
+        let (_bundle, profile) = write_design_review_bundle_profiled(
+            &project,
+            &output,
+            true,
+            DesignReviewBundleLimits::default(),
+        )
+        .unwrap();
+
+        assert_eq!(profile.schema, PERFORMANCE_PROFILE_SCHEMA);
+        assert!(profile.total_elapsed_ns > 0);
+        assert!(profile.accounted_elapsed_ns > 0);
+        assert_eq!(
+            profile.accounted_elapsed_ns + profile.unattributed_elapsed_ns,
+            profile.total_elapsed_ns
+        );
+        assert_eq!(profile.artifact_count, 9);
+        assert!(profile.artifact_bytes > 0);
+        assert_eq!(
+            profile
+                .stages
+                .iter()
+                .map(|stage| stage.name)
+                .collect::<Vec<_>>(),
+            [
+                "resolve_and_validate_output",
+                "create_staging_directory",
+                "load_design_sources",
+                "build_structured_design_facts",
+                "write_structured_artifacts",
+                "build_schematic_plot_documents",
+                "render_schematic_base_svgs",
+                "enrich_schematic_review_svgs",
+                "write_schematic_svgs",
+                "build_board_plot_document",
+                "build_pcb_review_svgs",
+                "write_pcb_svgs",
+                "build_and_write_bundle_metadata",
+                "publish_staged_tree",
+                "cleanup_transaction",
+            ]
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
