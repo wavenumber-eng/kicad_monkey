@@ -55,6 +55,24 @@ pub struct PcbReviewSvgLimits {
     pub native: SchematicSvgRenderLimits,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct PcbReviewSvgBuildProfile {
+    pub source_binding_ns: u64,
+    pub pcb_view_parse_ns: u64,
+    pub project_parse_ns: u64,
+    pub metadata_preflight_ns: u64,
+    pub metadata_materialization_ns: u64,
+    pub contract_usage_preflight_ns: u64,
+    pub contract_serialized_size_ns: u64,
+    pub metadata_serialization_ns: u64,
+    pub layer_filter_ns: u64,
+    pub render_request_ns: u64,
+    pub native_render_ns: u64,
+    pub composition_preflight_ns: u64,
+    pub compose_review_svg_ns: u64,
+    pub artifact_finalize_ns: u64,
+}
+
 impl Default for PcbReviewSvgLimits {
     fn default() -> Self {
         Self {
@@ -100,6 +118,30 @@ pub fn build_pcb_review_svgs_with_limits(
     document: &BoardPlotDocument,
     limits: PcbReviewSvgLimits,
 ) -> Result<Vec<PcbReviewSvg>, DesignError> {
+    build_pcb_review_svgs_internal(loaded, document, limits, false)
+        .map(|(artifacts, _profile)| artifacts)
+}
+
+pub(crate) fn build_pcb_review_svgs_profiled(
+    loaded: &LoadedDesignSources,
+    document: &BoardPlotDocument,
+    limits: PcbReviewSvgLimits,
+) -> Result<(Vec<PcbReviewSvg>, PcbReviewSvgBuildProfile), DesignError> {
+    build_pcb_review_svgs_internal(loaded, document, limits, true)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one bounded pass keeps each filtered document, render, enrichment, and timing together"
+)]
+fn build_pcb_review_svgs_internal(
+    loaded: &LoadedDesignSources,
+    document: &BoardPlotDocument,
+    limits: PcbReviewSvgLimits,
+    profile_enabled: bool,
+) -> Result<(Vec<PcbReviewSvg>, PcbReviewSvgBuildProfile), DesignError> {
+    let mut profile = PcbReviewSvgBuildProfile::default();
+    let binding_started = profile_enabled.then(std::time::Instant::now);
     if document.copper_layers.len() > limits.max_layers {
         return Err(DesignError::new("PCB review layer count exceeds its limit"));
     }
@@ -112,14 +154,20 @@ pub fn build_pcb_review_svgs_with_limits(
             "PCB review plot document does not belong to the loaded PCB source",
         ));
     }
+    profile.source_binding_ns = profile_elapsed_ns(binding_started);
+    let view_started = profile_enabled.then(std::time::Instant::now);
     let view = PcbView::parse(source, PcbLimits::default())
         .map_err(|error| DesignError::context("could not parse PCB enrichment facts", error))?;
+    profile.pcb_view_parse_ns = profile_elapsed_ns(view_started);
+    let project_started = profile_enabled.then(std::time::Instant::now);
     let project = loaded
         .bundle
         .project()
         .map(|source| ProjectDocument::from_reader(source.bytes(), ProjectLimits::default()))
         .transpose()
         .map_err(|error| DesignError::context("could not parse PCB project", error))?;
+    profile.project_parse_ns = profile_elapsed_ns(project_started);
+    let metadata_preflight_started = profile_enabled.then(std::time::Instant::now);
     let metadata_materialized_bytes = preflight_enrichment_metadata(
         loaded,
         &view,
@@ -127,6 +175,7 @@ pub fn build_pcb_review_svgs_with_limits(
         &document.source_path,
         limits,
     )?;
+    profile.metadata_preflight_ns = profile_elapsed_ns(metadata_preflight_started);
     let [min_x, min_y, max_x, max_y] = document
         .bounds
         .ok_or_else(|| DesignError::new("PCB plot document has no bounded geometry"))?;
@@ -138,6 +187,7 @@ pub fn build_pcb_review_svgs_with_limits(
     };
     let mut composition = CompositionBudget::new(limits);
     composition.reserve(metadata_materialized_bytes, metadata_materialized_bytes)?;
+    let metadata_started = profile_enabled.then(std::time::Instant::now);
     let mut metadata = enrichment_metadata(
         loaded,
         &view,
@@ -146,11 +196,16 @@ pub fn build_pcb_review_svgs_with_limits(
         &[],
         &document.source_path,
     )?;
+    profile.metadata_materialization_ns = profile_elapsed_ns(metadata_started);
+    let usage_started = profile_enabled.then(std::time::Instant::now);
     let (contract_materialized_bytes, contract_preflight_work) =
         value_projection_usage(&document.value, composition.remaining_work())?;
     composition.reserve(0, contract_preflight_work)?;
+    profile.contract_usage_preflight_ns = profile_elapsed_ns(usage_started);
+    let size_started = profile_enabled.then(std::time::Instant::now);
     let contract_bytes = serialized_size(&document.value, composition.remaining_work())?;
     composition.reserve(0, contract_bytes)?;
+    profile.contract_serialized_size_ns = profile_elapsed_ns(size_started);
     let mut total_svg_bytes = 0_usize;
     let mut filter_work = FilterWork::new(limits.max_total_filter_work);
     let mut artifacts = Vec::with_capacity(document.copper_layers.len());
@@ -166,14 +221,22 @@ pub fn build_pcb_review_svgs_with_limits(
             .max_metadata_bytes
             .min(composition.remaining_materialized())
             .min(composition.remaining_work());
+        let metadata_serialization_started = profile_enabled.then(std::time::Instant::now);
         let mut metadata_writer = LimitedVecWriter::new(metadata_limit);
         serde_json::to_writer_pretty(&mut metadata_writer, &metadata).map_err(|error| {
             DesignError::context("PCB enrichment metadata exceeds its limit", error)
         })?;
         let metadata_text = metadata_writer.into_string()?;
         composition.reserve(metadata_text.len(), metadata_text.len())?;
+        profile.metadata_serialization_ns = profile
+            .metadata_serialization_ns
+            .saturating_add(profile_elapsed_ns(metadata_serialization_started));
+        let filter_started = profile_enabled.then(std::time::Instant::now);
         let filtered =
             filter_document(&document.value, &included_layers, limits, &mut filter_work)?;
+        profile.layer_filter_ns = profile
+            .layer_filter_ns
+            .saturating_add(profile_elapsed_ns(filter_started));
         let remaining = limits
             .max_total_svg_bytes
             .checked_sub(total_svg_bytes)
@@ -182,14 +245,23 @@ pub fn build_pcb_review_svgs_with_limits(
             .min(limits.max_svg_bytes_per_layer)
             .min(composition.remaining_materialized())
             .min(composition.remaining_work());
+        let request_started = profile_enabled.then(std::time::Instant::now);
         let request = render_request(filtered, bounds, limits.native, render_limit)?;
+        profile.render_request_ns = profile
+            .render_request_ns
+            .saturating_add(profile_elapsed_ns(request_started));
+        let render_started = profile_enabled.then(std::time::Instant::now);
         let rendered = render_svg(&request)
             .map_err(|error| DesignError::context("could not render PCB base SVG", error))?;
+        profile.native_render_ns = profile
+            .native_render_ns
+            .saturating_add(profile_elapsed_ns(render_started));
         composition.reserve(rendered.svg.len(), rendered.svg.len())?;
         let filtered = match &request.document {
             NativeSvgPlotDocument::BoardSvgDocument(document) => &document.value,
             _ => return Err(DesignError::new("PCB SVG request lost its board document")),
         };
+        let composition_preflight_started = profile_enabled.then(std::time::Instant::now);
         let composition_upper = composition_upper_bound(
             &rendered.svg,
             contract_bytes,
@@ -198,6 +270,10 @@ pub fn build_pcb_review_svgs_with_limits(
             &included_layers,
         )?;
         composition.reserve(composition_upper, composition_upper)?;
+        profile.composition_preflight_ns = profile
+            .composition_preflight_ns
+            .saturating_add(profile_elapsed_ns(composition_preflight_started));
+        let compose_started = profile_enabled.then(std::time::Instant::now);
         let svg = compose_review_svg(
             &rendered.svg,
             filtered,
@@ -208,6 +284,10 @@ pub fn build_pcb_review_svgs_with_limits(
             bounds,
             limits.max_svg_bytes_per_layer.min(remaining),
         )?;
+        profile.compose_review_svg_ns = profile
+            .compose_review_svg_ns
+            .saturating_add(profile_elapsed_ns(compose_started));
+        let finalize_started = profile_enabled.then(std::time::Instant::now);
         total_svg_bytes = total_svg_bytes
             .checked_add(svg.len())
             .ok_or_else(|| DesignError::new("PCB review aggregate SVG byte count overflowed"))?;
@@ -231,8 +311,17 @@ pub fn build_pcb_review_svgs_with_limits(
             viewport_bounds_nm: [bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y],
         });
         composition.end_temporary(contract_materialized_bytes)?;
+        profile.artifact_finalize_ns = profile
+            .artifact_finalize_ns
+            .saturating_add(profile_elapsed_ns(finalize_started));
     }
-    Ok(artifacts)
+    Ok((artifacts, profile))
+}
+
+fn profile_elapsed_ns(started: Option<std::time::Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
+    })
 }
 
 fn value_projection_usage(

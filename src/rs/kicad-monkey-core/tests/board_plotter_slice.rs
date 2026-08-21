@@ -1,9 +1,10 @@
 use kicad_monkey_core::{
     BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
     BoardPlotRecord, BoardSegmentRecord, BoardTextVariables, BoardTrackArcRecord,
-    BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord, ErrorKind, PlotterFill,
-    PlotterOperation, board_plot_document, board_plot_document_with_net_classes,
-    board_plot_document_with_sidecars,
+    BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord, ErrorKind, PcbLimits,
+    PlotterFill, PlotterOperation, board_plot_document, board_plot_document_with_net_classes,
+    board_plot_document_with_sidecars, board_plot_facts_with_sidecars,
+    board_plot_facts_with_sidecars_profiled,
 };
 
 fn graphic(record: &BoardPlotRecord) -> &BoardGraphicRecord {
@@ -54,6 +55,39 @@ const LINE_BOARD: &str = r#"(kicad_pcb
     (layer "Edge.Cuts")
     (uuid "line-uuid"))
 )"#;
+
+#[test]
+fn profiled_board_facts_preserve_the_normal_document() {
+    let classes = BoardNetClassAssignments::default();
+    let variables = BoardTextVariables::default();
+    let expected = board_plot_facts_with_sidecars(
+        LINE_BOARD,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &classes,
+        &variables,
+    )
+    .expect("normal board facts")
+    .into_document();
+    let (actual, profile) = board_plot_facts_with_sidecars_profiled(
+        LINE_BOARD,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &classes,
+        &variables,
+    )
+    .expect("profiled board facts");
+    assert_eq!(actual.into_document(), expected);
+    assert!(
+        profile
+            .plot
+            .selected_view_parse_ns
+            .saturating_add(profile.plot.decode_graphics_ns)
+            .saturating_add(profile.plot.graphic_records_ns)
+            .saturating_add(profile.bound_pcb_view_parse_ns)
+            > 0
+    );
+}
 
 #[test]
 #[allow(

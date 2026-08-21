@@ -28,6 +28,7 @@ use crate::plotter_text_cache::{PlotterTextCacheResources, PlotterTextCacheSessi
 use crate::plotter_types::{PlotterOperation, ThickSegment};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
 use std::collections::BTreeMap;
+use std::time::Instant;
 
 use copper::{segment_record, track_arc_record, via_operation_count, via_record, zone_record};
 use graphics::graphic_records;
@@ -670,6 +671,31 @@ pub struct BoardPlotFacts<'a> {
     view: PcbView<'a>,
 }
 
+/// Opt-in successful-build timings for board Plotter-IR production.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct BoardPlotBuildProfile {
+    pub text_cache_setup_ns: u64,
+    pub selected_view_parse_ns: u64,
+    pub metadata_ns: u64,
+    pub decode_graphics_ns: u64,
+    pub decode_tables_ns: u64,
+    pub decode_dimensions_ns: u64,
+    pub graphic_records_ns: u64,
+    pub variables_ns: u64,
+    pub text_records_ns: u64,
+    pub copper_records_ns: u64,
+    pub table_records_ns: u64,
+    pub dimension_records_ns: u64,
+    pub zone_records_ns: u64,
+    pub footprint_records_ns: u64,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct BoardPlotFactsBuildProfile {
+    pub plot: BoardPlotBuildProfile,
+    pub bound_pcb_view_parse_ns: u64,
+}
+
 impl BoardPlotFacts<'_> {
     pub fn view(&self) -> &PcbView<'_> {
         &self.view
@@ -696,10 +722,59 @@ pub fn board_plot_facts_with_sidecars<'a>(
     net_classes: &BoardNetClassAssignments,
     text_variables: &BoardTextVariables,
 ) -> Result<BoardPlotFacts<'a>, Error> {
-    let document =
-        board_plot_document_with_sidecars(source, plot_limits, net_classes, text_variables)?;
+    build_board_plot_facts_internal(
+        source,
+        plot_limits,
+        pcb_limits,
+        net_classes,
+        text_variables,
+        false,
+    )
+    .map(|(facts, _profile)| facts)
+}
+
+pub fn board_plot_facts_with_sidecars_profiled<'a>(
+    source: &'a str,
+    plot_limits: BoardPlotLimits,
+    pcb_limits: PcbLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+) -> Result<(BoardPlotFacts<'a>, BoardPlotFactsBuildProfile), Error> {
+    build_board_plot_facts_internal(
+        source,
+        plot_limits,
+        pcb_limits,
+        net_classes,
+        text_variables,
+        true,
+    )
+}
+
+fn build_board_plot_facts_internal<'a>(
+    source: &'a str,
+    plot_limits: BoardPlotLimits,
+    pcb_limits: PcbLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+    profile_enabled: bool,
+) -> Result<(BoardPlotFacts<'a>, BoardPlotFactsBuildProfile), Error> {
+    let (document, plot) = board_plot_document_with_text_cache_sidecar_internal(
+        source,
+        plot_limits,
+        net_classes,
+        text_variables,
+        None,
+        profile_enabled,
+    )?;
+    let view_started = profile_enabled.then(Instant::now);
     let view = PcbView::parse(source, pcb_limits)?;
-    Ok(BoardPlotFacts { document, view })
+    Ok((
+        BoardPlotFacts { document, view },
+        BoardPlotFactsBuildProfile {
+            plot,
+            bound_pcb_view_parse_ns: elapsed_ns(view_started),
+        },
+    ))
 }
 
 /// Read the supported board families with project sidecars plus optional,
@@ -711,26 +786,65 @@ pub fn board_plot_document_with_text_cache_sidecar(
     text_variables: &BoardTextVariables,
     text_cache: Option<&PlotterTextCacheResources<'_>>,
 ) -> Result<BoardPlotDocument, Error> {
+    board_plot_document_with_text_cache_sidecar_internal(
+        source,
+        limits,
+        net_classes,
+        text_variables,
+        text_cache,
+        false,
+    )
+    .map(|(document, _profile)| document)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one ordered board render pass keeps every bounded family and its opt-in timings aligned"
+)]
+fn board_plot_document_with_text_cache_sidecar_internal(
+    source: &str,
+    limits: BoardPlotLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+    text_cache: Option<&PlotterTextCacheResources<'_>>,
+    profile_enabled: bool,
+) -> Result<(BoardPlotDocument, BoardPlotBuildProfile), Error> {
+    let mut profile = BoardPlotBuildProfile::default();
+    let text_cache_started = profile_enabled.then(Instant::now);
     let text_cache = text_cache.map(PlotterTextCacheSession::new).transpose()?;
+    profile.text_cache_setup_ns = elapsed_ns(text_cache_started);
+    let view_started = profile_enabled.then(Instant::now);
     let view = PcbView::parse_selected(source, board_pcb_limits(limits), board_selection())?;
+    profile.selected_view_parse_ns = elapsed_ns(view_started);
+    let metadata_started = profile_enabled.then(Instant::now);
     let metadata = view.metadata()?;
     ensure_javascript_safe_integer(metadata.version)?;
+    profile.metadata_ns = elapsed_ns(metadata_started);
 
     let mut budget = BudgetTracker::new(limits);
     // Decode the shared graphics family once, then partition borrowed carriers
     // into the Python category order for geometry and text producers.
+    let graphics_started = profile_enabled.then(Instant::now);
     let (graphics, decoded_graphic_points) = decoded_graphics(&view, limits)?;
+    profile.decode_graphics_ns = elapsed_ns(graphics_started);
     let remaining_input_points = limits
         .max_input_points
         .checked_sub(decoded_graphic_points)
         .ok_or_else(input_point_limit_error)?;
+    let tables_started = profile_enabled.then(Instant::now);
     let (tables, table_cells, decoded_table_points) =
         table::decoded_tables(&view, remaining_input_points)?;
+    profile.decode_tables_ns = elapsed_ns(tables_started);
     let remaining_input_points = remaining_input_points
         .checked_sub(decoded_table_points)
         .ok_or_else(input_point_limit_error)?;
+    let dimensions_started = profile_enabled.then(Instant::now);
     let (dimensions, decoded_dimension_points) = decoded_dimensions(&view, remaining_input_points)?;
+    profile.decode_dimensions_ns = elapsed_ns(dimensions_started);
+    let graphic_records_started = profile_enabled.then(Instant::now);
     let mut records = graphic_records(source, &graphics, &mut budget, limits)?;
+    profile.graphic_records_ns = elapsed_ns(graphic_records_started);
+    let variables_started = profile_enabled.then(Instant::now);
     let dimension_variables = dimensions.iter().try_fold(false, |needed, dimension| {
         if needed {
             Ok(true)
@@ -744,6 +858,8 @@ pub fn board_plot_document_with_text_cache_sidecar(
         table_cells.iter().any(|cell| cell.text.contains("${")) || dimension_variables,
         text_variables,
     )?;
+    profile.variables_ns = elapsed_ns(variables_started);
+    let text_started = profile_enabled.then(Instant::now);
     records.extend(text::text_records(
         source,
         &graphics,
@@ -752,6 +868,8 @@ pub fn board_plot_document_with_text_cache_sidecar(
         text_cache.as_ref(),
         limits,
     )?);
+    profile.text_records_ns = elapsed_ns(text_started);
+    let copper_started = profile_enabled.then(Instant::now);
     append_copper_records(
         &view,
         metadata.pad_to_mask_clearance,
@@ -759,6 +877,8 @@ pub fn board_plot_document_with_text_cache_sidecar(
         &mut budget,
         &mut records,
     )?;
+    profile.copper_records_ns = elapsed_ns(copper_started);
+    let table_records_started = profile_enabled.then(Instant::now);
     records.extend(table::table_records(
         source,
         &tables,
@@ -768,6 +888,8 @@ pub fn board_plot_document_with_text_cache_sidecar(
         text_cache.as_ref(),
         limits,
     )?);
+    profile.table_records_ns = elapsed_ns(table_records_started);
+    let dimension_records_started = profile_enabled.then(Instant::now);
     append_dimension_records(
         source,
         &dimensions,
@@ -777,12 +899,14 @@ pub fn board_plot_document_with_text_cache_sidecar(
         limits,
         &mut records,
     )?;
+    profile.dimension_records_ns = elapsed_ns(dimension_records_started);
     let decoded_input_points = decoded_graphic_points
         .checked_add(decoded_table_points)
         .and_then(|count| count.checked_add(decoded_dimension_points))
         .filter(|count| *count <= limits.max_input_points)
         .ok_or_else(input_point_limit_error)?;
     let mut decoded_inputs = (decoded_input_points, 0usize);
+    let zones_started = profile_enabled.then(Instant::now);
     append_zone_records(
         &view,
         net_classes,
@@ -792,6 +916,8 @@ pub fn board_plot_document_with_text_cache_sidecar(
         &mut decoded_inputs.1,
         &mut records,
     )?;
+    profile.zone_records_ns = elapsed_ns(zones_started);
+    let footprints_started = profile_enabled.then(Instant::now);
     footprint::append_footprint_records(
         footprint::FootprintAppendContext {
             source,
@@ -805,13 +931,23 @@ pub fn board_plot_document_with_text_cache_sidecar(
         &mut decoded_inputs,
         &mut records,
     )?;
-    Ok(BoardPlotDocument {
-        version: metadata.version,
-        generator: metadata.generator,
-        generator_version: metadata.generator_version,
-        thickness_mm: metadata.thickness,
-        paper: metadata.paper,
-        records,
+    profile.footprint_records_ns = elapsed_ns(footprints_started);
+    Ok((
+        BoardPlotDocument {
+            version: metadata.version,
+            generator: metadata.generator,
+            generator_version: metadata.generator_version,
+            thickness_mm: metadata.thickness,
+            paper: metadata.paper,
+            records,
+        },
+        profile,
+    ))
+}
+
+fn elapsed_ns(started: Option<Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
     })
 }
 

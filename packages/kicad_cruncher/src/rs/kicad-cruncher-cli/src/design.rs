@@ -21,7 +21,8 @@ use kicad_monkey_core::schematic_embedded::{
     SchematicEmbeddedFile, SchematicEmbeddedLimits, schematic_embedded_files,
 };
 use kicad_monkey_core::{
-    BoardBoundsLimits, BoardPlotContractLimits, project_board_plot_document_a0,
+    BoardBoundsLimits, BoardPlotContractLimits, BoardPlotFactsBuildProfile,
+    project_board_plot_document_a0,
 };
 use kicad_monkey_core::{
     BoardNetClassAssignments, BoardPlotLimits, BoardTextVariables, KiCadDesignJsonPaths,
@@ -32,9 +33,10 @@ use kicad_monkey_core::{
     SchematicDrawingSettings, SchematicPlotBuildProfile, SchematicPlotContext,
     SchematicPlotContractBudget, SchematicPlotContractLimits, SchematicPlotLimits,
     SchematicPlotVariables, SourceBundle, SourceBundleLimits, TokenKind,
-    board_plot_facts_with_sidecars, build_kicad_design_facts, build_kicad_design_facts_profiled,
-    build_kicad_design_json, build_kicad_design_json_profiled, build_kicad_netlist_json,
-    emit_kicad_netlist, schematic_plot_document_budget, schematic_plot_document_json,
+    board_plot_facts_with_sidecars, board_plot_facts_with_sidecars_profiled,
+    build_kicad_design_facts, build_kicad_design_facts_profiled, build_kicad_design_json,
+    build_kicad_design_json_profiled, build_kicad_netlist_json, emit_kicad_netlist,
+    schematic_plot_document_budget, schematic_plot_document_json,
     schematic_plot_document_with_sheets, schematic_plot_document_with_sheets_profiled,
     validate_compiled_schematic_graph,
 };
@@ -275,6 +277,22 @@ pub struct BoardPlotDocumentLimits {
     pub plot: BoardPlotLimits,
     pub bounds: BoardBoundsLimits,
     pub contract: BoardPlotContractLimits,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct BoardPlotDocumentBuildProfile {
+    pub project_sidecars_ns: u64,
+    pub facts: BoardPlotFactsBuildProfile,
+    pub copper_layer_enumeration_ns: u64,
+    pub font_face_scan_ns: u64,
+    pub embedded_font_extraction_ns: u64,
+    pub font_index_and_selection_ns: u64,
+    pub font_resource_setup_ns: u64,
+    pub bounds_ns: u64,
+    pub source_identity_ns: u64,
+    pub contract_projection_ns: u64,
+    pub contract_serialization_ns: u64,
+    pub contract_materialization_ns: u64,
 }
 
 impl Default for BoardPlotDocumentLimits {
@@ -905,22 +923,56 @@ pub fn build_board_plot_document_with_limits(
     loaded: &LoadedDesignSources,
     limits: BoardPlotDocumentLimits,
 ) -> Result<Option<BoardPlotDocument>, DesignError> {
+    build_board_plot_document_internal(loaded, limits, false).map(|(document, _profile)| document)
+}
+
+pub(crate) fn build_board_plot_document_profiled(
+    loaded: &LoadedDesignSources,
+) -> Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError> {
+    build_board_plot_document_internal(loaded, BoardPlotDocumentLimits::default(), true)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one source-bound board build keeps bounded projection and opt-in timings aligned"
+)]
+fn build_board_plot_document_internal(
+    loaded: &LoadedDesignSources,
+    limits: BoardPlotDocumentLimits,
+    profile_enabled: bool,
+) -> Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError> {
+    let mut profile = BoardPlotDocumentBuildProfile::default();
     let Some(source) = loaded.pcb_source.as_deref() else {
-        return Ok(None);
+        return Ok((None, profile));
     };
     let source_path = loaded
         .pcb_path
         .as_deref()
         .ok_or_else(|| DesignError::new("PCB source path is missing"))?;
+    let project_started = profile_enabled.then(std::time::Instant::now);
     let (net_classes, text_variables) = board_project_sidecars(loaded)?;
-    let facts = board_plot_facts_with_sidecars(
-        source,
-        limits.plot,
-        PcbLimits::default(),
-        &net_classes,
-        &text_variables,
-    )
+    profile.project_sidecars_ns = profile_elapsed_ns(project_started);
+    let (facts, facts_profile) = if profile_enabled {
+        board_plot_facts_with_sidecars_profiled(
+            source,
+            limits.plot,
+            PcbLimits::default(),
+            &net_classes,
+            &text_variables,
+        )
+    } else {
+        board_plot_facts_with_sidecars(
+            source,
+            limits.plot,
+            PcbLimits::default(),
+            &net_classes,
+            &text_variables,
+        )
+        .map(|facts| (facts, BoardPlotFactsBuildProfile::default()))
+    }
     .map_err(|error| DesignError::context("could not build board plot facts", error))?;
+    profile.facts = facts_profile;
+    let layers_started = profile_enabled.then(std::time::Instant::now);
     let mut copper_layers = Vec::new();
     for layer in facts.view().layers() {
         let layer =
@@ -932,11 +984,19 @@ pub fn build_board_plot_document_with_limits(
             copper_layers.push(layer.name);
         }
     }
+    profile.copper_layer_enumeration_ns = profile_elapsed_ns(layers_started);
+    let faces_started = profile_enabled.then(std::time::Instant::now);
     let mut faces = BTreeSet::from(["Arial".to_owned()]);
     collect_font_faces(source, &mut faces)?;
+    profile.font_face_scan_ns = profile_elapsed_ns(faces_started);
+    let embedded_started = profile_enabled.then(std::time::Instant::now);
     let embedded_files = schematic_embedded_files(source, SchematicEmbeddedLimits::default())
         .map_err(|error| DesignError::context("could not extract board font sidecars", error))?;
+    profile.embedded_font_extraction_ns = profile_elapsed_ns(embedded_started);
+    let font_selection_started = profile_enabled.then(std::time::Instant::now);
     let font_styles = schematic_font_styles(&faces, &embedded_files)?;
+    profile.font_index_and_selection_ns = profile_elapsed_ns(font_selection_started);
+    let font_resources_started = profile_enabled.then(std::time::Instant::now);
     let fonts = font_styles
         .iter()
         .map(|style| {
@@ -958,12 +1018,18 @@ pub fn build_board_plot_document_with_limits(
         fonts: &fonts,
         limits: PlotterTextCacheLimits::default(),
     };
+    profile.font_resource_setup_ns = profile_elapsed_ns(font_resources_started);
+    let bounds_started = profile_enabled.then(std::time::Instant::now);
     let bounds = facts
         .bounds(Some(&text_resources), limits.bounds)
         .map_err(|error| DesignError::context("could not bound board geometry", error))?;
+    profile.bounds_ns = profile_elapsed_ns(bounds_started);
     let document = facts.into_document();
+    let identity_started = profile_enabled.then(std::time::Instant::now);
     let source_sha256 = sha256_hex(source.as_bytes());
     let document_id = format!("pcb-sha256:{source_sha256}");
+    profile.source_identity_ns = profile_elapsed_ns(identity_started);
+    let projection_started = profile_enabled.then(std::time::Instant::now);
     let contract = project_board_plot_document_a0(
         document,
         Some(display_source_path(source_path)),
@@ -971,19 +1037,27 @@ pub fn build_board_plot_document_with_limits(
         limits.contract,
     )
     .map_err(|error| DesignError::context("could not project board plot document", error))?;
+    profile.contract_projection_ns = profile_elapsed_ns(projection_started);
+    let serialization_started = profile_enabled.then(std::time::Instant::now);
     let mut writer = LimitedVecWriter::new(limits.max_contract_bytes);
     serde_json::to_writer(&mut writer, &contract)
         .map_err(|error| DesignError::context("board plot contract exceeds its limit", error))?;
+    profile.contract_serialization_ns = profile_elapsed_ns(serialization_started);
+    let materialization_started = profile_enabled.then(std::time::Instant::now);
     let value = serde_json::from_slice(writer.bytes()).map_err(|error| {
         DesignError::context("could not materialize board plot document", error)
     })?;
-    Ok(Some(BoardPlotDocument {
-        value,
-        source_path: display_source_path(source_path),
-        source_sha256,
-        copper_layers,
-        bounds,
-    }))
+    profile.contract_materialization_ns = profile_elapsed_ns(materialization_started);
+    Ok((
+        Some(BoardPlotDocument {
+            value,
+            source_path: display_source_path(source_path),
+            source_sha256,
+            copper_layers,
+            bounds,
+        }),
+        profile,
+    ))
 }
 
 fn board_project_sidecars(

@@ -16,13 +16,15 @@ use sha2::{Digest, Sha256};
 use crate::DesignOptions;
 use crate::design::{
     DesignError, SchematicSvgDocumentsLimits, build_board_plot_document,
-    build_schematic_base_svgs_for_plot_documents_profiled,
+    build_board_plot_document_profiled, build_schematic_base_svgs_for_plot_documents_profiled,
     build_schematic_base_svgs_for_plot_documents_with_limits,
     build_schematic_plot_document_artifacts, build_schematic_plot_document_artifacts_profiled,
     build_structured_design_facts_profiled, display_source_path, hex_encoded,
     load_design_sources_profiled, sha256_hex,
 };
-use crate::pcb_review_svg::{PcbReviewSvgLimits, build_pcb_review_svgs_with_limits};
+use crate::pcb_review_svg::{
+    PcbReviewSvgLimits, build_pcb_review_svgs_profiled, build_pcb_review_svgs_with_limits,
+};
 use crate::performance::{PerformanceProfile, PerformanceRecorder};
 use crate::schematic_review_svg::{
     SchematicReviewSvgLimits, build_schematic_review_svgs_profiled,
@@ -415,6 +417,64 @@ fn schematic_plot_profile_details(
     ]
 }
 
+fn board_plot_profile_details(
+    profile: crate::design::BoardPlotDocumentBuildProfile,
+) -> [(&'static str, u64); 26] {
+    let plot = profile.facts.plot;
+    [
+        ("load_board_project_sidecars", profile.project_sidecars_ns),
+        ("board_plot_text_cache_setup", plot.text_cache_setup_ns),
+        (
+            "board_plot_selected_view_parse",
+            plot.selected_view_parse_ns,
+        ),
+        ("board_plot_metadata", plot.metadata_ns),
+        ("board_plot_decode_graphics", plot.decode_graphics_ns),
+        ("board_plot_decode_tables", plot.decode_tables_ns),
+        ("board_plot_decode_dimensions", plot.decode_dimensions_ns),
+        ("board_plot_graphic_records", plot.graphic_records_ns),
+        ("board_plot_variables", plot.variables_ns),
+        ("board_plot_text_records", plot.text_records_ns),
+        ("board_plot_copper_records", plot.copper_records_ns),
+        ("board_plot_table_records", plot.table_records_ns),
+        ("board_plot_dimension_records", plot.dimension_records_ns),
+        ("board_plot_zone_records", plot.zone_records_ns),
+        ("board_plot_footprint_records", plot.footprint_records_ns),
+        (
+            "parse_bound_pcb_view",
+            profile.facts.bound_pcb_view_parse_ns,
+        ),
+        (
+            "enumerate_copper_layers",
+            profile.copper_layer_enumeration_ns,
+        ),
+        ("scan_board_font_faces", profile.font_face_scan_ns),
+        (
+            "extract_board_embedded_fonts",
+            profile.embedded_font_extraction_ns,
+        ),
+        (
+            "index_and_select_board_fonts",
+            profile.font_index_and_selection_ns,
+        ),
+        ("build_board_font_resources", profile.font_resource_setup_ns),
+        ("compute_board_bounds", profile.bounds_ns),
+        ("hash_board_source_identity", profile.source_identity_ns),
+        (
+            "project_board_plot_contract",
+            profile.contract_projection_ns,
+        ),
+        (
+            "serialize_board_plot_contract",
+            profile.contract_serialization_ns,
+        ),
+        (
+            "materialize_board_plot_contract_json",
+            profile.contract_materialization_ns,
+        ),
+    ]
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "one transaction assembles and validates one manifest"
@@ -623,8 +683,20 @@ fn write_staged_bundle(
 
     let mut pcb_artifacts = Vec::new();
     let board_document_started = performance.start();
-    if let Some(document) = build_board_plot_document(&loaded)? {
-        performance.finish("build_board_plot_document", board_document_started);
+    let (board_document, board_profile) = if performance.is_enabled() {
+        build_board_plot_document_profiled(&loaded)
+    } else {
+        build_board_plot_document(&loaded).map(|document| (document, Default::default()))
+    }?;
+    performance.finish("build_board_plot_document", board_document_started);
+    for (name, elapsed_ns) in board_plot_profile_details(board_profile) {
+        performance.record_detail(
+            "build_board_plot_document",
+            name,
+            std::time::Duration::from_nanos(elapsed_ns),
+        );
+    }
+    if let Some(document) = board_document {
         budget.ensure_future_artifacts(document.copper_layer_count().saturating_add(2))?;
         let board_name = safe_filename(
             loaded
@@ -643,8 +715,56 @@ fn write_staged_bundle(
             .min(budget.remaining_bytes())
             .min(limits.max_artifact_bytes);
         let pcb_reviews_started = performance.start();
-        let pcb_reviews = build_pcb_review_svgs_with_limits(&loaded, &document, pcb_limits)?;
+        let (pcb_reviews, pcb_profile) = if performance.is_enabled() {
+            build_pcb_review_svgs_profiled(&loaded, &document, pcb_limits)
+        } else {
+            build_pcb_review_svgs_with_limits(&loaded, &document, pcb_limits)
+                .map(|reviews| (reviews, Default::default()))
+        }?;
         performance.finish("build_pcb_review_svgs", pcb_reviews_started);
+        for (name, elapsed_ns) in [
+            ("validate_pcb_source_binding", pcb_profile.source_binding_ns),
+            ("parse_pcb_enrichment_view", pcb_profile.pcb_view_parse_ns),
+            ("parse_pcb_project", pcb_profile.project_parse_ns),
+            (
+                "preflight_pcb_enrichment_metadata",
+                pcb_profile.metadata_preflight_ns,
+            ),
+            (
+                "materialize_pcb_enrichment_metadata",
+                pcb_profile.metadata_materialization_ns,
+            ),
+            (
+                "preflight_board_contract_usage",
+                pcb_profile.contract_usage_preflight_ns,
+            ),
+            (
+                "size_board_contract_serialization",
+                pcb_profile.contract_serialized_size_ns,
+            ),
+            (
+                "serialize_pcb_layer_metadata",
+                pcb_profile.metadata_serialization_ns,
+            ),
+            ("filter_pcb_layer_contracts", pcb_profile.layer_filter_ns),
+            ("project_pcb_svg_requests", pcb_profile.render_request_ns),
+            ("render_pcb_base_svgs", pcb_profile.native_render_ns),
+            (
+                "preflight_pcb_svg_composition",
+                pcb_profile.composition_preflight_ns,
+            ),
+            ("compose_pcb_review_svgs", pcb_profile.compose_review_svg_ns),
+            (
+                "finalize_pcb_review_artifacts",
+                pcb_profile.artifact_finalize_ns,
+            ),
+        ] {
+            performance.record_detail(
+                "build_pcb_review_svgs",
+                name,
+                std::time::Duration::from_nanos(elapsed_ns),
+            );
+        }
         let pcb_write_started = performance.start();
         for review in pcb_reviews {
             let layer_name = safe_filename(&review.layer, "layer");
@@ -658,8 +778,6 @@ fn write_staged_bundle(
             });
         }
         performance.finish("write_pcb_svgs", pcb_write_started);
-    } else {
-        performance.finish("build_board_plot_document", board_document_started);
     }
 
     let metadata_started = performance.start();
@@ -1458,6 +1576,55 @@ mod tests {
                 ),
                 ("enrich_schematic_review_svgs", "transform_review_svg_body",),
                 ("enrich_schematic_review_svgs", "finish_review_svg_output",),
+                ("build_board_plot_document", "load_board_project_sidecars"),
+                ("build_board_plot_document", "board_plot_text_cache_setup"),
+                (
+                    "build_board_plot_document",
+                    "board_plot_selected_view_parse"
+                ),
+                ("build_board_plot_document", "board_plot_metadata"),
+                ("build_board_plot_document", "board_plot_decode_graphics"),
+                ("build_board_plot_document", "board_plot_decode_tables"),
+                ("build_board_plot_document", "board_plot_decode_dimensions",),
+                ("build_board_plot_document", "board_plot_graphic_records"),
+                ("build_board_plot_document", "board_plot_variables"),
+                ("build_board_plot_document", "board_plot_text_records"),
+                ("build_board_plot_document", "board_plot_copper_records"),
+                ("build_board_plot_document", "board_plot_table_records"),
+                ("build_board_plot_document", "board_plot_dimension_records",),
+                ("build_board_plot_document", "board_plot_zone_records"),
+                ("build_board_plot_document", "board_plot_footprint_records",),
+                ("build_board_plot_document", "parse_bound_pcb_view"),
+                ("build_board_plot_document", "enumerate_copper_layers"),
+                ("build_board_plot_document", "scan_board_font_faces"),
+                ("build_board_plot_document", "extract_board_embedded_fonts",),
+                ("build_board_plot_document", "index_and_select_board_fonts",),
+                ("build_board_plot_document", "build_board_font_resources"),
+                ("build_board_plot_document", "compute_board_bounds"),
+                ("build_board_plot_document", "hash_board_source_identity"),
+                ("build_board_plot_document", "project_board_plot_contract"),
+                ("build_board_plot_document", "serialize_board_plot_contract",),
+                (
+                    "build_board_plot_document",
+                    "materialize_board_plot_contract_json",
+                ),
+                ("build_pcb_review_svgs", "validate_pcb_source_binding"),
+                ("build_pcb_review_svgs", "parse_pcb_enrichment_view"),
+                ("build_pcb_review_svgs", "parse_pcb_project"),
+                ("build_pcb_review_svgs", "preflight_pcb_enrichment_metadata",),
+                (
+                    "build_pcb_review_svgs",
+                    "materialize_pcb_enrichment_metadata",
+                ),
+                ("build_pcb_review_svgs", "preflight_board_contract_usage",),
+                ("build_pcb_review_svgs", "size_board_contract_serialization",),
+                ("build_pcb_review_svgs", "serialize_pcb_layer_metadata"),
+                ("build_pcb_review_svgs", "filter_pcb_layer_contracts"),
+                ("build_pcb_review_svgs", "project_pcb_svg_requests"),
+                ("build_pcb_review_svgs", "render_pcb_base_svgs"),
+                ("build_pcb_review_svgs", "preflight_pcb_svg_composition",),
+                ("build_pcb_review_svgs", "compose_pcb_review_svgs"),
+                ("build_pcb_review_svgs", "finalize_pcb_review_artifacts"),
             ]
         );
         fs::remove_dir_all(root).unwrap();

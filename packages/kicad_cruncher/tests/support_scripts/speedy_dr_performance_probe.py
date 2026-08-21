@@ -38,7 +38,7 @@ JsonObject = dict[str, Any]
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a3"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a4"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -127,6 +127,46 @@ _RUST_PROFILE_DETAILS = (
     ("enrich_schematic_review_svgs", "serialize_review_svg_metadata"),
     ("enrich_schematic_review_svgs", "transform_review_svg_body"),
     ("enrich_schematic_review_svgs", "finish_review_svg_output"),
+    ("build_board_plot_document", "load_board_project_sidecars"),
+    ("build_board_plot_document", "board_plot_text_cache_setup"),
+    ("build_board_plot_document", "board_plot_selected_view_parse"),
+    ("build_board_plot_document", "board_plot_metadata"),
+    ("build_board_plot_document", "board_plot_decode_graphics"),
+    ("build_board_plot_document", "board_plot_decode_tables"),
+    ("build_board_plot_document", "board_plot_decode_dimensions"),
+    ("build_board_plot_document", "board_plot_graphic_records"),
+    ("build_board_plot_document", "board_plot_variables"),
+    ("build_board_plot_document", "board_plot_text_records"),
+    ("build_board_plot_document", "board_plot_copper_records"),
+    ("build_board_plot_document", "board_plot_table_records"),
+    ("build_board_plot_document", "board_plot_dimension_records"),
+    ("build_board_plot_document", "board_plot_zone_records"),
+    ("build_board_plot_document", "board_plot_footprint_records"),
+    ("build_board_plot_document", "parse_bound_pcb_view"),
+    ("build_board_plot_document", "enumerate_copper_layers"),
+    ("build_board_plot_document", "scan_board_font_faces"),
+    ("build_board_plot_document", "extract_board_embedded_fonts"),
+    ("build_board_plot_document", "index_and_select_board_fonts"),
+    ("build_board_plot_document", "build_board_font_resources"),
+    ("build_board_plot_document", "compute_board_bounds"),
+    ("build_board_plot_document", "hash_board_source_identity"),
+    ("build_board_plot_document", "project_board_plot_contract"),
+    ("build_board_plot_document", "serialize_board_plot_contract"),
+    ("build_board_plot_document", "materialize_board_plot_contract_json"),
+    ("build_pcb_review_svgs", "validate_pcb_source_binding"),
+    ("build_pcb_review_svgs", "parse_pcb_enrichment_view"),
+    ("build_pcb_review_svgs", "parse_pcb_project"),
+    ("build_pcb_review_svgs", "preflight_pcb_enrichment_metadata"),
+    ("build_pcb_review_svgs", "materialize_pcb_enrichment_metadata"),
+    ("build_pcb_review_svgs", "preflight_board_contract_usage"),
+    ("build_pcb_review_svgs", "size_board_contract_serialization"),
+    ("build_pcb_review_svgs", "serialize_pcb_layer_metadata"),
+    ("build_pcb_review_svgs", "filter_pcb_layer_contracts"),
+    ("build_pcb_review_svgs", "project_pcb_svg_requests"),
+    ("build_pcb_review_svgs", "render_pcb_base_svgs"),
+    ("build_pcb_review_svgs", "preflight_pcb_svg_composition"),
+    ("build_pcb_review_svgs", "compose_pcb_review_svgs"),
+    ("build_pcb_review_svgs", "finalize_pcb_review_artifacts"),
 )
 
 
