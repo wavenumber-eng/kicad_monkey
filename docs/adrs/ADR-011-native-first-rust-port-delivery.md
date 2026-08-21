@@ -87,7 +87,7 @@ after native test parity and consume documented KiCad-native crate features.
 - Public Cargo publication remains a later explicit release decision after
   native parity and artifact disposition.
 
-## Phase 7 follow-on decision
+## Pure-Rust CLI follow-on decision
 
 Accepted on 2026-08-20, this follow-on supersedes the earlier statement that a
 literal Rust executable was outside the bounded application delivery. The
