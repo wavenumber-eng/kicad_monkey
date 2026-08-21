@@ -51,9 +51,21 @@ governs the installed entry points, primary design aliases, artifact tree,
 logs, exits, and no-fallback failures without claiming a separate all-Rust
 Cruncher executable. The accepted
 [Windows x64 release exit](docs/design/rust-phase6-exit.html) binds one tested
-candidate set to CI and release publication. Linux and macOS retain the
-established Python provider path, and Python continues to own Cruncher
-orchestration and presentation.
+candidate set to CI and release publication. That milestone remains the
+historical native-provider boundary: Linux and macOS retained the established
+Python provider path, and Python still owned Cruncher orchestration and
+presentation.
+
+The accepted
+[pure-Rust design CLI follow-on](packages/kicad_cruncher/docs/design/rust-cli-phase7-audit.html)
+now supersedes that boundary for the Windows x64 `design`, `design-review`, and
+`dr` vertical slice. Release archives contain Python-free `kicad-cruncher` and
+`kcr` executables that own the complete review-bundle orchestration and
+transactional publication path, plus version reporting. This is deliberately
+not an all-command or all-platform Rust claim: other Cruncher commands remain
+available through the universal Python wheel and `python -m kicad_cruncher`,
+and Monkey remains the reusable lower-level library rather than depending on
+Cruncher.
 
 ## Install
 
