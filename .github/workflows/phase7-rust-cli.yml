@@ -31,6 +31,8 @@ jobs:
           uv run python scripts/kicad_corpus_archive.py restore --check-zip
           $corpus = Join-Path $env:GITHUB_WORKSPACE 'tests\corpus\kicad.zip'
           "KM_CORPUS=$corpus" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build the Monkey native helper for the migration oracle
+        run: cargo build --locked --jobs 4 --package kicad-monkey-native
       - name: Run the complete Rust/Python migration oracle
         working-directory: packages/kicad_cruncher
         run: uv run --extra test rack run L3_011
