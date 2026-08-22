@@ -12,8 +12,70 @@ env:
   RUST_TEST_THREADS: "2"
 
 jobs:
+  changes:
+    name: classify CI scope
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "full=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            RANGE="${BASE_SHA}..${HEAD_SHA}"
+          elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
+            RANGE="${BEFORE_SHA}..${HEAD_SHA}"
+          else
+            echo "full=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          git diff --name-only "${RANGE}" > changed-paths.txt
+          if grep -Ev '^(\.github/|docs/|README\.md$|AGENTS\.md$)' changed-paths.txt | grep -q .; then
+            echo "full=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "full=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+  workflow-validation:
+    name: workflow syntax and recovery contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Parse workflow YAML
+        shell: bash
+        run: >-
+          uv run --with pyyaml python -c
+          "import pathlib, yaml;
+          [yaml.safe_load(path.read_text(encoding='utf-8'))
+          for path in pathlib.Path('.github/workflows').glob('*.yml')]"
+      - name: Verify the trusted recovery publisher boundary
+        shell: bash
+        run: |
+          test ! -e .github/workflows/recover-coordinated-release.yml
+          grep -F "inputs.confirm == 'recover-cruncher'" .github/workflows/release.yml
+          grep -F "environment: pypi-kicad-cruncher" .github/workflows/release.yml
+          grep -F "uses: pypa/gh-action-pypi-publish@release/v1" .github/workflows/release.yml
+
   test:
     name: test (${{ matrix.os }}, py3.14)
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -94,9 +156,13 @@ jobs:
         run: uv run --extra test python tests/support_scripts/toolchain_install_test.py
 
   phase5-exit:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     uses: ./.github/workflows/phase5-exit.yml
 
   phase6-native-svg:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     uses: ./.github/workflows/phase6-native-svg.yml
 
   phase6-native-physical-provider:
