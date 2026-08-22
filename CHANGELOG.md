@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2026.8.22
+
+- Publish the Python package and date-versioned Rust workspace together after
+  the native Windows x64 application and release-candidate gates reached their
+  accepted state.
+
 - Move all package-owned Rust workspace crates from provisional `0.1.0`
   numbering to the same `YYYY.M.D` calendar-version format used by
   the Python distribution, beginning with `2026.8.21`. Release

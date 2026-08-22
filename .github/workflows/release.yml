@@ -189,7 +189,7 @@ jobs:
             phase6-candidates --git-sha $env:GITHUB_SHA
           New-Item -ItemType Directory -Path public-dist -Force | Out-Null
           uvx --from pip pip download --only-binary=:all: --no-deps `
-            --dest public-dist 'kicad-monkey==2026.8.18'
+            --dest public-dist 'kicad-monkey==2026.8.22'
           $monkeyWheel = Get-ChildItem public-dist\kicad_monkey-*-win_amd64.whl
           $cruncherWheel = Get-ChildItem phase6-candidates\kicad_cruncher-*-py3-none-any.whl
           $monkeySdist = Get-ChildItem phase6-candidates\kicad_monkey-*.tar.gz

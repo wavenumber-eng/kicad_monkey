@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 2026.8.22
+
+- Raise the public dependency floor to `kicad-monkey>=2026.8.22` and update
+  the controlled projection dependency to `wn-geometer==2026.8.21`, allowing
+  Cruncher to coexist with the current Altium toolchain in one environment.
+- Keep the PyPI and `uv tool` entry points on the existing cross-platform
+  Python CLI. Windows x64 uses Monkey's bundled helper for the established
+  native provider paths; the standalone Rust CLI remains a companion archive.
+
 - Reduce the pure-Rust Speedy design-review median from 28.0167 seconds to
   6.0271 seconds on the matched three-round Windows x64 release comparison,
   versus 60.5809 seconds for the retained Python oracle. The accepted result
