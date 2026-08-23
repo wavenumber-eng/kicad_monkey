@@ -125,6 +125,11 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("fast, python, or full", ci)
         self.assertEqual(ci.count("windows-release-candidates.yml"), 1)
         self.assertIn(
+            "group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
+            ci,
+        )
+        self.assertIn("cancel-in-progress: true", ci)
+        self.assertIn(
             "uv run --no-project --with pyyaml python scripts/test_ci_policy.py", ci
         )
         self.assertEqual(ci.count("check_release_artifact_paths.py"), 1)
