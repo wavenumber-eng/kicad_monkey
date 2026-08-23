@@ -91,6 +91,20 @@ def test_windows_x64_phase6_release_candidate_is_exact_and_native() -> None:
         check=True,
     ).stdout.strip()
     assert manifest["git_sha"] == local_git_sha
+    assert manifest["source"] == {
+        "workflow": "CI",
+        "run_id": os.environ["GITHUB_RUN_ID"],
+    }
+    assert manifest["versions"] == {
+        "monkey": tomllib.loads(
+            (PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        )["project"]["version"],
+        "cruncher": tomllib.loads(
+            (PACKAGE_ROOT / "packages/kicad_cruncher/pyproject.toml").read_text(
+                encoding="utf-8"
+            )
+        )["project"]["version"],
+    }
     github_sha = os.environ.get("GITHUB_SHA")
     if github_sha is not None:
         assert manifest["git_sha"] == github_sha

@@ -20,12 +20,15 @@ contains a matching `## YYYY.M.D` entry. The package exposes the version through
 `kicad_cruncher.__version__`, `kicad_cruncher.version()`, `kicad-cruncher
 --version`, and `kicad-cruncher version`.
 
-Publishing a GitHub Release for a matching package-qualified tag, such as
-`kicad-cruncher-v2026.8.9`, triggers the repository-level GitHub Actions
-workflow and PyPI Trusted Publishing/OIDC. Local Twine upload is a fallback
-only. Historical standalone `vYYYY.M.D` tags remain in the retired repository.
+Immutable package-qualified tags for both packages, such as
+`kicad-monkey-v2026.8.22` and `kicad-cruncher-v2026.8.22`, authorize a
+coordinated release from their shared commit. One manual repository-level
+GitHub Actions workflow dispatch promotes the exact successful CI candidates
+through PyPI Trusted Publishing/OIDC and then creates the GitHub Releases.
+Local Twine upload is a fallback only. Historical standalone `vYYYY.M.D` tags
+remain in the retired repository.
 
 ## Consequences
 
-CI and release workflows fail when the pushed tag, package metadata, changelog,
-and dated release note disagree.
+CI and release workflows fail when either authorizing tag, package metadata,
+changelog, dated release note, or selected CI commit disagrees.

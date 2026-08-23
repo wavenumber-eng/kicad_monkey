@@ -45,8 +45,10 @@ uv run twine check dist/*
 
 - `main` should stay release-ready; version tags identify released source.
 - Public changes should merge through PRs with required CI.
-- Publishing uses the package-qualified tag `kicad-cruncher-v<version>` from
-  the repository root and triggers validation and PyPI trusted publishing.
+- Publishing is authorized by immutable `kicad-monkey-v<version>` and
+  `kicad-cruncher-v<version>` tags on the same commit. One manual release
+  workflow dispatch promotes the exact successful CI candidates with PyPI
+  trusted publishing.
 - Date-based versions are standard, for example `2026.6.4`.
 - `CHANGELOG.md` and `docs/releases/<YYYY-MM-DD>.md` must mention the current
   package version.

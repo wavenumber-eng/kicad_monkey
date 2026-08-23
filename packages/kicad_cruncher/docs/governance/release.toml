@@ -31,5 +31,5 @@ rationale = "The installed smoke verifies the exact commit/version/hash-bound Wi
 
 [[channels.verification_refs]]
 kind = "ci_workflow"
-target = "wavenumber-eng/kicad_monkey/.github/workflows/phase7-rust-cli.yml"
-rationale = "The repository-root Phase 7 workflow produces and uploads the reviewed native candidate."
+target = "wavenumber-eng/kicad_monkey/.github/workflows/windows-release-candidates.yml"
+rationale = "The consolidated repository-root Windows workflow produces and uploads the reviewed native candidate after one shared setup."

@@ -39,8 +39,10 @@ tag, native archive, and candidate manifest must name one exact Cruncher
 version and source commit.
 
 The universal Python distribution is published through PyPI. The promoted
-Windows x64 design CLI is a companion GitHub Release archive verified and
-attached before normal-lane PyPI publication. The process remains tag-driven
-through the GitHub Actions release workflow and PyPI Trusted Publishing. Local
-Twine upload is fallback only and does not substitute for native candidate
-verification.
+Windows x64 design CLI is a companion GitHub Release archive. Immutable tags
+for both Python packages authorize one manual GitHub Actions release dispatch,
+which uses PyPI Trusted Publishing and promotes only the exact successful CI
+candidates. Public PyPI filenames and SHA256 digests are checked against those
+candidates before GitHub Releases are created and the native archive is
+attached. Local Twine upload is fallback only and does not substitute for
+candidate verification.

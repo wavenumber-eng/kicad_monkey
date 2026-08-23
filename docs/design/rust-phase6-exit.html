@@ -29,22 +29,23 @@
   and are not promoted by this exit.</p>
 
   <h2>Immutable candidate set</h2>
-  <p>The reusable Phase 6 exit workflow builds one Monkey sdist, one Windows
+  <p>The consolidated Windows candidate workflow builds one Monkey sdist, one Windows
   x64 Monkey wheel from that sdist, one Cruncher sdist, and one universal
   Cruncher wheel. A manifest binds their filenames, byte counts, SHA-256
   digests, the reviewed corpus digest, and the source commit. Rack L3_027
   rejects missing or changed files and runs the existing isolated native-wheel
   and two-package CLI checks without a native executable override. Release
   jobs download this candidate set: they publish the tested Cruncher wheel and
-  sdist unchanged and the tested Windows Monkey wheel unchanged. The portable
-  Monkey wheel is built only from the exact tested Monkey sdist.</p>
+  sdist unchanged and the tested Windows Monkey wheel unchanged. The Linux
+  Python-provider job builds and hash-binds the portable Monkey wheel in the
+  same successful CI run.</p>
 
   <p>This is an immutable-candidate requirement, not a claim that two
   independent archive builds are byte-for-byte reproducible. The selected
   Windows Monkey wheel and both Cruncher distributions are published from the
   same hash-checked candidate set that L3_027 tested. The portable Monkey wheel
-  is the only later build and is derived from the exact tested Monkey sdist,
-  then checked and installed before publication.</p>
+  is independently hash-bound to the same commit by the authoritative Linux
+  provider job. Publication rebuilds nothing.</p>
 
   <h2>Contract and oracle freeze</h2>
   <p>The Phase 6 freeze ledger pins all ten native transport schemas, their
@@ -60,10 +61,9 @@
   evidence is absent.</p>
 
   <h2>Release and provenance</h2>
-  <p>The independent Cruncher release lane downloads the exact public Windows
-  Monkey version and runs the tested Cruncher candidate through the real
-  installed design workflows before publishing it. The coordinated lane does
-  the same after Monkey publication. The candidate manifest is checked again
+  <p>The single coordinated release lane publishes Monkey first, downloads the
+  exact public version, and runs the tested Cruncher candidate through its
+  installed entry points before publishing it. The candidate manifest is checked again
   before any selected artifact is copied into a publication directory.
   Neither wheel may contain the other package, an editable/path dependency, or
   a workspace-native override.</p>

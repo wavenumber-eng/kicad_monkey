@@ -6,17 +6,24 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   CARGO_BUILD_JOBS: "4"
   RUST_TEST_THREADS: "2"
 
+permissions:
+  contents: read
+
 jobs:
   changes:
-    name: classify CI scope
+    name: classify as fast, python, or full
     runs-on: ubuntu-latest
     outputs:
-      full: ${{ steps.scope.outputs.full }}
+      scope: ${{ steps.scope.outputs.scope }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,152 +38,180 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: |
           if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            echo "full=true" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-
-          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
-            RANGE="${BASE_SHA}..${HEAD_SHA}"
+            : > changed-paths.txt
+          elif [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            git diff --name-only "${BASE_SHA}..${HEAD_SHA}" > changed-paths.txt
           elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
-            RANGE="${BEFORE_SHA}..${HEAD_SHA}"
+            git diff --name-only "${BEFORE_SHA}..${HEAD_SHA}" > changed-paths.txt
           else
-            echo "full=true" >> "${GITHUB_OUTPUT}"
-            exit 0
+            git ls-files > changed-paths.txt
           fi
-
-          git diff --name-only "${RANGE}" > changed-paths.txt
-          if grep -Ev '^(\.github/|docs/|README\.md$|AGENTS\.md$)' changed-paths.txt | grep -q .; then
-            echo "full=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "full=false" >> "${GITHUB_OUTPUT}"
-          fi
+          python scripts/classify_ci_scope.py \
+            --event "${EVENT_NAME}" \
+            --paths-file changed-paths.txt \
+            --github-output "${GITHUB_OUTPUT}"
 
   workflow-validation:
-    name: workflow syntax and recovery contract
+    name: workflow and policy contracts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Parse workflow YAML
-        shell: bash
-        run: >-
-          uv run --with pyyaml python -c
-          "import pathlib, yaml;
-          [yaml.safe_load(path.read_text(encoding='utf-8'))
-          for path in pathlib.Path('.github/workflows').glob('*.yml')]"
-      - name: Verify the trusted recovery publisher boundary
-        shell: bash
-        run: |
-          test ! -e .github/workflows/recover-coordinated-release.yml
-          grep -F "inputs.confirm == 'recover-cruncher'" .github/workflows/release.yml
-          grep -F "environment: pypi-kicad-cruncher" .github/workflows/release.yml
-          grep -F "uses: pypa/gh-action-pypi-publish@release/v1" .github/workflows/release.yml
+      - name: Run CI policy contract tests
+        run: uv run --no-project --with pyyaml python scripts/test_ci_policy.py
 
-  test:
-    name: test (${{ matrix.os }}, py3.14)
+  python-provider:
+    name: Python provider and package contract
     needs: changes
-    if: needs.changes.outputs.full == 'true'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # macOS CI is deferred for the first public release until hosted-runner
-        # font and KiCad-adjacent wheel compatibility is explicitly validated.
-        os: [ubuntu-latest, windows-latest]
-
+    if: needs.changes.outputs.scope != 'fast'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - uses: dtolnay/rust-toolchain@1.98.0
-        with:
-          components: rustfmt, clippy
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - name: Set up Python
-        run: uv python install 3.14
-      - name: Sync monorepo packages
-        run: uv sync --all-packages --all-extras
-      - name: Install Rust and contract gate toolchains
+      - name: Set up Python and packages
         run: |
-          npm install --global npm@11.6.2
-          npm ci
-          cargo install wasm-bindgen-cli --version 0.2.127 --locked
-      - name: Install public font dependencies
-        if: runner.os == 'Linux'
+          uv python install 3.14
+          uv sync --all-packages --all-extras
+      - name: Restore the public corpus
         run: |
-          sudo apt-get update
-          sudo apt-get install -y fontconfig fonts-dejavu-core fonts-liberation
-      - name: Validate public corpus archive metadata
-        run: uv run --extra test python scripts/kicad_corpus_archive.py metadata
-      - name: Restore public corpus archive
-        run: uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
-      - name: Prepare public corpus archive
-        run: |
+          uv run --extra test python scripts/kicad_corpus_archive.py metadata
+          uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
           uv run --extra test python scripts/package_kicad_corpus.py --check
-          uv run --extra test python -c "import sys; sys.path.insert(0, 'tests'); from _suite_paths import TEST_CORPUS_ROOT; print(TEST_CORPUS_ROOT)"
-      - name: Run public test and signoff baseline
+      - name: Run Monkey Python gates
+        shell: bash
         run: |
-          uv run --extra test python tests/rack.py run L0_foundation
-          uv run --extra test python tests/rack.py run L1_029
-          uv run --extra test python tests/rack.py run L1_030
-          uv run --extra test python tests/rack.py run L99_signoff
-      - name: Run Linux TypeSpec Phase 5 gate
-        if: runner.os == 'Linux'
-        run: >-
-          uv run --extra test pytest -q
-          tests/L3_rendering/test_L3_022_rust_phase5_exit.py::test_phase5_contract_freeze_and_codegen_are_current
-      - name: Run cross-package source gate
-        run: uv run --all-packages --all-extras python -m pytest tests/cross_package -q
-      - name: Run Cruncher Rack gates against workspace Monkey
+          uv run --extra test python -m pytest -q \
+            tests/L0_foundation/test_L0_0[0-3]*.py \
+            tests/L0_foundation/test_L0_04[0-5]_*.py \
+            --ignore=tests/L0_foundation/test_L0_044_rust_sexpr_core.py
+          uv run --extra test python -m pytest -q tests/L99_signoff
+          uv run --all-packages --all-extras python -m pytest tests/cross_package -q
+      - name: Run Cruncher Python-provider gates without native migration gates
         working-directory: packages/kicad_cruncher
-        env:
-          KICAD_MONKEY_NATIVE: ${{ github.workspace }}/target/debug/kicad-monkey-native${{ runner.os == 'Windows' && '.exe' || '' }}
+        shell: bash
         run: |
+          uv run --package kicad-cruncher --extra test pytest -q tests/L0_public_cli
+          uv run --package kicad-cruncher --extra test pytest -q tests/L3_public_workflows/test_L3_00[1-7]*.py
+          uv run --package kicad-cruncher --extra test pytest -q tests/L99_signoff
+      - name: Build and check both Python packages
+        shell: bash
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          UNTRACKED="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "${UNTRACKED}" ]]; then
+            echo "Refusing to build with untracked source files:" >&2
+            printf '%s\n' "${UNTRACKED}" >&2
+            exit 1
+          fi
+          uv build --sdist --out-dir dist
+          MONKEY_SDIST="$(find dist -maxdepth 1 -name 'kicad_monkey-*.tar.gz' -print -quit)"
+          test -n "${MONKEY_SDIST}"
+          uv build "${MONKEY_SDIST}" --wheel --out-dir dist
+          (cd packages/kicad_cruncher && uv build --sdist --wheel --out-dir dist)
+          uv run --extra test twine check dist/* packages/kicad_cruncher/dist/*
+      - name: Run installed-package compatibility
+        run: |
+          uv run --extra test python tests/support_scripts/install_test.py
+          uv run --package kicad-cruncher --extra test python packages/kicad_cruncher/tests/support_scripts/install_test.py
+          uv run --extra test python tests/support_scripts/toolchain_install_test.py
+      - name: Bind the universal wheel to this main commit
+        if: github.event_name != 'pull_request' && needs.changes.outputs.scope == 'full'
+        shell: bash
+        run: |
+          mkdir universal-dist
+          cp dist/kicad_monkey-*-py3-none-any.whl universal-dist/
+          MONKEY_VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          python scripts/universal_release_candidate.py write universal-dist \
+            --git-sha "${GITHUB_SHA}" --run-id "${GITHUB_RUN_ID}" \
+            --workflow "${GITHUB_WORKFLOW}" --version "${MONKEY_VERSION}"
+          python scripts/universal_release_candidate.py verify universal-dist \
+            --git-sha "${GITHUB_SHA}" --run-id "${GITHUB_RUN_ID}" \
+            --expected-version "${MONKEY_VERSION}"
+          python scripts/check_release_artifact_paths.py universal-dist \
+            --forbid "${GITHUB_WORKSPACE}" --forbid "${HOME}" \
+            --forbid "${RUNNER_TEMP}"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' && needs.changes.outputs.scope == 'full'
+        with:
+          name: monkey-universal-candidate
+          path: universal-dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-provider-smoke:
+    name: Windows native-provider dependency smoke
+    needs: changes
+    if: needs.changes.outputs.scope == 'python'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the native helper and smoke the selected Python provider
+        shell: pwsh
+        run: |
+          uv sync --all-packages --all-extras
           cargo build --locked --jobs 4 --package kicad-monkey-native
-          uv run --package kicad-cruncher --extra test rack run --all
-      - name: Build Monkey package
-        run: uv run --extra test python -m build
-      - name: Build Cruncher package
-        working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test python -m build
-      - name: Check packages
-        run: uv run --extra test twine check dist/*
-      - name: Check Cruncher package
-        run: uv run --extra test twine check packages/kicad_cruncher/dist/*
-      - name: Run installed Monkey import test
-        run: uv run --extra test python tests/support_scripts/install_test.py
-      - name: Run installed Cruncher console test
-        working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
-      - name: Run installed two-wheel compatibility test
-        run: uv run --extra test python tests/support_scripts/toolchain_install_test.py
+          uv run --package kicad-cruncher --extra test pytest `
+            packages/kicad_cruncher/tests/L3_public_workflows/test_L3_008_native_physical_provider.py::test_native_provider_is_no_fallback_enriched_and_cached -q
 
   phase5-exit:
     needs: changes
-    if: needs.changes.outputs.full == 'true'
+    if: needs.changes.outputs.scope == 'full'
     uses: ./.github/workflows/phase5-exit.yml
 
-  phase6-native-svg:
+  windows-release-candidates:
     needs: changes
-    if: needs.changes.outputs.full == 'true'
-    uses: ./.github/workflows/phase6-native-svg.yml
+    if: needs.changes.outputs.scope == 'full'
+    uses: ./.github/workflows/windows-release-candidates.yml
 
-  phase6-native-physical-provider:
-    needs: phase6-native-svg
-    uses: ./.github/workflows/phase6-native-physical-provider.yml
-
-  phase6-native-design-facts:
-    needs: phase6-native-physical-provider
-    uses: ./.github/workflows/phase6-native-design-facts.yml
-
-  phase6-native-full-cli:
-    needs: phase6-native-design-facts
-    uses: ./.github/workflows/phase6-native-full-cli.yml
-
-  phase6-exit:
-    needs: phase6-native-full-cli
-    uses: ./.github/workflows/phase6-exit.yml
+  ci-success:
+    name: CI success
+    if: always()
+    needs:
+      - changes
+      - workflow-validation
+      - python-provider
+      - windows-provider-smoke
+      - phase5-exit
+      - windows-release-candidates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every selected scope job
+        shell: bash
+        env:
+          SCOPE: ${{ needs.changes.outputs.scope }}
+          CHANGES: ${{ needs.changes.result }}
+          WORKFLOW_VALIDATION: ${{ needs.workflow-validation.result }}
+          PYTHON_PROVIDER: ${{ needs.python-provider.result }}
+          WINDOWS_PROVIDER_SMOKE: ${{ needs.windows-provider-smoke.result }}
+          PHASE5_EXIT: ${{ needs.phase5-exit.result }}
+          WINDOWS_RELEASE_CANDIDATES: ${{ needs.windows-release-candidates.result }}
+        run: |
+          test "${CHANGES}" = success
+          test "${WORKFLOW_VALIDATION}" = success
+          case "${SCOPE}" in
+            fast)
+              test "${PYTHON_PROVIDER}" = skipped
+              test "${WINDOWS_PROVIDER_SMOKE}" = skipped
+              test "${PHASE5_EXIT}" = skipped
+              test "${WINDOWS_RELEASE_CANDIDATES}" = skipped
+              ;;
+            python)
+              test "${PYTHON_PROVIDER}" = success
+              test "${WINDOWS_PROVIDER_SMOKE}" = success
+              test "${PHASE5_EXIT}" = skipped
+              test "${WINDOWS_RELEASE_CANDIDATES}" = skipped
+              ;;
+            full)
+              test "${PYTHON_PROVIDER}" = success
+              test "${WINDOWS_PROVIDER_SMOKE}" = skipped
+              test "${PHASE5_EXIT}" = success
+              test "${WINDOWS_RELEASE_CANDIDATES}" = success
+              ;;
+            *) exit 1 ;;
+          esac
