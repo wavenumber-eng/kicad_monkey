@@ -132,6 +132,8 @@ jobs:
           cp phase6-candidates/kicad_monkey-*-win_amd64.whl publish/monkey/
           cp universal-candidate/kicad_monkey-*-py3-none-any.whl publish/monkey/
           uvx --from twine twine check publish/monkey/*
+          python scripts/verify_pypi_release.py kicad-monkey \
+            "${MONKEY_VERSION}" publish/monkey --pre-upload --attempts 1
       - name: Publish Monkey to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -239,6 +241,8 @@ jobs:
           .release-smoke/bin/kicad-cruncher --version
           .release-smoke/bin/kcr --version
           .release-smoke/bin/python -I -m kicad_cruncher version
+          python scripts/verify_pypi_release.py kicad-cruncher \
+            "${CRUNCHER_VERSION}" publish/cruncher --pre-upload --attempts 1
       - name: Publish Cruncher to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

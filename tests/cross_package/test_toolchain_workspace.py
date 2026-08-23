@@ -119,7 +119,8 @@ def test_repository_governance_routes_both_packages() -> None:
     assert "environment: pypi\n" not in release
     assert release.count("environment: pypi-kicad-monkey\n") == 1
     assert release.count("environment: pypi-kicad-cruncher\n") == 1
-    assert release.count("verify_pypi_release.py") == 2
+    assert release.count("verify_pypi_release.py") == 4
+    assert release.count("--pre-upload --attempts 1") == 2
     assert "all files and SHA256 digests match CI" in (
         REPOSITORY_ROOT / "scripts" / "verify_pypi_release.py"
     ).read_text(encoding="utf-8")

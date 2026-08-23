@@ -93,6 +93,14 @@ jobs:
       - name: Build and check both Python packages
         shell: bash
         run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+          UNTRACKED="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "${UNTRACKED}" ]]; then
+            echo "Refusing to build with untracked source files:" >&2
+            printf '%s\n' "${UNTRACKED}" >&2
+            exit 1
+          fi
           uv build --sdist --out-dir dist
           MONKEY_SDIST="$(find dist -maxdepth 1 -name 'kicad_monkey-*.tar.gz' -print -quit)"
           test -n "${MONKEY_SDIST}"
@@ -117,6 +125,9 @@ jobs:
           python scripts/universal_release_candidate.py verify universal-dist \
             --git-sha "${GITHUB_SHA}" --run-id "${GITHUB_RUN_ID}" \
             --expected-version "${MONKEY_VERSION}"
+          python scripts/check_release_artifact_paths.py universal-dist \
+            --forbid "${GITHUB_WORKSPACE}" --forbid "${HOME}" \
+            --forbid "${RUNNER_TEMP}"
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request' && needs.changes.outputs.scope == 'full'
         with:

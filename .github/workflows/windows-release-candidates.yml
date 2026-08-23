@@ -27,6 +27,12 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Remove local Rust source roots from compiled artifacts
+        shell: pwsh
+        run: |
+          $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
+          $flags = "--remap-path-prefix=$cargoHome=.cargo --remap-path-prefix=$env:GITHUB_WORKSPACE=."
+          "RUSTFLAGS=$flags" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Set up the shared package and contract toolchains once
         run: |
           uv python install 3.14
@@ -62,36 +68,44 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Refusing to build from tracked changes' }
           git diff --cached --exit-code
           if ($LASTEXITCODE -ne 0) { throw 'Refusing to build from staged changes' }
+          $untracked = (& git status --porcelain --untracked-files=all | Out-String).Trim()
+          if ($untracked) { throw "Refusing to build with untracked source files:`n$untracked" }
 
+          $build = Join-Path $env:GITHUB_WORKSPACE 'phase6-build'
           $dist = Join-Path $env:GITHUB_WORKSPACE 'phase6-dist'
+          New-Item -ItemType Directory -Path $build -Force | Out-Null
           New-Item -ItemType Directory -Path $dist -Force | Out-Null
           $epoch = (& git show -s --format=%ct HEAD).Trim()
           $env:SOURCE_DATE_EPOCH = $epoch
           "SOURCE_DATE_EPOCH=$epoch" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          uv build --sdist --out-dir $dist
-          $monkeySdist = Get-ChildItem $dist\kicad_monkey-*.tar.gz
+          uv build --sdist --out-dir $build
+          $monkeySdist = Get-ChildItem $build\kicad_monkey-*.tar.gz
           if ($monkeySdist.Count -ne 1) { throw 'Expected one Monkey sdist' }
-          uv build $monkeySdist.FullName --wheel --out-dir $dist
+          uv build $monkeySdist.FullName --wheel --out-dir $build
           Push-Location packages\kicad_cruncher
-          try { uv build --sdist --out-dir $dist } finally { Pop-Location }
-          $cruncherSdist = Get-ChildItem $dist\kicad_cruncher-*.tar.gz
+          try { uv build --sdist --out-dir $build } finally { Pop-Location }
+          $cruncherSdist = Get-ChildItem $build\kicad_cruncher-*.tar.gz
           if ($cruncherSdist.Count -ne 1) { throw 'Expected one Cruncher sdist' }
-          uv build $cruncherSdist.FullName --wheel --out-dir $dist
+          uv build $cruncherSdist.FullName --wheel --out-dir $build
           $monkeyVersion = (& uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])").Trim()
           $cruncherVersion = (& uv run python -c "import tomllib; print(tomllib.load(open('packages/kicad_cruncher/pyproject.toml','rb'))['project']['version'])").Trim()
 
-          $files = @(
+          $selected = @(
             @{ role = 'monkey_sdist'; path = $monkeySdist.FullName },
-            @{ role = 'monkey_windows_x64_wheel'; path = (Get-ChildItem $dist\kicad_monkey-*-py3-none-win_amd64.whl).FullName },
+            @{ role = 'monkey_windows_x64_wheel'; path = (Get-ChildItem $build\kicad_monkey-*-py3-none-win_amd64.whl).FullName },
             @{ role = 'cruncher_sdist'; path = $cruncherSdist.FullName },
-            @{ role = 'cruncher_universal_wheel'; path = (Get-ChildItem $dist\kicad_cruncher-*-py3-none-any.whl).FullName }
+            @{ role = 'cruncher_universal_wheel'; path = (Get-ChildItem $build\kicad_cruncher-*-py3-none-any.whl).FullName }
           )
-          foreach ($entry in $files) {
+          foreach ($entry in $selected) {
             if (-not $entry.path -or -not (Test-Path -LiteralPath $entry.path -PathType Leaf)) {
               throw "Missing Phase 6 candidate for $($entry.role)"
             }
           }
+          $files = @($selected | ForEach-Object {
+            $copied = Copy-Item -LiteralPath $_.path -Destination $dist -PassThru
+            @{ role = $_.role; path = $copied.FullName }
+          })
           $corpus = Get-Item -LiteralPath $env:KM_CORPUS
           $manifest = @{
             schema = 'kicad_monkey.phase6_release_candidate.a0'
@@ -124,6 +138,10 @@ jobs:
           $manifestPath = Join-Path $dist 'phase6-release-candidate-a0.json'
           $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8
           "KM_PHASE6_ARTIFACT_MANIFEST=$manifestPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          python scripts/check_release_artifact_paths.py $dist `
+            --forbid $env:GITHUB_WORKSPACE `
+            --forbid $env:USERPROFILE `
+            --forbid $env:RUNNER_TEMP
       - name: Test the exact installed Phase 6 candidates
         run: uv run --extra test python tests/rack.py run L3_027
       - name: Run Phase 7 Rust CLI acceptance
@@ -141,6 +159,10 @@ jobs:
             --git-sha $env:GITHUB_SHA `
             --workflow $env:GITHUB_WORKFLOW `
             --run-id $env:GITHUB_RUN_ID
+          python scripts/check_release_artifact_paths.py phase7-dist `
+            --forbid $env:GITHUB_WORKSPACE `
+            --forbid $env:USERPROFILE `
+            --forbid $env:RUNNER_TEMP
           cargo fmt --all -- --check
           cargo clippy -p kicad-cruncher-cli --all-targets -- -D warnings
           cargo test -p kicad-cruncher-cli --all-targets

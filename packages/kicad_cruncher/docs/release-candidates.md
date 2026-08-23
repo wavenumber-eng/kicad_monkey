@@ -20,5 +20,11 @@ SHA-256 values. The Linux universal wheel has the same binding.
 The publish workflow locates the successful main CI run for the tagged commit,
 downloads all three artifact sets, verifies their manifests and hashes, and
 publishes those exact files. It never rebuilds a candidate. A retry uses
-`skip-existing` and the same resolved run, so recovery cannot select or build
-different bytes.
+`skip-existing` and the same resolved run. Before either upload, every existing
+public filename and digest must be an exact subset of that package's candidate
+set; after upload, the complete public set must match. Recovery therefore
+cannot select, build, or silently combine different bytes.
+
+Candidate construction also rejects untracked source and scans archive members,
+metadata, and compiled binaries for local Windows, WSL, home, workspace, and
+temporary paths. Rust source roots are remapped before the native builds.

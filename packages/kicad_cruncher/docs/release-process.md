@@ -55,10 +55,12 @@ PyPI Trusted Publishing uses workflow `release.yml` with the
 
 ## Recovery
 
-Rerun the same failed workflow. Both PyPI uploads use `skip-existing`, public
-package checks are repeatable, and GitHub Release creation is create-if-missing
-with a clobber-safe Rust asset upload. There is no recovery workflow and no
-candidate run ID to find or enter.
+Rerun the same failed workflow. Before each `skip-existing` PyPI upload, the
+workflow rejects any existing filename or digest that is not an exact subset
+of the CI candidates; afterward it requires the complete public set to match.
+Public package checks are repeatable, and GitHub Release creation is
+create-if-missing with a clobber-safe Rust asset upload. There is no recovery
+workflow and no candidate run ID to find or enter.
 
 Published PyPI versions remain immutable. If source bytes must change, create a
 new date version or a same-day fourth-component version such as
