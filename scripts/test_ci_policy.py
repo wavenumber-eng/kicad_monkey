@@ -133,6 +133,10 @@ class WorkflowTests(unittest.TestCase):
         candidates = (WORKFLOWS / "windows-release-candidates.yml").read_text(
             encoding="utf-8"
         )
+        candidate_workflow = yaml.safe_load(candidates)
+        self.assertEqual(
+            candidate_workflow["jobs"]["candidates"]["timeout-minutes"], 60
+        )
         self.assertIn("--remap-path-prefix=$cargoHome=.cargo", candidates)
         self.assertEqual(candidates.count("check_release_artifact_paths.py"), 2)
         self.assertIn("git status --porcelain --untracked-files=all", candidates)
@@ -166,8 +170,7 @@ class WorkflowTests(unittest.TestCase):
         phase6_download = next(
             index
             for index, step in enumerate(steps)
-            if step.get("with", {}).get("name")
-            == "phase6-windows-x64-candidates"
+            if step.get("with", {}).get("name") == "phase6-windows-x64-candidates"
         )
         phase6_verify = next(
             index
@@ -230,9 +233,7 @@ class CandidateTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 compare_release_files(root, payload, expected_version="1.0")
             with self.assertRaises(SystemExit):
-                compare_compatible_release_files(
-                    root, payload, expected_version="1.0"
-                )
+                compare_compatible_release_files(root, payload, expected_version="1.0")
 
     def test_universal_candidate_is_commit_bound_and_rejects_tampering(self) -> None:
         with TemporaryDirectory() as temporary:

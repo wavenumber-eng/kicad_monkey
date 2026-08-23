@@ -15,7 +15,11 @@ jobs:
   candidates:
     name: Native gates and exact Windows candidates
     runs-on: windows-latest
-    timeout-minutes: 35
+    # L3_011/L3_012 are intentionally sequential on Windows because concurrent
+    # Cargo/example execution can collide on locked executables. Keep the
+    # documented cold-run ceiling while the measured 35-minute target remains
+    # a performance goal rather than a destructive test cutoff.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
