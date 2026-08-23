@@ -32,7 +32,9 @@ def _project_root() -> Path:
 def _load_corpus_archive_module():
     """Load the corpus archive script as a module for focused script tests."""
     module_path = PACKAGE_ROOT / "scripts" / "kicad_corpus_archive.py"
-    spec = importlib.util.spec_from_file_location("kicad_corpus_archive_test", module_path)
+    spec = importlib.util.spec_from_file_location(
+        "kicad_corpus_archive_test", module_path
+    )
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -75,7 +77,10 @@ FORBIDDEN_PUBLIC_TEXT_PATTERNS = (
     (re.compile(r"\bSchGeometryRecord\b"), "outside package type reference"),
     (re.compile(r"\bdata_models\b", re.IGNORECASE), "external model package reference"),
     (re.compile(r"\bnetlist_a0\b", re.IGNORECASE), "external model schema reference"),
-    (re.compile(r"\b(?:toolz|appz|toolz-tests)\b", re.IGNORECASE), "local workspace reference"),
+    (
+        re.compile(r"\b(?:toolz|appz|toolz-tests)\b", re.IGNORECASE),
+        "local workspace reference",
+    ),
     (
         re.compile(
             r"\b(?:lib_cruncher|bom_cruncher|pcb_cruncher)\b",
@@ -88,7 +93,10 @@ FORBIDDEN_PUBLIC_TEXT_PATTERNS = (
     (re.compile(r"\bwn-hw\b", re.IGNORECASE), "local workspace repo"),
     (re.compile(r"\bprivate kicad_monkey\b", re.IGNORECASE), "private-suite reference"),
     (re.compile(r"\bprivate test\b", re.IGNORECASE), "private-test reference"),
-    (re.compile(r"\bcruncher workflows\b", re.IGNORECASE), "internal workflow reference"),
+    (
+        re.compile(r"\bcruncher workflows\b", re.IGNORECASE),
+        "internal workflow reference",
+    ),
     (re.compile(r"\bPhase\s+[A-Z0-9]", re.IGNORECASE), "development phase label"),
     (re.compile(r"\bSlice\s+[A-Z0-9]", re.IGNORECASE), "development slice label"),
     (
@@ -104,7 +112,9 @@ FORBIDDEN_PUBLIC_TEXT_PATTERNS = (
 
 def test_version_contract_matches_date_based_release() -> None:
     """Verify that package metadata follows the date release contract."""
-    pyproject = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     cargo = tomllib.loads((PACKAGE_ROOT / "Cargo.toml").read_text(encoding="utf-8"))
     parsed = version()
 
@@ -145,12 +155,17 @@ def test_changelog_mentions_package_version() -> None:
 
 def test_public_package_metadata_is_declared() -> None:
     """Verify public package metadata needed for PyPI and GitHub is present."""
-    pyproject = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     project = pyproject["project"]
 
     assert project["license"]["text"] == "MIT"
     assert project["authors"] == [{"name": "Wavenumber LLC"}]
-    assert project["urls"]["Repository"] == "https://github.com/wavenumber-eng/kicad_monkey"
+    assert (
+        project["urls"]["Repository"]
+        == "https://github.com/wavenumber-eng/kicad_monkey"
+    )
     assert (PACKAGE_ROOT / "LICENSE").exists()
 
 
@@ -175,24 +190,16 @@ def test_release_workflow_derives_release_date_from_version_helper() -> None:
     workflow = (PACKAGE_ROOT / ".github" / "workflows" / "release.yml").read_text(
         encoding="utf-8"
     )
-    match = re.search(r'RELEASE_DATE="\$\(uv run python -c \'([^\']+)\'\)"', workflow)
-    assert match is not None
-    command = match.group(1)
-    assert "parse_version" in command
-    assert "map(int" not in command
-
-    completed = subprocess.run(
-        [sys.executable, "-c", command],
-        cwd=PACKAGE_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
+    assert 'runpy.run_path("src/py/kicad_monkey/_version.py")' in workflow
+    assert (
+        'runpy.run_path("packages/kicad_cruncher/src/py/kicad_cruncher/_version.py")'
+        in workflow
     )
-
-    assert completed.returncode == 0, completed.stderr + completed.stdout
-    assert completed.stdout.strip() == EXPECTED_RELEASE_DATE.isoformat()
-    assert 'startsWith(github.event.release.tag_name, \'kicad-monkey-v\')' in workflow
-    assert 'test "kicad-monkey-v${VERSION}" = "${GITHUB_REF_NAME}"' in workflow
+    assert "release_date.isoformat()" in workflow
+    assert "map(int" not in workflow
+    assert 'MONKEY_TAG="kicad-monkey-v${MONKEY_VERSION}"' in workflow
+    assert 'CRUNCHER_TAG="kicad-cruncher-v${CRUNCHER_VERSION}"' in workflow
+    assert "candidate_run_id" not in workflow
 
 
 def test_configured_dev_std_audit_scopes_pass() -> None:
@@ -225,7 +232,9 @@ def test_configured_dev_std_audit_scopes_pass() -> None:
 
 def test_developer_working_docs_are_excluded_from_release_artifacts() -> None:
     """Verify that developer-only plan and research docs are not packaged."""
-    pyproject = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     sdist = pyproject["tool"]["hatch"]["build"]["targets"]["sdist"]
 
     assert "docs/**" in sdist["include"]
@@ -279,7 +288,9 @@ def test_public_corpus_archive_uses_manifest_not_lfs() -> None:
         (PACKAGE_ROOT / CORPUS_ARCHIVE_MANIFEST_PATH).read_text(encoding="utf-8")
     )
     attributes = (PACKAGE_ROOT / ".gitattributes").read_text(encoding="utf-8")
-    gitignore_lines = (PACKAGE_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    gitignore_lines = (
+        (PACKAGE_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    )
 
     assert manifest["schema"] == "kicad_monkey.corpus_archive.v1"
     assert manifest["archive"] == "kicad.zip"
@@ -290,7 +301,9 @@ def test_public_corpus_archive_uses_manifest_not_lfs() -> None:
     assert "filter=lfs" not in attributes
 
 
-def test_public_corpus_restore_uses_target_parent_for_temp_download(monkeypatch, tmp_path) -> None:
+def test_public_corpus_restore_uses_target_parent_for_temp_download(
+    monkeypatch, tmp_path
+) -> None:
     """Verify archive restore keeps temp downloads on the target filesystem."""
     corpus_archive = _load_corpus_archive_module()
     payload = b"small corpus archive placeholder"
@@ -327,7 +340,9 @@ def test_public_corpus_restore_uses_target_parent_for_temp_download(monkeypatch,
         captured["download_timeout"] = timeout
         return FakeResponse(payload)
 
-    monkeypatch.setattr(corpus_archive.tempfile, "TemporaryDirectory", FakeTemporaryDirectory)
+    monkeypatch.setattr(
+        corpus_archive.tempfile, "TemporaryDirectory", FakeTemporaryDirectory
+    )
     monkeypatch.setattr(corpus_archive.urllib.request, "urlopen", fake_urlopen)
 
     restored = corpus_archive.restore_archive(
@@ -378,6 +393,8 @@ def test_public_text_has_no_private_or_rollout_references() -> None:
         for line_number, line in enumerate(text.splitlines(), start=1):
             for pattern, reason in FORBIDDEN_PUBLIC_TEXT_PATTERNS:
                 if pattern.search(line):
-                    failures.append(f"{rel_path}:{line_number}: {reason}: {line.strip()}")
+                    failures.append(
+                        f"{rel_path}:{line_number}: {reason}: {line.strip()}"
+                    )
 
     assert failures == []

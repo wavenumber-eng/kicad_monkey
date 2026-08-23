@@ -59,13 +59,7 @@ _PHASE6_HANDSHAKE_PATHS = (
     "contracts/generated/schema/NativeHandshakeA1.json",
     "contracts/generated/schema/NativeHandshakeA2.json",
 )
-_PHASE6_RACK_WORKFLOWS = (
-    "phase6-exit.yml",
-    "phase6-native-design-facts.yml",
-    "phase6-native-full-cli.yml",
-    "phase6-native-physical-provider.yml",
-    "phase6-native-svg.yml",
-)
+_PHASE6_RACK_WORKFLOWS = ("windows-release-candidates.yml",)
 
 
 def _run(command: list[str], *, timeout: int = 300) -> None:
@@ -247,9 +241,7 @@ def test_phase6_native_contract_and_cli_freeze_manifest_is_exact() -> None:
             f"frozen Phase 6 contract changed: {entry['path']}"
         )
     handshakes = manifest["handshakes"]
-    assert [entry["path"] for entry in handshakes] == list(
-        _PHASE6_HANDSHAKE_PATHS
-    )
+    assert [entry["path"] for entry in handshakes] == list(_PHASE6_HANDSHAKE_PATHS)
     assert [entry["operations"] for entry in handshakes] == [
         ["design-facts"],
         ["design-facts", "render-svg"],
@@ -426,16 +418,12 @@ def test_ci_uses_the_repository_pinned_rust_toolchain() -> None:
     assert governed > 0
 
 
-def test_ci_runs_the_phase5_typespec_gate_on_linux() -> None:
-    workflow = (PACKAGE_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+def test_ci_runs_phase5_gate_in_authoritative_workflow() -> None:
+    workflow = (PACKAGE_ROOT / ".github" / "workflows" / "phase5-exit.yml").read_text(
         encoding="utf-8"
     )
-    assert "name: Run Linux TypeSpec Phase 5 gate" in workflow
-    assert "if: runner.os == 'Linux'" in workflow
-    assert (
-        "test_L3_022_rust_phase5_exit.py::"
-        "test_phase5_contract_freeze_and_codegen_are_current"
-    ) in workflow
+    assert "name: Run the mandatory Phase 5 exit gate" in workflow
+    assert "tests/rack.py run L3_022" in workflow
 
 
 def test_phase6_rack_workflows_restore_reviewed_corpus_before_rack() -> None:

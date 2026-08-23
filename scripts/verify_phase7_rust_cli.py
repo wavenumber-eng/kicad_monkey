@@ -32,6 +32,7 @@ def verify(
     directory: Path,
     *,
     git_sha: str | None = None,
+    run_id: str | None = None,
     expected_version: str | None = None,
 ) -> tuple[Path, Path]:
     root = directory.resolve()
@@ -59,9 +60,23 @@ def verify(
         )
     if git_sha is not None and payload.get("git_sha") != git_sha:
         raise SystemExit("Phase 7 candidate commit does not match this workflow")
+    source = payload.get("source")
+    if (
+        not isinstance(source, dict)
+        or not isinstance(source.get("workflow"), str)
+        or not source["workflow"]
+        or not isinstance(source.get("run_id"), str)
+        or not source["run_id"].isdigit()
+    ):
+        raise SystemExit("Phase 7 candidate source workflow/run identity is invalid")
+    if run_id is not None and source != {"workflow": "CI", "run_id": run_id}:
+        raise SystemExit("Phase 7 candidate run does not match")
 
     expected_stem = f"kicad-cruncher-{version}-windows-x64"
-    if archive.name != f"{expected_stem}.zip" or manifest_path.name != f"{expected_stem}.json":
+    if (
+        archive.name != f"{expected_stem}.zip"
+        or manifest_path.name != f"{expected_stem}.json"
+    ):
         raise SystemExit("Phase 7 candidate filenames do not match its version")
     archive_record = payload.get("archive")
     if not isinstance(archive_record, dict):
@@ -106,11 +121,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("--git-sha", default=None)
+    parser.add_argument("--run-id", default=None)
     parser.add_argument("--expected-version", default=None)
     args = parser.parse_args()
     verify(
         args.directory,
         git_sha=args.git_sha,
+        run_id=args.run_id,
         expected_version=args.expected_version,
     )
 

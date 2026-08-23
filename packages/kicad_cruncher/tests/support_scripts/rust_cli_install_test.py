@@ -80,8 +80,10 @@ def _assert_windows_x64_pe(executable: Path) -> None:
 def _copy_fixture(workspace: Path, destination: Path) -> Path:
     configured = os.environ.get("KM_CORPUS", "").strip()
     archive_path = (
-        Path(configured) if configured else workspace / "tests" / "corpus" / "kicad.zip"
-    ).expanduser().resolve()
+        (Path(configured) if configured else workspace / "tests" / "corpus" / "kicad.zip")
+        .expanduser()
+        .resolve()
+    )
     if archive_path.suffix.lower() != ".zip" or not archive_path.is_file():
         raise AssertionError(f"KM_CORPUS must name the reviewed kicad.zip: {archive_path}")
     prefix = PurePosixPath("kicad/projects/led_component/input")
@@ -151,6 +153,8 @@ def _write_release_artifact(
     workspace: Path,
     version: str,
     git_sha: str,
+    workflow: str,
+    run_id: str,
 ) -> tuple[Path, Path]:
     artifact_dir.mkdir(parents=True, exist_ok=True)
     stem = f"kicad-cruncher-{version}-windows-x64"
@@ -169,6 +173,7 @@ def _write_release_artifact(
         "version": version,
         "platform": "windows-x64",
         "git_sha": git_sha,
+        "source": {"workflow": workflow, "run_id": run_id},
         "archive": {
             "filename": archive.name,
             "bytes": archive.stat().st_size,
@@ -195,6 +200,8 @@ def run_install_test(
     *,
     artifact_dir: Path | None = None,
     git_sha: str | None = None,
+    workflow: str = "local",
+    run_id: str = "0",
 ) -> None:
     if os.name != "nt":
         raise AssertionError("the promoted Rust CLI artifact currently targets Windows x64")
@@ -255,9 +262,9 @@ def run_install_test(
         _assert_bundle(output)
 
         if artifact_dir is not None:
-            resolved_sha = git_sha or _run(
-                ["git", "rev-parse", "HEAD"], cwd=workspace
-            ).stdout.strip()
+            resolved_sha = (
+                git_sha or _run(["git", "rev-parse", "HEAD"], cwd=workspace).stdout.strip()
+            )
             _write_release_artifact(
                 artifact_dir.resolve(),
                 bin_dir=bin_dir,
@@ -265,6 +272,8 @@ def run_install_test(
                 workspace=workspace,
                 version=version,
                 git_sha=resolved_sha,
+                workflow=workflow,
+                run_id=run_id,
             )
 
 
@@ -273,6 +282,8 @@ def main() -> None:
     parser.add_argument("--workspace", type=Path, default=None)
     parser.add_argument("--artifact-dir", type=Path, default=None)
     parser.add_argument("--git-sha", default=None)
+    parser.add_argument("--workflow", default="local")
+    parser.add_argument("--run-id", default="0")
     args = parser.parse_args()
     package_root = Path(__file__).resolve().parents[2]
     workspace = args.workspace or package_root.parents[1]
@@ -280,6 +291,8 @@ def main() -> None:
         workspace,
         artifact_dir=args.artifact_dir,
         git_sha=args.git_sha,
+        workflow=args.workflow,
+        run_id=args.run_id,
     )
     sys.stdout.write("Installed pure-Rust CLI smoke test passed.\n")
 

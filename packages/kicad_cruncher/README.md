@@ -248,6 +248,6 @@ ruff, and pyright.
 
 Versioning, tagging, release, and traceability are defined in
 `docs/adrs/ADR-0001-versioning-tagging-release-policy.md`. The operator
-checklist lives in `docs/release-process.md`. Pushing a matching version tag
-triggers GitHub Actions publishing through PyPI Trusted Publishing/OIDC. Local
-Twine upload is fallback only.
+checklist lives in `docs/release-process.md`. Immutable matching tags for both
+packages authorize one manual GitHub Actions dispatch, which publishes through
+PyPI Trusted Publishing/OIDC. Local Twine upload is fallback only.

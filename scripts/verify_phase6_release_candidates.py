@@ -21,6 +21,7 @@ _ROLES = {
     "cruncher_universal_wheel": re.compile(r"^kicad_cruncher-.+-py3-none-any\.whl$"),
 }
 _MANIFEST_FILENAME = "phase6-release-candidate-a0.json"
+_VERSION = re.compile(r"^\d{4}\.\d+\.\d+(?:\.\d+)?$")
 
 
 class _ArtifactEntry(TypedDict):
@@ -77,7 +78,14 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def verify(directory: Path, *, git_sha: str | None = None) -> dict[str, Path]:
+def verify(
+    directory: Path,
+    *,
+    git_sha: str | None = None,
+    run_id: str | None = None,
+    monkey_version: str | None = None,
+    cruncher_version: str | None = None,
+) -> dict[str, Path]:
     root = directory.resolve()
     manifest_path = root / _MANIFEST_FILENAME
     payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
@@ -87,6 +95,29 @@ def verify(directory: Path, *, git_sha: str | None = None) -> dict[str, Path]:
         raise SystemExit("Phase 6 candidate is not the Windows x64 artifact set")
     if git_sha is not None and payload.get("git_sha") != git_sha:
         raise SystemExit("Phase 6 candidate commit does not match this workflow")
+    source = payload.get("source")
+    if (
+        not isinstance(source, dict)
+        or source.get("workflow") != "CI"
+        or not isinstance(source.get("run_id"), str)
+        or not source["run_id"].isdigit()
+    ):
+        raise SystemExit("Phase 6 candidate source workflow/run identity is invalid")
+    if run_id is not None and source.get("run_id") != run_id:
+        raise SystemExit("Phase 6 candidate run does not match")
+    versions = payload.get("versions")
+    if not isinstance(versions, dict):
+        raise SystemExit("Phase 6 candidate versions must be an object")
+    if any(
+        not isinstance(versions.get(package), str)
+        or _VERSION.fullmatch(versions[package]) is None
+        for package in ("monkey", "cruncher")
+    ):
+        raise SystemExit("Phase 6 candidate package versions are invalid")
+    if monkey_version is not None and versions.get("monkey") != monkey_version:
+        raise SystemExit("Phase 6 Monkey version does not match")
+    if cruncher_version is not None and versions.get("cruncher") != cruncher_version:
+        raise SystemExit("Phase 6 Cruncher version does not match")
     entries = _validate_artifact_entries(payload.get("artifacts"))
     _validate_candidate_directory(root, entries)
     resolved: dict[str, Path] = {}
@@ -95,6 +126,9 @@ def verify(directory: Path, *, git_sha: str | None = None) -> dict[str, Path]:
         filename = entry.get("filename")
         if not isinstance(filename, str) or _ROLES[role].fullmatch(filename) is None:
             raise SystemExit(f"invalid {role} filename: {filename!r}")
+        package = "monkey" if role.startswith("monkey_") else "cruncher"
+        if not filename.startswith(f"kicad_{package}-{versions[package]}"):
+            raise SystemExit(f"{role} filename does not match its package version")
         path = (root / filename).resolve()
         try:
             path.relative_to(root)
@@ -116,8 +150,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument("--git-sha")
+    parser.add_argument("--run-id")
+    parser.add_argument("--monkey-version")
+    parser.add_argument("--cruncher-version")
     args = parser.parse_args()
-    verify(args.directory, git_sha=args.git_sha)
+    verify(
+        args.directory,
+        git_sha=args.git_sha,
+        run_id=args.run_id,
+        monkey_version=args.monkey_version,
+        cruncher_version=args.cruncher_version,
+    )
 
 
 if __name__ == "__main__":

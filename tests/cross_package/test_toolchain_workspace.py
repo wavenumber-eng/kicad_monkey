@@ -105,25 +105,28 @@ def test_repository_governance_routes_both_packages() -> None:
         REPOSITORY_ROOT / ".github" / "workflows" / "release.yml"
     ).read_text(encoding="utf-8")
 
-    assert "Run Cruncher Rack gates against workspace Monkey" in ci
-    assert "Run installed two-wheel compatibility test" in ci
+    assert "Run Cruncher Python-provider gates without native migration gates" in ci
+    assert "Run installed-package compatibility" in ci
+    assert "windows-release-candidates.yml" in ci
     assert "uv python install 3.14" in ci
     assert "python-version" not in ci
     assert "Rehearse Cruncher upgrade and rollback" not in ci
     assert "publish-monkey:" in release
     assert "publish-cruncher:" in release
-    assert "verify-coordinated-monkey:" in release
-    assert "publish-coordinated-cruncher:" in release
-    assert "create-coordinated-releases:" in release
-    assert "inputs.confirm == 'publish-both'" in release
+    assert "verify-public-monkey:" in release
+    assert "create-releases:" in release
+    assert "candidate_run_id" not in release
     assert "environment: pypi\n" not in release
     assert release.count("environment: pypi-kicad-monkey\n") == 1
-    assert release.count("environment: pypi-kicad-cruncher\n") == 2
-    assert "for install_attempt in {1..20}; do" in release
-    assert "did not become installable" in release
-    assert "kicad-monkey-v${VERSION}" in release
-    assert "kicad-cruncher-v${VERSION}" in release
-    assert "packages-dir: packages/kicad_cruncher/dist/" in release
+    assert release.count("environment: pypi-kicad-cruncher\n") == 1
+    assert release.count("verify_pypi_release.py") == 2
+    assert "all files and SHA256 digests match CI" in (
+        REPOSITORY_ROOT / "scripts" / "verify_pypi_release.py"
+    ).read_text(encoding="utf-8")
+    assert 'MONKEY_TAG="kicad-monkey-v${MONKEY_VERSION}"' in release
+    assert 'CRUNCHER_TAG="kicad-cruncher-v${CRUNCHER_VERSION}"' in release
+    assert "packages-dir: publish/cruncher/" in release
+    assert release.count("skip-existing: true") == 2
 
 
 def test_history_import_hygiene_exception_is_explicit_and_ancestry_bounded() -> None:

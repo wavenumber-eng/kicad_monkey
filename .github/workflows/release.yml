@@ -1,624 +1,313 @@
-name: Publish
+name: Publish coordinated release
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
-      monkey_version:
-        description: Exact kicad-monkey version to publish first
-        required: true
-        type: string
-      cruncher_version:
-        description: Exact kicad-cruncher version to publish second
-        required: true
-        type: string
-      release_sha:
-        description: Tagged release commit for recovery mode
-        required: false
-        type: string
-      candidate_run_id:
-        description: Run containing Phase 6 candidates for recovery mode
-        required: false
-        type: string
-      phase7_run_id:
-        description: Run containing the recovered Phase 7 artifact
-        required: false
-        type: string
       confirm:
-        description: Type publish-both or recover-cruncher
+        description: Type publish to release both tagged Python packages and the Rust CLI
         required: true
-        type: string
+        type: choice
+        options: [publish]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  CARGO_BUILD_JOBS: "4"
-  RUST_TEST_THREADS: "2"
-
-permissions:
-  actions: read
-  contents: write
-  id-token: write
 
 jobs:
-  phase5-exit:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    uses: ./.github/workflows/phase5-exit.yml
-
-  phase6-native-svg:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: phase5-exit
-    uses: ./.github/workflows/phase6-native-svg.yml
-
-  phase6-native-physical-provider:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: phase6-native-svg
-    uses: ./.github/workflows/phase6-native-physical-provider.yml
-
-  phase6-native-design-facts:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: phase6-native-physical-provider
-    uses: ./.github/workflows/phase6-native-design-facts.yml
-
-  phase6-native-full-cli:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: phase6-native-design-facts
-    uses: ./.github/workflows/phase6-native-full-cli.yml
-
-  phase6-exit:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: phase6-native-full-cli
-    uses: ./.github/workflows/phase6-exit.yml
-
-  phase7-rust-cli:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: phase6-exit
-    uses: ./.github/workflows/phase7-rust-cli.yml
-
-  publish-monkey:
-    if: >-
-      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: phase6-exit
+  resolve:
+    name: Resolve the exact successful main candidate
     runs-on: ubuntu-latest
-    environment: pypi-kicad-monkey
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - uses: dtolnay/rust-toolchain@1.98.0
-        with:
-          components: rustfmt, clippy
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Rust and contract gate toolchains
-        run: |
-          npm install --global npm@11.6.2
-          npm ci
-          cargo install wasm-bindgen-cli --version 0.2.127 --locked
-      - name: Install public font dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fontconfig fonts-dejavu-core fonts-liberation
-      - name: Validate public corpus archive metadata
-        run: uv run --extra test python scripts/kicad_corpus_archive.py metadata
-      - name: Restore public corpus archive
-        run: uv run --extra test python scripts/kicad_corpus_archive.py restore
-      - name: Verify tag matches package version
-        shell: bash
-        env:
-          REQUESTED_VERSION: ${{ inputs.monkey_version }}
-        run: |
-          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
-          if [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
-            test "kicad-monkey-v${VERSION}" = "${GITHUB_REF_NAME}"
-          else
-            test "${GITHUB_REF}" = "refs/heads/main"
-            test "${REQUESTED_VERSION}" = "${VERSION}"
-            git fetch --force --tags origin
-            test "$(git rev-parse "kicad-monkey-v${VERSION}^{commit}")" = "${GITHUB_SHA}"
-          fi
-      - name: Verify release notes mention package version
-        shell: bash
-        run: |
-          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
-          RELEASE_DATE="$(uv run python -c 'import tomllib; from kicad_monkey import parse_version; v=tomllib.load(open("pyproject.toml","rb"))["project"]["version"]; print(parse_version(v).release_date.isoformat())')"
-          grep -F "## ${VERSION}" CHANGELOG.md
-          test -f "docs/releases/${RELEASE_DATE}.md"
-          grep -F "\`${VERSION}\`" "docs/releases/${RELEASE_DATE}.md"
-      - name: Prepare public corpus archive
-        run: uv run --extra test python scripts/package_kicad_corpus.py --check
-      - name: Run public Rack gates
-        run: |
-          uv run --extra test python tests/rack.py run L0_foundation
-          uv run --extra test python tests/rack.py run L99_signoff
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase6-windows-x64-candidates
-          path: phase6-candidates
-      - name: Verify and select the tested Monkey distributions
-        shell: bash
-        run: |
-          uv run --extra test python scripts/verify_phase6_release_candidates.py \
-            phase6-candidates --git-sha "${GITHUB_SHA}"
-          WHEEL="$(find phase6-candidates -maxdepth 1 -name 'kicad_monkey-*-py3-none-win_amd64.whl' -print -quit)"
-          SDIST="$(find phase6-candidates -maxdepth 1 -name 'kicad_monkey-*.tar.gz' -print -quit)"
-          test -n "${WHEEL}" && test -n "${SDIST}"
-          mkdir -p dist
-          cp "${WHEEL}" dist/
-          cp "${SDIST}" dist/
-          uv build "${SDIST}" --wheel --out-dir dist
-      - name: Check package
-        run: uv run --extra test twine check dist/*
-      - name: Run installed import test
-        shell: bash
-        run: |
-          WHEEL="$(find dist -maxdepth 1 -name 'kicad_monkey-*-py3-none-any.whl' -print -quit)"
-          test -n "${WHEEL}"
-          uv run --extra test python tests/support_scripts/install_test.py --wheel "${WHEEL}"
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-
-  verify-public-monkey-toolchain:
-    if: >-
-      github.event_name == 'release' &&
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: phase6-exit
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase6-windows-x64-candidates
-          path: phase6-candidates
-      - name: Run the tested Cruncher candidate against exact public Monkey
-        shell: pwsh
-        run: |
-          uv run --extra test python scripts/verify_phase6_release_candidates.py `
-            phase6-candidates --git-sha $env:GITHUB_SHA
-          New-Item -ItemType Directory -Path public-dist -Force | Out-Null
-          uvx --from pip pip download --only-binary=:all: --no-deps `
-            --dest public-dist 'kicad-monkey==2026.8.22'
-          $monkeyWheel = Get-ChildItem public-dist\kicad_monkey-*-win_amd64.whl
-          $cruncherWheel = Get-ChildItem phase6-candidates\kicad_cruncher-*-py3-none-any.whl
-          $monkeySdist = Get-ChildItem phase6-candidates\kicad_monkey-*.tar.gz
-          $cruncherSdist = Get-ChildItem phase6-candidates\kicad_cruncher-*.tar.gz
-          if ($monkeyWheel.Count -ne 1 -or $cruncherWheel.Count -ne 1 -or `
-              $monkeySdist.Count -ne 1 -or $cruncherSdist.Count -ne 1) {
-            throw 'Expected one artifact for every public toolchain role'
-          }
-          uv run --extra test python tests/support_scripts/toolchain_install_test.py `
-            --monkey-wheel $monkeyWheel.FullName `
-            --cruncher-wheel $cruncherWheel.FullName `
-            --monkey-sdist $monkeySdist.FullName `
-            --cruncher-sdist $cruncherSdist.FullName
-
-  publish-cruncher:
-    if: >-
-      github.event_name == 'release' &&
-      startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: [phase6-exit, phase7-rust-cli, verify-public-monkey-toolchain]
-    runs-on: ubuntu-latest
-    environment: pypi-kicad-cruncher
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: dtolnay/rust-toolchain@1.98.0
-      - uses: Swatinem/rust-cache@v2
-      - name: Verify tag matches package version
-        shell: bash
-        run: |
-          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
-          test "kicad-cruncher-v${VERSION}" = "${GITHUB_REF_NAME}"
-      - name: Verify release notes mention package version
-        shell: bash
-        run: |
-          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
-          RELEASE_DATE="$(uv run --package kicad-cruncher python -c 'from kicad_cruncher._version import parse_version; import tomllib; v=tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"]; print(parse_version(v).release_date.isoformat())')"
-          grep -F "## ${VERSION}" packages/kicad_cruncher/CHANGELOG.md
-          test -f "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
-          grep -F "\`${VERSION}\`" "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase6-windows-x64-candidates
-          path: phase6-candidates
-      - name: Select the tested Cruncher distributions
-        shell: bash
-        run: |
-          uv run --extra test python scripts/verify_phase6_release_candidates.py \
-            phase6-candidates --git-sha "${GITHUB_SHA}"
-          mkdir -p packages/kicad_cruncher/dist
-          cp phase6-candidates/kicad_cruncher-*.whl packages/kicad_cruncher/dist/
-          cp phase6-candidates/kicad_cruncher-*.tar.gz packages/kicad_cruncher/dist/
-      - name: Check Cruncher package
-        run: uv run --extra test twine check packages/kicad_cruncher/dist/*
-      - name: Run installed Cruncher console test
-        working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase7-rust-cli-windows-x64
-          path: phase7-rust-cli
-      - name: Verify and attach the tested Rust CLI candidate
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
-          uv run python scripts/verify_phase7_rust_cli.py phase7-rust-cli \
-            --git-sha "${GITHUB_SHA}" --expected-version "${VERSION}"
-          gh release upload "${GITHUB_REF_NAME}" phase7-rust-cli/* --clobber
-      - name: Publish Cruncher to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: packages/kicad_cruncher/dist/
-
-  verify-coordinated-monkey:
-    if: github.event_name == 'workflow_dispatch'
-    needs: publish-monkey
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - name: Wait for and verify the public Monkey artifact
-        shell: bash
-        env:
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import time
-          import urllib.error
-          import urllib.request
-
-          version = os.environ["MONKEY_VERSION"]
-          url = f"https://pypi.org/pypi/kicad-monkey/{version}/json"
-          for attempt in range(20):
-              try:
-                  with urllib.request.urlopen(url, timeout=30) as response:
-                      payload = json.load(response)
-                  if payload["info"]["version"] == version:
-                      break
-              except (urllib.error.URLError, KeyError, json.JSONDecodeError):
-                  pass
-              if attempt == 19:
-                  raise SystemExit(f"kicad-monkey {version} did not become available")
-              time.sleep(15)
-          PY
-          uv venv .coordinated-monkey-venv
-          for install_attempt in {1..20}; do
-            if uv pip install --python .coordinated-monkey-venv --no-cache \
-              "kicad-monkey==${MONKEY_VERSION}"; then
-              break
-            fi
-            if [[ "${install_attempt}" -eq 20 ]]; then
-              echo "kicad-monkey ${MONKEY_VERSION} did not become installable" >&2
-              exit 1
-            fi
-            sleep 15
-          done
-          .coordinated-monkey-venv/bin/python -I - <<'PY'
-          from importlib.metadata import version
-          import kicad_monkey
-
-          assert version("kicad-monkey") == kicad_monkey.__version__
-          assert hasattr(kicad_monkey, "KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA")
-          PY
-
-  verify-coordinated-phase6-toolchain:
-    if: github.event_name == 'workflow_dispatch'
-    needs: [verify-coordinated-monkey, phase6-exit]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase6-windows-x64-candidates
-          path: phase6-candidates
-      - name: Run the exact Cruncher candidate against public Monkey
-        shell: pwsh
-        env:
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-        run: |
-          uv run --extra test python scripts/verify_phase6_release_candidates.py `
-            phase6-candidates --git-sha $env:GITHUB_SHA
-          New-Item -ItemType Directory -Path public-dist -Force | Out-Null
-          uvx --from pip pip download --only-binary=:all: --no-deps `
-            --dest public-dist "kicad-monkey==$env:MONKEY_VERSION"
-          $monkeyWheel = Get-ChildItem public-dist\kicad_monkey-*-win_amd64.whl
-          $cruncherWheel = Get-ChildItem phase6-candidates\kicad_cruncher-*-py3-none-any.whl
-          $monkeySdist = Get-ChildItem phase6-candidates\kicad_monkey-*.tar.gz
-          $cruncherSdist = Get-ChildItem phase6-candidates\kicad_cruncher-*.tar.gz
-          if ($monkeyWheel.Count -ne 1 -or $cruncherWheel.Count -ne 1 -or `
-              $monkeySdist.Count -ne 1 -or $cruncherSdist.Count -ne 1) {
-            throw 'Expected one artifact for every coordinated toolchain role'
-          }
-          uv run --extra test python tests/support_scripts/toolchain_install_test.py `
-            --monkey-wheel $monkeyWheel.FullName `
-            --cruncher-wheel $cruncherWheel.FullName `
-            --monkey-sdist $monkeySdist.FullName `
-            --cruncher-sdist $cruncherSdist.FullName
-
-  publish-coordinated-cruncher:
-    if: github.event_name == 'workflow_dispatch'
-    needs: [verify-coordinated-phase6-toolchain, phase6-exit, phase7-rust-cli]
-    runs-on: ubuntu-latest
-    environment: pypi-kicad-cruncher
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - name: Verify coordinated tags and package versions
-        shell: bash
-        env:
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-        run: |
-          test "${GITHUB_REF}" = "refs/heads/main"
-          ACTUAL_MONKEY="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
-          ACTUAL_CRUNCHER="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
-          test "${MONKEY_VERSION}" = "${ACTUAL_MONKEY}"
-          test "${CRUNCHER_VERSION}" = "${ACTUAL_CRUNCHER}"
-          git fetch --force --tags origin
-          test "$(git rev-parse "kicad-monkey-v${MONKEY_VERSION}^{commit}")" = "${GITHUB_SHA}"
-          test "$(git rev-parse "kicad-cruncher-v${CRUNCHER_VERSION}^{commit}")" = "${GITHUB_SHA}"
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase6-windows-x64-candidates
-          path: phase6-candidates
-      - name: Select and check the tested Cruncher distributions
-        shell: bash
-        run: |
-          uv run --extra test python scripts/verify_phase6_release_candidates.py \
-            phase6-candidates --git-sha "${GITHUB_SHA}"
-          mkdir -p packages/kicad_cruncher/dist
-          cp phase6-candidates/kicad_cruncher-*.whl packages/kicad_cruncher/dist/
-          cp phase6-candidates/kicad_cruncher-*.tar.gz packages/kicad_cruncher/dist/
-          uv run --package kicad-cruncher --extra test twine check packages/kicad_cruncher/dist/*
-      - name: Verify Cruncher against public Monkey
-        shell: bash
-        env:
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-        run: |
-          uv venv .coordinated-cruncher-venv
-          uv pip install --python .coordinated-cruncher-venv --no-cache \
-            "kicad-monkey==${MONKEY_VERSION}" \
-            packages/kicad_cruncher/dist/kicad_cruncher-*.whl
-          .coordinated-cruncher-venv/bin/kicad-cruncher --version
-          .coordinated-cruncher-venv/bin/kcr --version
-          .coordinated-cruncher-venv/bin/python -I -m kicad_cruncher version
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase7-rust-cli-windows-x64
-          path: phase7-rust-cli
-      - name: Verify the tested Rust CLI candidate before publication
-        shell: bash
-        env:
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-        run: |
-          uv run python scripts/verify_phase7_rust_cli.py phase7-rust-cli \
-            --git-sha "${GITHUB_SHA}" --expected-version "${CRUNCHER_VERSION}"
-      - name: Publish Cruncher to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: packages/kicad_cruncher/dist/
-
-  create-coordinated-releases:
-    if: github.event_name == 'workflow_dispatch'
-    needs: [publish-monkey, publish-coordinated-cruncher, phase7-rust-cli]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: phase7-rust-cli-windows-x64
-          path: phase7-rust-cli
-      - name: Verify the tested Rust CLI candidate
-        env:
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-        run: >-
-          python scripts/verify_phase7_rust_cli.py phase7-rust-cli
-          --git-sha ${{ github.sha }} --expected-version ${CRUNCHER_VERSION}
-      - name: Create package-qualified GitHub Releases
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-        run: |
-          MONKEY_DATE="$(python -c 'import os; p=os.environ["MONKEY_VERSION"].split("."); print(f"{int(p[0]):04d}-{int(p[1]):02d}-{int(p[2]):02d}")')"
-          CRUNCHER_DATE="$(python -c 'import os; p=os.environ["CRUNCHER_VERSION"].split("."); print(f"{int(p[0]):04d}-{int(p[1]):02d}-{int(p[2]):02d}")')"
-          gh release create "kicad-monkey-v${MONKEY_VERSION}" \
-            --title "kicad-monkey ${MONKEY_VERSION}" \
-            --notes-file "docs/releases/${MONKEY_DATE}.md"
-          gh release create "kicad-cruncher-v${CRUNCHER_VERSION}" \
-            --title "kicad-cruncher ${CRUNCHER_VERSION}" \
-            --notes-file "packages/kicad_cruncher/docs/releases/${CRUNCHER_DATE}.md" \
-            phase7-rust-cli/*
-
-  recover-validate:
-    if: >-
-      github.event_name == 'workflow_dispatch' &&
-      inputs.confirm == 'recover-cruncher'
-    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      run_id: ${{ steps.release.outputs.run_id }}
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      monkey_version: ${{ steps.release.outputs.monkey_version }}
+      cruncher_version: ${{ steps.release.outputs.cruncher_version }}
+      monkey_tag: ${{ steps.release.outputs.monkey_tag }}
+      cruncher_tag: ${{ steps.release.outputs.cruncher_tag }}
+      monkey_date: ${{ steps.release.outputs.monkey_date }}
+      cruncher_date: ${{ steps.release.outputs.cruncher_date }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Validate recovery boundary
+      - uses: astral-sh/setup-uv@v5
+      - name: Resolve versions, tags, and CI run
+        id: release
         shell: bash
         env:
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
-          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
-          PHASE7_RUN_ID: ${{ inputs.phase7_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          CONFIRM: ${{ inputs.confirm }}
         run: |
-          test -n "${RELEASE_SHA}"
-          test "${CANDIDATE_RUN_ID}" -gt 0
-          test "${PHASE7_RUN_ID}" -gt 0
+          set -euo pipefail
+          test "${CONFIRM}" = publish
+          test "${GITHUB_REF}" = refs/heads/main
+          MONKEY_VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          CRUNCHER_VERSION="$(python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
+          MONKEY_DATE="$(V="${MONKEY_VERSION}" python -c 'import os, runpy; m=runpy.run_path("src/py/kicad_monkey/_version.py"); print(m["parse_version"](os.environ["V"]).release_date.isoformat())')"
+          CRUNCHER_DATE="$(V="${CRUNCHER_VERSION}" python -c 'import os, runpy; m=runpy.run_path("packages/kicad_cruncher/src/py/kicad_cruncher/_version.py"); print(m["parse_version"](os.environ["V"]).release_date.isoformat())')"
+          MONKEY_TAG="kicad-monkey-v${MONKEY_VERSION}"
+          CRUNCHER_TAG="kicad-cruncher-v${CRUNCHER_VERSION}"
           git fetch --force --tags origin
-          test "$(git rev-parse "kicad-monkey-v${MONKEY_VERSION}^{commit}")" = "${RELEASE_SHA}"
-          test "$(git rev-parse "kicad-cruncher-v${CRUNCHER_VERSION}^{commit}")" = "${RELEASE_SHA}"
-          test "$(git rev-parse "${RELEASE_SHA}^{commit}")" = "${RELEASE_SHA}"
+          test "$(git rev-parse "${MONKEY_TAG}^{commit}")" = "${GITHUB_SHA}"
+          test "$(git rev-parse "${CRUNCHER_TAG}^{commit}")" = "${GITHUB_SHA}"
 
-  recover-publish-cruncher:
-    needs: recover-validate
+          RUN_ID="$(gh api --method GET \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs" \
+            -f branch=main -f status=success -f per_page=100 \
+            --jq ".workflow_runs[] | select(.head_sha == \"${GITHUB_SHA}\") | .id" \
+            | head -n 1)"
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "No successful main CI run exists for ${GITHUB_SHA}; rerun full CI before publishing." >&2
+            exit 1
+          fi
+          ARTIFACTS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '.artifacts[] | select(.expired == false) | .name')"
+          for artifact in \
+            phase6-windows-x64-candidates \
+            phase7-rust-cli-windows-x64 \
+            monkey-universal-candidate; do
+            if ! grep -Fx "${artifact}" <<<"${ARTIFACTS}"; then
+              echo "CI artifact ${artifact} is absent or expired; rerun full CI for ${GITHUB_SHA}." >&2
+              exit 1
+            fi
+          done
+
+          {
+            echo "run_id=${RUN_ID}"
+            echo "release_sha=${GITHUB_SHA}"
+            echo "monkey_version=${MONKEY_VERSION}"
+            echo "cruncher_version=${CRUNCHER_VERSION}"
+            echo "monkey_tag=${MONKEY_TAG}"
+            echo "cruncher_tag=${CRUNCHER_TAG}"
+            echo "monkey_date=${MONKEY_DATE}"
+            echo "cruncher_date=${CRUNCHER_DATE}"
+          } >> "${GITHUB_OUTPUT}"
+
+  publish-monkey:
+    name: Publish exact Monkey candidates
+    needs: resolve
     runs-on: ubuntu-latest
-    environment: pypi-kicad-cruncher
+    environment: pypi-kicad-monkey
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_sha }}
+          ref: ${{ needs.resolve.outputs.release_sha }}
       - uses: astral-sh/setup-uv@v5
-      - name: Verify public Monkey and tagged package versions
-        shell: bash
-        env:
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
-        run: |
-          ACTUAL_MONKEY="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
-          ACTUAL_CRUNCHER="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
-          test "${MONKEY_VERSION}" = "${ACTUAL_MONKEY}"
-          test "${CRUNCHER_VERSION}" = "${ACTUAL_CRUNCHER}"
-          git fetch --force --tags origin
-          test "$(git rev-parse "kicad-monkey-v${MONKEY_VERSION}^{commit}")" = "${RELEASE_SHA}"
-          test "$(git rev-parse "kicad-cruncher-v${CRUNCHER_VERSION}^{commit}")" = "${RELEASE_SHA}"
-          uv venv .recovery-public-monkey
-          uv pip install --python .recovery-public-monkey --no-cache "kicad-monkey==${MONKEY_VERSION}"
-          .recovery-public-monkey/bin/python -I -c 'from importlib.metadata import version; import kicad_monkey; assert version("kicad-monkey") == kicad_monkey.__version__'
       - uses: actions/download-artifact@v4
         with:
           name: phase6-windows-x64-candidates
           path: phase6-candidates
-          run-id: ${{ inputs.candidate_run_id }}
+          run-id: ${{ needs.resolve.outputs.run_id }}
           github-token: ${{ github.token }}
-      - name: Select and verify the tested Cruncher distributions
-        shell: bash
-        env:
-          RELEASE_SHA: ${{ inputs.release_sha }}
-        run: |
-          uv run --extra test python scripts/verify_phase6_release_candidates.py \
-            phase6-candidates --git-sha "${RELEASE_SHA}"
-          mkdir -p packages/kicad_cruncher/dist
-          cp phase6-candidates/kicad_cruncher-*.whl packages/kicad_cruncher/dist/
-          cp phase6-candidates/kicad_cruncher-*.tar.gz packages/kicad_cruncher/dist/
-          uv run --package kicad-cruncher --extra test twine check packages/kicad_cruncher/dist/*
-      - name: Verify Cruncher against public Monkey
-        shell: bash
-        env:
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-        run: |
-          uv venv .recovery-cruncher
-          uv pip install --python .recovery-cruncher --no-cache \
-            "kicad-monkey==${MONKEY_VERSION}" \
-            packages/kicad_cruncher/dist/kicad_cruncher-*.whl
-          .recovery-cruncher/bin/kicad-cruncher --version
-          .recovery-cruncher/bin/kcr --version
-          .recovery-cruncher/bin/python -I -m kicad_cruncher version
       - uses: actions/download-artifact@v4
         with:
-          name: recovered-phase7-rust-cli-windows-x64
-          path: phase7-rust-cli
-          run-id: ${{ inputs.phase7_run_id }}
+          name: monkey-universal-candidate
+          path: universal-candidate
+          run-id: ${{ needs.resolve.outputs.run_id }}
           github-token: ${{ github.token }}
-      - name: Verify the recovered Rust CLI candidate
+      - name: Select the exact tested Monkey files
         shell: bash
         env:
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.release_sha }}
+          RUN_ID: ${{ needs.resolve.outputs.run_id }}
+          MONKEY_VERSION: ${{ needs.resolve.outputs.monkey_version }}
+          CRUNCHER_VERSION: ${{ needs.resolve.outputs.cruncher_version }}
         run: |
-          uv run python scripts/verify_phase7_rust_cli.py phase7-rust-cli \
-            --git-sha "${RELEASE_SHA}" --expected-version "${CRUNCHER_VERSION}"
-      - name: Publish Cruncher to PyPI
+          python scripts/verify_phase6_release_candidates.py \
+            phase6-candidates --git-sha "${RELEASE_SHA}" \
+            --run-id "${RUN_ID}" \
+            --monkey-version "${MONKEY_VERSION}" --cruncher-version "${CRUNCHER_VERSION}"
+          python scripts/universal_release_candidate.py verify \
+            universal-candidate --git-sha "${RELEASE_SHA}" \
+            --run-id "${RUN_ID}" \
+            --expected-version "${MONKEY_VERSION}"
+          mkdir -p publish/monkey
+          cp phase6-candidates/kicad_monkey-*.tar.gz publish/monkey/
+          cp phase6-candidates/kicad_monkey-*-win_amd64.whl publish/monkey/
+          cp universal-candidate/kicad_monkey-*-py3-none-any.whl publish/monkey/
+          uvx --from twine twine check publish/monkey/*
+      - name: Publish Monkey to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: packages/kicad_cruncher/dist/
+          packages-dir: publish/monkey/
           skip-existing: true
 
-  recover-create-releases:
-    needs: recover-publish-cruncher
+  verify-public-monkey:
+    name: Verify public Monkey before Cruncher
+    needs: [resolve, publish-monkey]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_sha }}
+          ref: ${{ needs.resolve.outputs.release_sha }}
       - uses: astral-sh/setup-uv@v5
       - uses: actions/download-artifact@v4
         with:
-          name: recovered-phase7-rust-cli-windows-x64
-          path: phase7-rust-cli
-          run-id: ${{ inputs.phase7_run_id }}
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+          run-id: ${{ needs.resolve.outputs.run_id }}
           github-token: ${{ github.token }}
-      - name: Verify public packages and create package-qualified releases
+      - uses: actions/download-artifact@v4
+        with:
+          name: monkey-universal-candidate
+          path: universal-candidate
+          run-id: ${{ needs.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify exact public Monkey bytes and installation
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ needs.resolve.outputs.release_sha }}
+          RUN_ID: ${{ needs.resolve.outputs.run_id }}
+          MONKEY_VERSION: ${{ needs.resolve.outputs.monkey_version }}
+          CRUNCHER_VERSION: ${{ needs.resolve.outputs.cruncher_version }}
+        run: |
+          python scripts/verify_phase6_release_candidates.py \
+            phase6-candidates --git-sha "${RELEASE_SHA}" \
+            --run-id "${RUN_ID}" \
+            --monkey-version "${MONKEY_VERSION}" --cruncher-version "${CRUNCHER_VERSION}"
+          python scripts/universal_release_candidate.py verify \
+            universal-candidate --git-sha "${RELEASE_SHA}" \
+            --run-id "${RUN_ID}" --expected-version "${MONKEY_VERSION}"
+          mkdir -p expected-monkey
+          cp phase6-candidates/kicad_monkey-*.tar.gz expected-monkey/
+          cp phase6-candidates/kicad_monkey-*-win_amd64.whl expected-monkey/
+          cp universal-candidate/kicad_monkey-*-py3-none-any.whl expected-monkey/
+          python scripts/verify_pypi_release.py \
+            kicad-monkey "${MONKEY_VERSION}" expected-monkey
+          uv venv .public-monkey
+          uv pip install --python .public-monkey --no-cache --no-deps \
+            "kicad-monkey==${MONKEY_VERSION}"
+          .public-monkey/bin/python -I -c \
+            'import kicad_monkey; print(kicad_monkey.__version__)'
+
+  publish-cruncher:
+    name: Publish exact Python Cruncher candidates
+    needs: [resolve, verify-public-monkey]
+    runs-on: ubuntu-latest
+    environment: pypi-kicad-cruncher
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.release_sha }}
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+          run-id: ${{ needs.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase7-rust-cli-windows-x64
+          path: phase7-candidate
+          run-id: ${{ needs.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Select and smoke the exact tested Cruncher files
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ needs.resolve.outputs.release_sha }}
+          RUN_ID: ${{ needs.resolve.outputs.run_id }}
+          MONKEY_VERSION: ${{ needs.resolve.outputs.monkey_version }}
+          CRUNCHER_VERSION: ${{ needs.resolve.outputs.cruncher_version }}
+        run: |
+          python scripts/verify_phase6_release_candidates.py \
+            phase6-candidates --git-sha "${RELEASE_SHA}" \
+            --run-id "${RUN_ID}" \
+            --monkey-version "${MONKEY_VERSION}" --cruncher-version "${CRUNCHER_VERSION}"
+          python scripts/verify_phase7_rust_cli.py phase7-candidate \
+            --git-sha "${RELEASE_SHA}" --run-id "${RUN_ID}" \
+            --expected-version "${CRUNCHER_VERSION}"
+          mkdir -p publish/cruncher
+          cp phase6-candidates/kicad_cruncher-* publish/cruncher/
+          uvx --from twine twine check publish/cruncher/*
+          uv venv .release-smoke
+          uv pip install --python .release-smoke --no-cache \
+            "kicad-monkey==${MONKEY_VERSION}" publish/cruncher/*.whl
+          .release-smoke/bin/kicad-cruncher --version
+          .release-smoke/bin/kcr --version
+          .release-smoke/bin/python -I -m kicad_cruncher version
+      - name: Publish Cruncher to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: publish/cruncher/
+          skip-existing: true
+
+  create-releases:
+    name: Verify public packages and create releases
+    needs: [resolve, publish-cruncher]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.release_sha }}
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+          run-id: ${{ needs.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase7-rust-cli-windows-x64
+          path: phase7-candidate
+          run-id: ${{ needs.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify exact public Cruncher bytes and create missing GitHub releases
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          MONKEY_VERSION: ${{ inputs.monkey_version }}
-          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
-          RELEASE_SHA: ${{ inputs.release_sha }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.release_sha }}
+          RUN_ID: ${{ needs.resolve.outputs.run_id }}
+          MONKEY_VERSION: ${{ needs.resolve.outputs.monkey_version }}
+          CRUNCHER_VERSION: ${{ needs.resolve.outputs.cruncher_version }}
+          MONKEY_TAG: ${{ needs.resolve.outputs.monkey_tag }}
+          CRUNCHER_TAG: ${{ needs.resolve.outputs.cruncher_tag }}
+          MONKEY_DATE: ${{ needs.resolve.outputs.monkey_date }}
+          CRUNCHER_DATE: ${{ needs.resolve.outputs.cruncher_date }}
         run: |
-          python - <<'PY'
-          import json
-          import os
-          import time
-          import urllib.error
-          import urllib.request
-
-          for package, variable in (
-              ("kicad-monkey", "MONKEY_VERSION"),
-              ("kicad-cruncher", "CRUNCHER_VERSION"),
-          ):
-              version = os.environ[variable]
-              url = f"https://pypi.org/pypi/{package}/{version}/json"
-              for attempt in range(20):
-                  try:
-                      with urllib.request.urlopen(url, timeout=30) as response:
-                          payload = json.load(response)
-                      if payload["info"]["version"] == version:
-                          break
-                  except (urllib.error.URLError, KeyError, json.JSONDecodeError):
-                      pass
-                  if attempt == 19:
-                      raise SystemExit(f"{package} {version} did not become available")
-                  time.sleep(15)
-          PY
-          uv run python scripts/verify_phase7_rust_cli.py phase7-rust-cli \
-            --git-sha "${RELEASE_SHA}" --expected-version "${CRUNCHER_VERSION}"
-          MONKEY_DATE="$(python -c 'import os; p=os.environ["MONKEY_VERSION"].split("."); print(f"{int(p[0]):04d}-{int(p[1]):02d}-{int(p[2]):02d}")')"
-          CRUNCHER_DATE="$(python -c 'import os; p=os.environ["CRUNCHER_VERSION"].split("."); print(f"{int(p[0]):04d}-{int(p[1]):02d}-{int(p[2]):02d}")')"
-          gh release create "kicad-monkey-v${MONKEY_VERSION}" \
-            --verify-tag \
-            --title "kicad-monkey ${MONKEY_VERSION}" \
-            --notes-file "docs/releases/${MONKEY_DATE}.md"
-          gh release create "kicad-cruncher-v${CRUNCHER_VERSION}" \
-            --verify-tag \
-            --title "kicad-cruncher ${CRUNCHER_VERSION}" \
-            --notes-file "packages/kicad_cruncher/docs/releases/${CRUNCHER_DATE}.md" \
-            phase7-rust-cli/*
+          python scripts/verify_phase6_release_candidates.py \
+            phase6-candidates --git-sha "${RELEASE_SHA}" \
+            --run-id "${RUN_ID}" \
+            --monkey-version "${MONKEY_VERSION}" --cruncher-version "${CRUNCHER_VERSION}"
+          mkdir -p expected-cruncher
+          cp phase6-candidates/kicad_cruncher-* expected-cruncher/
+          python scripts/verify_pypi_release.py kicad-cruncher \
+            "${CRUNCHER_VERSION}" expected-cruncher
+          uv venv .public-cruncher
+          uv pip install --python .public-cruncher --no-cache \
+            "kicad-monkey==${MONKEY_VERSION}" \
+            "kicad-cruncher==${CRUNCHER_VERSION}"
+          .public-cruncher/bin/kicad-cruncher --version
+          .public-cruncher/bin/kcr --version
+          .public-cruncher/bin/python -I -m kicad_cruncher version
+          python scripts/verify_phase7_rust_cli.py phase7-candidate \
+            --git-sha "${RELEASE_SHA}" --run-id "${RUN_ID}" \
+            --expected-version "${CRUNCHER_VERSION}"
+          if ! gh release view "${MONKEY_TAG}" >/dev/null 2>&1; then
+            gh release create "${MONKEY_TAG}" --verify-tag \
+              --title "kicad-monkey ${MONKEY_VERSION}" \
+              --notes-file "docs/releases/${MONKEY_DATE}.md"
+          fi
+          if ! gh release view "${CRUNCHER_TAG}" >/dev/null 2>&1; then
+            gh release create "${CRUNCHER_TAG}" --verify-tag \
+              --title "kicad-cruncher ${CRUNCHER_VERSION}" \
+              --notes-file "packages/kicad_cruncher/docs/releases/${CRUNCHER_DATE}.md"
+          fi
+          gh release upload "${CRUNCHER_TAG}" phase7-candidate/* --clobber

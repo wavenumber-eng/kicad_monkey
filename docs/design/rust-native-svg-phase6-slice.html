@@ -72,10 +72,12 @@
   result bytes. L0_063 owns envelopes, L1_038 the real Python-to-Rust process,
   and L3_023 the composed gate. The isolated Windows wheel smoke executes a
   real <code>render-svg</code> request.</p>
-  <p>The reusable Windows <code>phase6-native-svg</code> workflow runs those
-  three Rack owners and is required by both ordinary CI and Monkey release
-  publication. The Phase-5 freeze and generated bindings are rechecked in the
-  composed P6_010 gate before the renderer is built.</p>
+  <p>The consolidated Windows <code>windows-release-candidates</code> workflow
+  runs those three Rack owners alongside the later native acceptance gates
+  after one shared setup. Release publication consumes that CI run's exact
+  artifacts and does not rerun this gate. The Phase-5 freeze and generated
+  bindings are rechecked in the composed P6_010 gate before the renderer is
+  built.</p>
   <p><code>native_render_svg</code> is a Monkey operation client, but no
   existing <code>to_svg</code>, <code>render_ir_to_svg</code>, or Cruncher call
   is redirected here. P6_020 must add same-change cross-package tests when

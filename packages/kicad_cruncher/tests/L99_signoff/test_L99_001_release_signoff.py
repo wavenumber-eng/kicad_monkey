@@ -161,11 +161,14 @@ def test_monorepo_root_owns_ci_and_release_workflows() -> None:
 
     ci_text = ci_workflow.read_text(encoding="utf-8")
     release_text = release_workflow.read_text(encoding="utf-8")
-    assert "Run Cruncher Rack gates against workspace Monkey" in ci_text
+    assert "Run Cruncher Python-provider gates without native migration gates" in ci_text
+    assert "windows-release-candidates.yml" in ci_text
     assert "kicad-cruncher-v" in release_text
-    assert "packages/kicad_cruncher/dist/" in release_text
-    assert "verify-coordinated-monkey:" in release_text
-    assert "publish-coordinated-cruncher:" in release_text
+    assert "packages-dir: publish/cruncher/" in release_text
+    assert "verify-public-monkey:" in release_text
+    assert "publish-cruncher:" in release_text
+    assert "skip-existing: true" in release_text
+    assert "candidate_run_id" not in release_text
 
 
 def test_cli_emits_package_version() -> None:

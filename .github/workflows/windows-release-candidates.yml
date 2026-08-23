@@ -1,8 +1,7 @@
-name: Phase 6 Windows Release Exit
+name: Windows release candidates
 
 on:
   workflow_call:
-  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -13,21 +12,29 @@ permissions:
   contents: read
 
 jobs:
-  phase6-exit:
-    name: Phase 6 exact Windows x64 release candidates
+  candidates:
+    name: Native gates and exact Windows candidates
     runs-on: windows-latest
-    timeout-minutes: 120
-
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
       - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Set up Python
-        run: uv python install 3.14
-      - name: Sync both public packages
-        run: uv sync --all-packages --all-extras
-      - name: Restore the exact reviewed corpus ZIP
+      - name: Set up the shared package and contract toolchains once
+        run: |
+          uv python install 3.14
+          uv sync --all-packages --all-extras
+          npm install --global npm@11.6.2
+          npm ci
+          cargo build --locked --jobs 4 --package kicad-monkey-native
+      - name: Restore the reviewed public corpus once
         shell: pwsh
         run: |
           uv run --extra test python scripts/kicad_corpus_archive.py metadata
@@ -38,17 +45,23 @@ jobs:
             throw "Reviewed corpus ZIP was not restored at $corpus"
           }
           "KM_CORPUS=$corpus" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Build one hash-bound candidate set from public sdists
+      - name: Run Phase 6 native acceptance gates
+        run: |
+          uv run --extra test python tests/rack.py run L1_029
+          uv run --extra test python tests/rack.py run L1_030
+          uv run --extra test python tests/rack.py run L0_063
+          uv run --extra test python tests/rack.py run L1_038
+          uv run --extra test python tests/rack.py run L3_023
+          uv run --extra test python tests/rack.py run L3_024
+          uv run --extra test python tests/rack.py run L3_025
+          uv run --extra test python tests/rack.py run L3_026
+      - name: Build the exact Phase 6 Python candidates
         shell: pwsh
         run: |
           git diff --exit-code
-          if ($LASTEXITCODE -ne 0) {
-            throw "Refusing to build Phase 6 candidates from unstaged tracked changes"
-          }
+          if ($LASTEXITCODE -ne 0) { throw 'Refusing to build from tracked changes' }
           git diff --cached --exit-code
-          if ($LASTEXITCODE -ne 0) {
-            throw "Refusing to build Phase 6 candidates from staged tracked changes"
-          }
+          if ($LASTEXITCODE -ne 0) { throw 'Refusing to build from staged changes' }
 
           $dist = Join-Path $env:GITHUB_WORKSPACE 'phase6-dist'
           New-Item -ItemType Directory -Path $dist -Force | Out-Null
@@ -58,18 +71,15 @@ jobs:
 
           uv build --sdist --out-dir $dist
           $monkeySdist = Get-ChildItem $dist\kicad_monkey-*.tar.gz
-          if ($monkeySdist.Count -ne 1) { throw "Expected one Monkey sdist" }
+          if ($monkeySdist.Count -ne 1) { throw 'Expected one Monkey sdist' }
           uv build $monkeySdist.FullName --wheel --out-dir $dist
-
           Push-Location packages\kicad_cruncher
-          try {
-            uv build --sdist --out-dir $dist
-          } finally {
-            Pop-Location
-          }
+          try { uv build --sdist --out-dir $dist } finally { Pop-Location }
           $cruncherSdist = Get-ChildItem $dist\kicad_cruncher-*.tar.gz
-          if ($cruncherSdist.Count -ne 1) { throw "Expected one Cruncher sdist" }
+          if ($cruncherSdist.Count -ne 1) { throw 'Expected one Cruncher sdist' }
           uv build $cruncherSdist.FullName --wheel --out-dir $dist
+          $monkeyVersion = (& uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])").Trim()
+          $cruncherVersion = (& uv run python -c "import tomllib; print(tomllib.load(open('packages/kicad_cruncher/pyproject.toml','rb'))['project']['version'])").Trim()
 
           $files = @(
             @{ role = 'monkey_sdist'; path = $monkeySdist.FullName },
@@ -87,6 +97,14 @@ jobs:
             schema = 'kicad_monkey.phase6_release_candidate.a0'
             platform = 'windows-x64'
             git_sha = (& git rev-parse HEAD).Trim()
+            source = @{
+              workflow = $env:GITHUB_WORKFLOW
+              run_id = $env:GITHUB_RUN_ID
+            }
+            versions = @{
+              monkey = $monkeyVersion
+              cruncher = $cruncherVersion
+            }
             source_date_epoch = [int64]$epoch
             corpus = @{
               filename = $corpus.Name
@@ -106,11 +124,39 @@ jobs:
           $manifestPath = Join-Path $dist 'phase6-release-candidate-a0.json'
           $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8
           "KM_PHASE6_ARTIFACT_MANIFEST=$manifestPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Run the mandatory Phase 6 exit Rack gate
+      - name: Test the exact installed Phase 6 candidates
         run: uv run --extra test python tests/rack.py run L3_027
+      - name: Run Phase 7 Rust CLI acceptance
+        working-directory: packages/kicad_cruncher
+        run: |
+          uv run --extra test rack run L3_011
+          uv run --extra test rack run L3_012
+      - name: Build, install, and smoke the exact Rust CLI candidate
+        shell: pwsh
+        run: |
+          uv run --package kicad-cruncher python `
+            packages/kicad_cruncher/tests/support_scripts/rust_cli_install_test.py `
+            --workspace $env:GITHUB_WORKSPACE `
+            --artifact-dir phase7-dist `
+            --git-sha $env:GITHUB_SHA `
+            --workflow $env:GITHUB_WORKFLOW `
+            --run-id $env:GITHUB_RUN_ID
+          cargo fmt --all -- --check
+          cargo clippy -p kicad-cruncher-cli --all-targets -- -D warnings
+          cargo test -p kicad-cruncher-cli --all-targets
+          $version = (& uv run python -c "import tomllib; print(tomllib.load(open('packages/kicad_cruncher/pyproject.toml','rb'))['project']['version'])").Trim()
+          uv run python scripts/verify_phase7_rust_cli.py phase7-dist `
+            --git-sha $env:GITHUB_SHA --run-id $env:GITHUB_RUN_ID `
+            --expected-version $version
       - uses: actions/upload-artifact@v4
         with:
           name: phase6-windows-x64-candidates
           path: phase6-dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase7-rust-cli-windows-x64
+          path: phase7-dist/*
           if-no-files-found: error
           retention-days: 14
