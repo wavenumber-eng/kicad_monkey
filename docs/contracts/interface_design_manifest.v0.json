@@ -58,6 +58,26 @@
       "group": "pcb"
     },
     {
+      "name": "KiCadCopperGeometryDocument",
+      "group": "pcb"
+    },
+    {
+      "name": "KiCadCopperFeature",
+      "group": "pcb"
+    },
+    {
+      "name": "KiCadCopperDrill",
+      "group": "pcb"
+    },
+    {
+      "name": "KiCadCopperLayer",
+      "group": "pcb"
+    },
+    {
+      "name": "KiCadCopperNet",
+      "group": "pcb"
+    },
+    {
       "name": "KiCadProject",
       "group": "project"
     },

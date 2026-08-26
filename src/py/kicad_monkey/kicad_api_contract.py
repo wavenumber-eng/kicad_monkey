@@ -100,6 +100,36 @@ PUBLIC_API_EXPORTS: tuple[PublicApiExport, ...] = (
     PublicApiExport("Net", PublicApiStratum.PCB),
     PublicApiExport("NetTable", PublicApiStratum.PCB),
     PublicApiExport("Layer", PublicApiStratum.PCB),
+    PublicApiExport("KICAD_COPPER_GEOMETRY_SCHEMA", PublicApiStratum.PCB),
+    PublicApiExport("KICAD_COPPER_GEOMETRY_ACCEPTED_SCHEMAS", PublicApiStratum.PCB),
+    PublicApiExport("COPPER_FEATURE_KINDS", PublicApiStratum.PCB),
+    PublicApiExport("COPPER_DRILL_KINDS", PublicApiStratum.PCB),
+    PublicApiExport(
+        "KiCadCopperGeometryDocument",
+        PublicApiStratum.PCB,
+        requires_marker=True,
+    ),
+    PublicApiExport(
+        "KiCadCopperFeature",
+        PublicApiStratum.PCB,
+        requires_marker=True,
+    ),
+    PublicApiExport(
+        "KiCadCopperDrill",
+        PublicApiStratum.PCB,
+        requires_marker=True,
+    ),
+    PublicApiExport(
+        "KiCadCopperLayer",
+        PublicApiStratum.PCB,
+        requires_marker=True,
+    ),
+    PublicApiExport(
+        "KiCadCopperNet",
+        PublicApiStratum.PCB,
+        requires_marker=True,
+    ),
+    PublicApiExport("emit_pcb_copper_geometry", PublicApiStratum.PCB),
     # Project and design-level aggregate facades.
     PublicApiExport("KiCadProject", PublicApiStratum.PROJECT, requires_marker=True),
     PublicApiExport("KiCadProjectSidecar", PublicApiStratum.PROJECT),

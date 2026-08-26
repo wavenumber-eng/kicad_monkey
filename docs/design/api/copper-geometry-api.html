@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>KiCad Monkey Copper Geometry API</title>
+</head>
+<body>
+  <h1>PCB Copper Geometry API</h1>
+  <p>
+    The <code>kicad.copper_geometry.a0</code> contract is a projection-first,
+    renderer-neutral representation of board copper and drill geometry.
+  </p>
+
+  <section
+    data-interface="KiCadCopperGeometryDocument"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_070_copper_geometry.py"
+    data-test-target="test_copper_geometry_schema_and_supported_families"
+  >
+    <h2>KiCadCopperGeometryDocument</h2>
+    <h3>Rationale</h3>
+    <p>
+      Geometry consumers should not need a complete PCB parse, unrelated board
+      graphics, or Plotter IR operation reconstruction to obtain copper.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Own the versioned layer, net, polygon, drill, bounds, coordinate-space,
+      tolerance, source, and diagnostic tables returned by
+      <code>emit_pcb_copper_geometry</code>.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must validate the JSON Schema, deterministic serialization,
+      supported copper families, v9/v10 net semantics, and projection/full-board
+      parity.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      The document is working when file inputs stay projection-first and every
+      emitted ring uses unclosed integer-nanometre board-right/board-down
+      coordinates with explicit outer and hole roles.
+    </p>
+  </section>
+
+  <section
+    data-interface="KiCadCopperFeature"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_070_copper_geometry.py"
+    data-test-target="test_copper_geometry_schema_and_supported_families"
+  >
+    <h2>KiCadCopperFeature</h2>
+    <h3>Rationale</h3>
+    <p>Copper polygon identity and connectivity must survive renderer adaptation.</p>
+    <h3>Purpose</h3>
+    <p>
+      Represent one track, track arc, via, pad, or filled-zone polygon with
+      document-local net/layer indexes and optional footprint/pad identity.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must cover family ordering, layer expansion, net indexes, holes,
+      source identity, pad identity, and minimum ring validity.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      A feature is working when its polygon and identity can be routed directly
+      to clipping and selection without inspecting Plotter IR.
+    </p>
+  </section>
+
+  <section
+    data-interface="KiCadCopperDrill"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_070_copper_geometry.py"
+    data-test-target="test_pad_transforms_multilayer_expansion_and_drills"
+  >
+    <h2>KiCadCopperDrill</h2>
+    <h3>Rationale</h3>
+    <p>Hole caps and plated barrels require metadata beyond a polygon cutout.</p>
+    <h3>Purpose</h3>
+    <p>
+      Represent via, plated-pad, and NPTH centers, oval dimensions, plating
+      intent, layer span, and optional component identity.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must cover round and oval drills, offsets, plating, footprint
+      transforms, layer spans, and NPTH behavior.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      Drill metadata is working when downstream code can generate cap holes and
+      barrels without returning to the PCB model.
+    </p>
+  </section>
+
+  <section
+    data-interface="KiCadCopperLayer"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_070_copper_geometry.py"
+    data-test-target="test_copper_geometry_schema_and_supported_families"
+  >
+    <h2>KiCadCopperLayer</h2>
+    <h3>Rationale</h3>
+    <p>Features need compact, deterministic layer attribution.</p>
+    <h3>Purpose</h3>
+    <p>
+      Map a dense document index to a canonical KiCad copper-layer name while
+      retaining source ordinal, type, user name, and optional stackup thickness.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must cover deterministic copper-only ordering, wildcard expansion,
+      via spans, source ordinals, and valid feature/drill indexes.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      The layer table is working when all geometry references dense indexes and
+      consumers can recover canonical layer names without source parsing.
+    </p>
+  </section>
+
+  <section
+    data-interface="KiCadCopperNet"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_070_copper_geometry.py"
+    data-test-target="test_v9_ordinal_and_v10_name_only_nets"
+  >
+    <h2>KiCadCopperNet</h2>
+    <h3>Rationale</h3>
+    <p>KiCad 9 ordinal nets and KiCad 10 name-only nets need one contract.</p>
+    <h3>Purpose</h3>
+    <p>
+      Map a dense document index to an authoritative net name with an optional
+      pre-v10 source ordinal.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must cover ordinal resolution, name-only input, deterministic
+      ordering, unconnected geometry, and valid feature indexes.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      The net table is working when names preserve connectivity across KiCad
+      versions and ordinals remain compatibility metadata only.
+    </p>
+  </section>
+
+  <h2>Explicit exclusions</h2>
+  <p>
+    The a0 contract excludes silk, fab, courtyard, text, images, mask/paste,
+    component models, triangulation, tiling, mesh compression, and
+    renderer-specific Clipper or GLB schemas.
+  </p>
+</body>
+</html>
