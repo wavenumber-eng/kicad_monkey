@@ -416,6 +416,23 @@ fn pad_and_hole_blocks_preserve_orientation_mask_net_and_npth_metadata() {
 }
 
 #[test]
+fn legacy_unlayered_npth_pad_keeps_its_source_shape_and_drill_blocks() {
+    let source = r#"(kicad_pcb
+      (footprint "Demo:Unlayered" (uuid "fp-unlayered")
+        (pad "" np_thru_hole roundrect (size 1.75 1.75) (drill 1.77)
+          (layers) (roundrect_rratio 0.15) (uuid "unlayered-pad"))))"#;
+    let document =
+        board_plot_document(source, BoardPlotLimits::default()).expect("legacy unlayered NPTH pad");
+    let record = footprint_record(&document);
+    assert_eq!(record.operations.len(), 6);
+    assert_eq!(start_block(&record.operations[0]).label, "unlayered-pad");
+    assert_eq!(
+        start_block(&record.operations[3]).label,
+        "unlayered-pad:hole"
+    );
+}
+
+#[test]
 fn operation_text_and_cache_text_limits_are_exact_and_fail_without_a_document() {
     let pad_only = r#"(kicad_pcb
       (footprint "P" (pad "1" smd circle (size 1 1) (layers "F.Cu"))))"#;

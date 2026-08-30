@@ -11,6 +11,7 @@ mod copper;
 mod dimension;
 mod footprint;
 mod graphics;
+mod layer_policy;
 mod stroke_font_widths;
 mod stroke_text_bounds;
 mod table;
@@ -32,6 +33,7 @@ use std::time::Instant;
 
 use copper::{segment_record, track_arc_record, via_operation_count, via_record, zone_record};
 use graphics::graphic_records;
+use layer_policy::BoardLayerFlashResolver;
 pub use stroke_text_bounds::BoardBoundsLimits;
 pub use text::{
     BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
@@ -325,9 +327,9 @@ impl BoardViaType {
 /// The role of one operation inside a via record's fixed sequence.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BoardViaOperationKind {
-    /// `FlashPadCircle` with role `via_aperture` on the via copper layers.
+    /// `FlashPadCircle` with role `via_aperture` on effective flashed copper layers.
     Aperture,
-    /// Filled `Circle` with role `via_drill` on the via copper layers.
+    /// Filled `Circle` with role `via_drill` on the authored physical span.
     Drill,
     /// `FlashPadCircle` with role `via_mask_opening` on one mask layer.
     MaskOpening,
@@ -867,6 +869,7 @@ fn board_plot_document_from_view_internal(
     profile.metadata_ns = elapsed_ns(metadata_started);
 
     let mut budget = BudgetTracker::new(limits);
+    let layer_flash_resolver = BoardLayerFlashResolver::from_view(view)?;
     // Decode the shared graphics family once, then partition borrowed carriers
     // into the Python category order for geometry and text producers.
     let graphics_started = profile_enabled.then(Instant::now);
@@ -919,6 +922,7 @@ fn board_plot_document_from_view_internal(
         view,
         metadata.pad_to_mask_clearance,
         net_classes,
+        &layer_flash_resolver,
         &mut budget,
         &mut records,
     )?;
@@ -971,6 +975,7 @@ fn board_plot_document_from_view_internal(
             text_cache: text_cache.as_ref(),
             board_mask_clearance: metadata.pad_to_mask_clearance,
             limits,
+            layer_flash_resolver: &layer_flash_resolver,
         },
         &mut budget,
         &mut decoded_inputs,
@@ -1072,6 +1077,7 @@ fn append_copper_records(
     view: &PcbView<'_>,
     mask_clearance: f64,
     net_classes: &BoardNetClassAssignments,
+    layer_flash_resolver: &BoardLayerFlashResolver,
     budget: &mut BudgetTracker,
     records: &mut Vec<BoardPlotRecord>,
 ) -> Result<(), Error> {
@@ -1089,8 +1095,20 @@ fn append_copper_records(
     }
     for via in view.vias() {
         let via = via?;
-        budget.ensure_capacity(via_operation_count(&via), 0)?;
-        let record = via_record(via, mask_clearance, net_classes, budget)?;
+        let flashed_layers = layer_flash_resolver.via_flash_layers(&via);
+        let has_aperture = !flashed_layers.is_empty()
+            || (via.layers.is_empty()
+                && via.remove_unused_layers != Some(true)
+                && via.start_end_only != Some(true));
+        budget.ensure_capacity(via_operation_count(&via, has_aperture), 0)?;
+        let record = via_record(
+            via,
+            flashed_layers,
+            has_aperture,
+            mask_clearance,
+            net_classes,
+            budget,
+        )?;
         budget.charge(record.operations.len(), 0)?;
         records.push(BoardPlotRecord::Via(record));
     }
@@ -1177,6 +1195,7 @@ fn decoded_dimensions(
 
 fn board_selection() -> PcbSelection {
     PcbSelection::only(PcbFamily::Graphics)
+        .with(PcbFamily::Layers)
         .with(PcbFamily::Properties)
         .with(PcbFamily::Segments)
         .with(PcbFamily::Arcs)

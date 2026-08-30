@@ -10,8 +10,12 @@ surface we actually intend to use for Track D and future neutral-model work.
 
 import pytest
 
-from kicad_monkey import KiCadPcb
-from kicad_monkey.testing.corpus import get_kicad_common_case_dir
+from kicad_monkey import KiCadPcb, PcbLayerFlashResolver
+from kicad_monkey.testing.corpus import (
+    get_kicad_common_case_dir,
+    get_kicad_corpus_case,
+    resolve_kicad_manifest_path,
+)
 
 
 def _shared_case_board(case_name: str, board_name: str):
@@ -211,6 +215,62 @@ def test_shared_corpus_exposes_zone_layer_connection_overrides() -> None:
         "In5.Cu" in zone_layer_connections.forced_layers
         for zone_layer_connections in explicit_zone_layer_connections
     )
+
+
+def test_yoshi_preserves_real_pad_and_via_unused_layer_policies() -> None:
+    case = get_kicad_corpus_case("real_world/yoshi_mainboard")
+    assert case is not None
+    board_path = resolve_kicad_manifest_path(case, "board_file")
+    assert board_path is not None
+
+    pcb1 = KiCadPcb.from_file(board_path)
+    pads = [pad for footprint in pcb1.footprints for pad in footprint.pads]
+    flagged_pads = [pad for pad in pads if pad.remove_unused_layers is True]
+    assert len(flagged_pads) == 4
+    assert all(pad.keep_end_layers is True for pad in flagged_pads)
+    assert all(
+        pad.zone_layer_connections is not None
+        and pad.zone_layer_connections.forced_layers == ("In1.Cu",)
+        for pad in flagged_pads
+    )
+
+    expected_via_policies = {
+        "611be8a0-9bc9-4866-879d-b925d74d1a6e": (True, False, None),
+        "1ad19006-994c-49ef-812f-e418e4833b9e": (True, True, None),
+        "3f949ea8-57b4-429e-9a48-e180bf25cc1d": (None, None, True),
+    }
+
+    def via_policies(pcb: KiCadPcb) -> dict[str, tuple[bool | None, bool | None, bool | None]]:
+        return {
+            via.uuid: (
+                via.remove_unused_layers,
+                via.keep_end_layers,
+                via.start_end_only,
+            )
+            for via in pcb.vias
+            if via.uuid in expected_via_policies
+        }
+
+    assert via_policies(pcb1) == expected_via_policies
+    resolver = PcbLayerFlashResolver.from_board(pcb1)
+    assert {
+        via.uuid: resolver.via_flash_layers(via)
+        for via in pcb1.vias
+        if via.uuid in expected_via_policies
+    } == {
+        "611be8a0-9bc9-4866-879d-b925d74d1a6e": ("F.Cu", "In2.Cu", "B.Cu"),
+        "1ad19006-994c-49ef-812f-e418e4833b9e": ("F.Cu", "In2.Cu", "B.Cu"),
+        "3f949ea8-57b4-429e-9a48-e180bf25cc1d": ("F.Cu", "B.Cu"),
+    }
+    assert {
+        resolver.pad_item_layers(pad, footprint)
+        for footprint in pcb1.footprints
+        for pad in footprint.pads
+        if pad.remove_unused_layers is True
+    } == {("F.Cu", "In1.Cu", "B.Cu", "*.Mask")}
+
+    pcb2 = KiCadPcb.from_string(pcb1.to_string())
+    assert via_policies(pcb2) == expected_via_policies
 
 
 def test_shared_corpus_exposes_footprint_local_dimensions() -> None:

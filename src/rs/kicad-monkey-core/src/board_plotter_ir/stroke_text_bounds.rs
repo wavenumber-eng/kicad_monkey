@@ -735,8 +735,34 @@ fn include_footprint_pad(
             budget,
             bounds,
         ),
-        PlotterOperation::Circle(value) if value.role.is_some() => Ok(()),
-        PlotterOperation::ThickSegment(value) if value.role.is_some() => Ok(()),
+        PlotterOperation::Circle(value) if value.role.is_some() => include_circle_bounds(
+            value.cx,
+            value.cy,
+            value.diameter_nm,
+            parent,
+            budget,
+            bounds,
+        ),
+        PlotterOperation::ThickSegment(value) if value.role.is_some() => {
+            include_pad_square(
+                value.start_x,
+                value.start_y,
+                value.width_nm,
+                value.width_nm,
+                parent,
+                budget,
+                bounds,
+            )?;
+            include_pad_square(
+                value.end_x,
+                value.end_y,
+                value.width_nm,
+                value.width_nm,
+                parent,
+                budget,
+                bounds,
+            )
+        }
         _ => include_operation(operation, parent, budget, bounds),
     }
 }

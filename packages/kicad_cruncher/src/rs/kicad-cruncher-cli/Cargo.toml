@@ -1,6 +1,6 @@
 [package]
 name = "kicad-cruncher-cli"
-version = "2026.8.22"
+version = "2026.8.30"
 description = "Pure-Rust command-line workflows for KiCad Cruncher"
 edition.workspace = true
 rust-version.workspace = true

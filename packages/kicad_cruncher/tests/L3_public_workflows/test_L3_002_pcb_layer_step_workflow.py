@@ -11,8 +11,14 @@ from typing import Any
 
 import pytest
 from kicad_cruncher.kicad_cruncher_cmd_pcb_layer_step import cmd_pcb_layer_step
-from kicad_cruncher.kicad_cruncher_pcb_layer_step import write_default_pcb_layer_step_config
+from kicad_cruncher.kicad_cruncher_pcb_layer_step import (
+    PcbLayerStepOptions,
+    _collect_drill_features,
+    _collect_layer_features,
+    write_default_pcb_layer_step_config,
+)
 from kicad_cruncher.kicad_cruncher_pcb_layer_step_config import resolve_pcb_layer_selector
+from kicad_monkey import KiCadPcb
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
@@ -102,6 +108,40 @@ def _arc_center_delta(ring: dict[str, Any]) -> tuple[float, float]:
         abs(float(centers[1][0]) - float(centers[0][0])),
         abs(float(centers[1][1]) - float(centers[0][1])),
     )
+
+
+def test_pcb_layer_step_uses_effective_pth_flash_layers_but_physical_drill_spans() -> None:
+    pcb = KiCadPcb.from_string(
+        """(kicad_pcb
+          (version 20250830)
+          (generator pcbnew)
+          (layers
+            (0 "F.Cu" signal)
+            (2 "In1.Cu" power)
+            (4 "In2.Cu" power)
+            (31 "B.Cu" signal))
+          (net 1 "N")
+          (via (at 1 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+            (remove_unused_layers yes) (keep_end_layers no)
+            (zone_layer_connections "In2.Cu") (net 1) (uuid "via"))
+          (footprint "Test:Policy" (layer "F.Cu") (at 10 10)
+            (pad "1" thru_hole circle (at 0 0) (size 1 1) (drill 0.5)
+              (layers "F&B.Cu" "*.Mask") (net 1 "N") (uuid "pad"))
+            (pad "2" np_thru_hole circle (at 2 0) (size 0.6 0.6) (drill 0.6)
+              (layers "*.Mask") (uuid "npth"))))"""
+    )
+    opts = PcbLayerStepOptions(
+        include_tracks=False,
+        include_arcs=False,
+        include_poured_polygons=False,
+        include_regions=False,
+    )
+
+    assert _collect_layer_features(pcb, "In1.Cu", opts) == []
+    assert [
+        feature.kind for feature in _collect_layer_features(pcb, "In2.Cu", opts)
+    ] == ["via"]
+    assert len(_collect_drill_features(pcb, "In1.Cu", opts)) == 3
 
 
 @pytest.mark.parametrize(

@@ -2,7 +2,7 @@
 
 use kicad_monkey_core::{
     Error, PcbCounts, PcbDocument, PcbFamily, PcbGraphicKind, PcbHoleOwner, PcbLimits,
-    PcbProfileOwner, PcbSelection, PcbView,
+    PcbProfileOwner, PcbSelection, PcbVia, PcbView,
 };
 use serde_json::{Value, json};
 use std::env;
@@ -224,7 +224,8 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
     let footprint_graphic = view.footprint_graphics().next().transpose()?;
     let model = view.models().next().transpose()?;
     let segment = view.segments().next().transpose()?;
-    let via = view.vias().next().transpose()?;
+    let vias = view.vias().collect::<Result<Vec<_>, _>>()?;
+    let via = vias.first();
     let arc = view.arcs().next().transpose()?;
     let dimension = view.dimensions().next().transpose()?;
     let group = view.groups().next().transpose()?;
@@ -273,23 +274,8 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
             "start_x": item.start_x, "end_x": item.end_x,
             "net": {"ordinal": item.net.ordinal, "name": item.net.name},
         })),
-        "first_via": via.map(|item| json!({
-            "at_x": item.at_x, "at_y": item.at_y,
-            "size": item.size, "drill": item.drill, "layers": item.layers,
-            "free": item.free, "via_type": item.via_type, "uuid": item.uuid,
-            "tenting": front_back_optional_bool_summary(item.tenting.as_ref()),
-            "covering": front_back_optional_bool_summary(item.covering.as_ref()),
-            "plugging": front_back_optional_bool_summary(item.plugging.as_ref()),
-            "capping": item.capping, "filling": item.filling,
-            "net": {"ordinal": item.net.ordinal, "name": item.net.name},
-            "backdrill": drill_properties_summary(item.backdrill.as_ref()),
-            "tertiary_drill": drill_properties_summary(item.tertiary_drill.as_ref()),
-            "front_post_machining": post_machining_summary(item.front_post_machining.as_ref()),
-            "back_post_machining": post_machining_summary(item.back_post_machining.as_ref()),
-            "zone_layer_connections": zone_layer_connections_summary(
-                item.zone_layer_connections.as_ref()
-            ),
-        })),
+        "first_via": first_via_summary(via),
+        "via_unused_layer_policies": via_unused_layer_policy_summary(&vias),
         "first_graphic": graphics.first().map(|item| json!({
             "kind": graphic_kind_name(item.kind), "text": item.text, "layer": item.layer,
         })),
@@ -313,6 +299,49 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
             "encoded_data_bytes": item.encoded_data_bytes,
         })),
     }))
+}
+
+fn first_via_summary(via: Option<&PcbVia>) -> Option<Value> {
+    via.map(|item| {
+        json!({
+            "at_x": item.at_x, "at_y": item.at_y,
+            "size": item.size, "drill": item.drill, "layers": item.layers,
+            "free": item.free, "via_type": item.via_type, "uuid": item.uuid,
+            "tenting": front_back_optional_bool_summary(item.tenting.as_ref()),
+            "covering": front_back_optional_bool_summary(item.covering.as_ref()),
+            "plugging": front_back_optional_bool_summary(item.plugging.as_ref()),
+            "capping": item.capping, "filling": item.filling,
+            "remove_unused_layers": item.remove_unused_layers,
+            "keep_end_layers": item.keep_end_layers,
+            "start_end_only": item.start_end_only,
+            "net": {"ordinal": item.net.ordinal, "name": item.net.name},
+            "backdrill": drill_properties_summary(item.backdrill.as_ref()),
+            "tertiary_drill": drill_properties_summary(item.tertiary_drill.as_ref()),
+            "front_post_machining": post_machining_summary(item.front_post_machining.as_ref()),
+            "back_post_machining": post_machining_summary(item.back_post_machining.as_ref()),
+            "zone_layer_connections": zone_layer_connections_summary(
+                item.zone_layer_connections.as_ref()
+            ),
+        })
+    })
+}
+
+fn via_unused_layer_policy_summary(vias: &[PcbVia]) -> Vec<Value> {
+    vias.iter()
+        .filter(|item| {
+            item.remove_unused_layers.is_some()
+                || item.keep_end_layers.is_some()
+                || item.start_end_only.is_some()
+        })
+        .map(|item| {
+            json!({
+                "uuid": item.uuid,
+                "remove_unused_layers": item.remove_unused_layers,
+                "keep_end_layers": item.keep_end_layers,
+                "start_end_only": item.start_end_only,
+            })
+        })
+        .collect()
 }
 
 fn first_pad_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {

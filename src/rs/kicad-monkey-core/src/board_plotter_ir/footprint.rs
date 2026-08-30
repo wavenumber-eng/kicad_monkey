@@ -1,5 +1,6 @@
 //! PCB-embedded footprint records in the established Python family order.
 
+use super::layer_policy::BoardLayerFlashResolver;
 use super::text::{
     BoardTextHAlign, BoardTextOperation, BoardTextRenderCacheCoordinateSpace, BoardTextVAlign,
 };
@@ -50,6 +51,7 @@ pub(super) struct FootprintAppendContext<'a, 'source, 'font> {
     pub text_cache: Option<&'a PlotterTextCacheSession<'font>>,
     pub board_mask_clearance: f64,
     pub limits: BoardPlotLimits,
+    pub layer_flash_resolver: &'a BoardLayerFlashResolver,
 }
 
 struct FootprintRenderContext<'a, 'font> {
@@ -61,6 +63,7 @@ struct FootprintRenderContext<'a, 'font> {
     text_cache: Option<&'a PlotterTextCacheSession<'font>>,
     board_mask_clearance: f64,
     limits: BoardPlotLimits,
+    layer_flash_resolver: &'a BoardLayerFlashResolver,
 }
 
 struct ChildDescriptor<'a> {
@@ -256,6 +259,7 @@ fn footprint_record(
         text_cache: outer.text_cache,
         board_mask_clearance: outer.board_mask_clearance,
         limits: outer.limits,
+        layer_flash_resolver: outer.layer_flash_resolver,
     };
     append_properties(&context, &properties, &mut operations, budget)?;
     append_texts(&context, &texts, &mut operations, budget)?;
@@ -685,10 +689,17 @@ fn append_pad_block(
     pad: &PcbPad,
     index: usize,
     hole: bool,
-    payloads: Vec<PlotterOperation>,
+    mut payloads: Vec<PlotterOperation>,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
 ) -> Result<(), Error> {
+    let Some((layers, operation_layers)) = pad_block_layers(context, pad, hole) else {
+        return Ok(());
+    };
+    for operation in &mut payloads {
+        set_pad_operation_layers(operation, &operation_layers);
+    }
+    let inner_layers = &operation_layers;
     let label = pad_label(context.footprint, pad, index, hole);
     let base_label = pad_label(context.footprint, pad, index, false);
     let component = context.footprint.reference.as_deref().unwrap_or("");
@@ -711,7 +722,7 @@ fn append_pad_block(
         pad_designator: nonempty(&pad_designator),
         pad_type: nonempty(&pad.kind),
         pad_shape: nonempty(&pad.shape),
-        layer_names: nonempty(&pad.layers.join(",")),
+        layer_names: nonempty(&inner_layers.join(",")),
         net_index: pad.net.ordinal.map(|value| value.to_string()),
         net_id: pad.net.ordinal.map(|value| value.to_string()),
         net: pad.net.name.as_deref().and_then(nonempty),
@@ -738,11 +749,6 @@ fn append_pad_block(
             .then(|| hole_dimension(pad, HoleDimension::Height))
             .flatten(),
     };
-    let layers = if hole && pad.kind == "np_thru_hole" {
-        Vec::new()
-    } else {
-        pad.layers.clone()
-    };
     let data_ref = if hole { "pad_hole" } else { "pad" };
     let object_id = if number.is_empty() { "pad" } else { number };
     charge_block_metadata(&label, data_ref, object_id, &layers, &attrs, budget)?;
@@ -761,6 +767,43 @@ fn append_pad_block(
     operations.push(BoardFootprintOperation::EndBlock);
     budget.charge(payload_count.saturating_add(2), payload_points)?;
     Ok(())
+}
+
+fn pad_block_layers(
+    context: &FootprintRenderContext<'_, '_>,
+    pad: &PcbPad,
+    hole: bool,
+) -> Option<(Vec<String>, Vec<String>)> {
+    let layers = match (hole, pad.kind.as_str()) {
+        (true, "np_thru_hole") => Vec::new(),
+        (true, _) => context.layer_flash_resolver.pad_drill_layers(pad),
+        (false, _) => context.layer_flash_resolver.pad_item_layers(pad),
+    };
+    let legacy_unlayered_flash = pad.layers.is_empty() && pad.remove_unused_layers != Some(true);
+    if !hole && layers.is_empty() && !legacy_unlayered_flash {
+        return None;
+    }
+    let operation_layers = if hole && pad.kind == "np_thru_hole" {
+        pad.layers.clone()
+    } else {
+        layers.clone()
+    };
+    Some((layers, operation_layers))
+}
+
+fn set_pad_operation_layers(operation: &mut PlotterOperation, layers: &[String]) {
+    let target = match operation {
+        PlotterOperation::FlashPadCircle(value) => &mut value.layers,
+        PlotterOperation::FlashPadOval(value) => &mut value.layers,
+        PlotterOperation::FlashPadRect(value) => &mut value.layers,
+        PlotterOperation::FlashPadRoundRect(value) => &mut value.layers,
+        PlotterOperation::FlashPadCustom(value) => &mut value.layers,
+        PlotterOperation::FlashPadTrapez(value) => &mut value.layers,
+        PlotterOperation::Circle(value) => &mut value.layers,
+        PlotterOperation::ThickSegment(value) => &mut value.layers,
+        _ => return,
+    };
+    layers.clone_into(target);
 }
 
 fn append_child_text(

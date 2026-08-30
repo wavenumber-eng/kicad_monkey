@@ -23,6 +23,6 @@
   ],
   "phase5_freeze": {
     "path": "tests/parity/plotter_ir_phase5_freeze.json",
-    "canonical_sha256": "edaa251da0e07acf60d331f1d61b89ac87cfc87112c24ce306b8f2a29d9e0d95"
+    "canonical_sha256": "89e660bf5e1f6badf161d5fc66229c21fd76a2f10e741c6cf4053758be0397ab"
   }
 }

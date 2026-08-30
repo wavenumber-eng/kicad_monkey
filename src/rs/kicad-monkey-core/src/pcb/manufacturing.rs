@@ -117,6 +117,19 @@ pub(super) fn zone_layer_connections_from_children(
     }))
 }
 
+pub(super) fn optional_presence_bool(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+) -> Result<Option<bool>, Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(None);
+    };
+    Ok(Some(first_string(source, span)?.is_none_or(|value| {
+        matches!(value.to_ascii_lowercase().as_str(), "yes" | "true" | "1")
+    })))
+}
+
 pub(super) fn teardrop_parameters_from_children(
     source: &str,
     children: &[FormSpan],

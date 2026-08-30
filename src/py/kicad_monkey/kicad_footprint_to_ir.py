@@ -477,6 +477,13 @@ def pad_to_ops(
     size_x_nm = mm_to_nm(pad.size_x)
     size_y_nm = mm_to_nm(pad.size_y)
     orient_deg = float(pad.at_angle) + float(orient_deg_offset)
+    offset_x_nm, offset_y_nm = _rotate_pad_local_nm(
+        mm_to_nm(pad.drill_offset_x or 0.0),
+        mm_to_nm(pad.drill_offset_y or 0.0),
+        orient_deg,
+    )
+    x += offset_x_nm
+    y += offset_y_nm
 
     shape = pad.shape
 
@@ -740,16 +747,7 @@ def pad_drill_to_ops(
     role = "npth_hole" if pad_type == PadType.NP_THRU_HOLE.value else "pad_drill"
     cx = mm_to_nm(pad.at_x)
     cy = mm_to_nm(pad.at_y)
-    offset_x_nm = mm_to_nm(pad.drill_offset_x or 0.0)
-    offset_y_nm = mm_to_nm(pad.drill_offset_y or 0.0)
     orient_deg = float(pad.at_angle) + float(orient_deg_offset)
-    offset_x_nm, offset_y_nm = _rotate_pad_local_nm(
-        offset_x_nm,
-        offset_y_nm,
-        orient_deg,
-    )
-    cx += offset_x_nm
-    cy += offset_y_nm
 
     drill_width = getattr(pad, "drill_width", None)
     drill_height = getattr(pad, "drill_height", None)

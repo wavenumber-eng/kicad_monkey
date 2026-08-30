@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 2026.8.30
+
+- Preserve KiCad via unused-layer policy in both Python and Rust, and apply
+  the same `FlashLayer` semantics at the board Plotter-IR boundary for PTH pads
+  and vias. Copper aperture operations now carry resolved flashed layers while
+  drill operations retain the authored physical span; a via with every land
+  removed therefore has a valid drill-only operation sequence. PCB SVG and
+  Cruncher layer filtering consume the resolved aperture set without
+  re-expanding it as a span. Resolution uses geometric copper contact and
+  KiCad's footprint/conditional-pad exclusions; pads retain their exact
+  authored copper membership (including the `F&B.Cu` alias) rather than being
+  treated as via spans. Zone filling and all-layer bounds consume the same
+  aperture-versus-hole distinction. Conditional connectivity tests the
+  physical hole so a removed annulus cannot justify itself; pad drill offsets
+  move copper rather than the physical hole, and PTH pad drills retain their
+  through-board scope in SVG, bounds, and Cruncher STEP output.
+
 ## 2026.8.22
 
 - Publish the Python package and date-versioned Rust workspace together after

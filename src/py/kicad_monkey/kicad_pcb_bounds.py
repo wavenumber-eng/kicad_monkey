@@ -9,6 +9,12 @@ from typing import TYPE_CHECKING
 
 from .kicad_geometry import BoundingBox, HAlign, TextParams, VAlign, rotate_point
 from .kicad_pcb_pad_svg import pad_on_layer
+from .kicad_pcb_layer_policy import (
+    PcbLayerFlashResolver,
+    _pad_geometry,
+    _pad_hole_geometry,
+    copper_span_layers,
+)
 from .kicad_render_cache import (
     RenderCacheRequest,
     RenderCacheResolver,
@@ -261,6 +267,7 @@ def _is_copper_layer(layer: str) -> bool:
 def compute_footprint_svg_bounding_box_on_layers(
     fp,
     layers: list[str] | None = None,
+    layer_flash_resolver: PcbLayerFlashResolver | None = None,
 ) -> BoundingBox:
     bbox = BoundingBox()
     fp_x = fp.at_x
@@ -268,19 +275,29 @@ def compute_footprint_svg_bounding_box_on_layers(
     fp_angle = fp.at_angle
 
     for pad in fp.pads:
-        render_pad = layers is None or any(pad_on_layer(pad, layer) for layer in layers)
+        effective_layers = (
+            layer_flash_resolver.pad_item_layers(pad, fp)
+            if layer_flash_resolver is not None
+            else tuple(getattr(pad, "layers", ()) or ())
+        )
+        render_pad = bool(effective_layers) and (
+            layers is None
+            or any(
+                pad_on_layer(pad, layer)
+                and (
+                    not layer.endswith(".Cu")
+                    or layer in effective_layers
+                    or "*.Cu" in effective_layers
+                )
+                for layer in layers
+            )
+        )
         if render_pad:
-            pad_x, pad_y = pad.at_x, pad.at_y
-            if fp_angle != 0:
-                pad_x, pad_y = rotate_point(pad_x, pad_y, -fp_angle)
-            pad_x += fp_x
-            pad_y += fp_y
-
-            half_w = pad.size_x / 2
-            half_h = pad.size_y / 2
-            r = max(half_w, half_h)
-            bbox.expand((pad_x - r, pad_y - r))
-            bbox.expand((pad_x + r, pad_y + r))
+            geometry = _pad_geometry(fp, pad)
+            if not geometry.is_empty:
+                min_x, min_y, max_x, max_y = geometry.bounds
+                bbox.expand((min_x, min_y))
+                bbox.expand((max_x, max_y))
 
     for line in fp.fp_lines:
         if layers is None or line.layer in layers:
@@ -346,7 +363,12 @@ def _layer_visible(layer: str, layers: list[str] | None) -> bool:
     return layers is None or layer in layers
 
 
-def _expand_routing_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
+def _expand_routing_bbox(
+    bbox: BoundingBox,
+    pcb: "KiCadPcb",
+    layers: list[str] | None,
+    layer_flash_resolver: PcbLayerFlashResolver,
+) -> None:
     for seg in pcb.segments:
         if _layer_visible(seg.layer, layers):
             bbox.expand((seg.start_x, seg.start_y))
@@ -362,7 +384,10 @@ def _expand_routing_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] |
     if not copper_layers:
         return
     for via in pcb.vias:
-        if layers is None or any(layer_name in via.layers for layer_name in layers):
+        flashed_layers = layer_flash_resolver.via_flash_layers(via)
+        if flashed_layers and (
+            layers is None or any(layer_name in flashed_layers for layer_name in layers)
+        ):
             r = via.size / 2
             bbox.expand((via.at_x - r, via.at_y - r))
             bbox.expand((via.at_x + r, via.at_y + r))
@@ -480,28 +505,26 @@ def _expand_dimension_text_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list
             _expand_text_outline_bbox(bbox, text_object)
 
 
-def _expand_drill_bbox(bbox: BoundingBox, pcb: "KiCadPcb") -> None:
+def _expand_drill_bbox(
+    bbox: BoundingBox,
+    pcb: "KiCadPcb",
+    layers: list[str] | None,
+    layer_flash_resolver: PcbLayerFlashResolver,
+) -> None:
     for fp in pcb.footprints:
-        fp_x = fp.at_x
-        fp_y = fp.at_y
-        fp_angle = fp.at_angle
         for pad in fp.pads:
-            drill_size = None
-            if hasattr(pad, "drill") and pad.drill and pad.drill > 0:
-                drill_size = pad.drill
-            elif hasattr(pad, "drill_width") and pad.drill_width and pad.drill_width > 0:
-                drill_size = pad.drill_width
-            if drill_size and drill_size > 0:
-                px, py = pad.at_x, pad.at_y
-                if fp_angle != 0:
-                    px, py = rotate_point(px, py, -fp_angle)
-                px += fp_x
-                py += fp_y
-                r = drill_size / 2
-                bbox.expand((px - r, py - r))
-                bbox.expand((px + r, py + r))
+            geometry = _pad_hole_geometry(fp, pad)
+            if not geometry.is_empty:
+                min_x, min_y, max_x, max_y = geometry.bounds
+                bbox.expand((min_x, min_y))
+                bbox.expand((max_x, max_y))
 
     for via in pcb.vias:
+        if layers is not None:
+            span = copper_span_layers(via.layers, layer_flash_resolver.copper_stack)
+            requested_copper = [layer for layer in layers if layer.endswith(".Cu")]
+            if requested_copper and not any(layer in span for layer in requested_copper):
+                continue
         drill_size = via.drill if via.drill and via.drill > 0 else via.size * 0.5
         if drill_size > 0:
             r = drill_size / 2
@@ -527,17 +550,24 @@ def compute_pcb_svg_bounding_box(
     layers: list[str] | None = None,
 ) -> BoundingBox:
     bbox = BoundingBox()
+    layer_flash_resolver = PcbLayerFlashResolver.from_board(pcb)
 
     for fp in pcb.footprints:
-        bbox.merge(compute_footprint_svg_bounding_box_on_layers(fp, layers))
+        bbox.merge(
+            compute_footprint_svg_bounding_box_on_layers(
+                fp,
+                layers,
+                layer_flash_resolver,
+            )
+        )
 
-    _expand_routing_bbox(bbox, pcb, layers)
+    _expand_routing_bbox(bbox, pcb, layers, layer_flash_resolver)
     _expand_zone_bbox(bbox, pcb, layers)
     _expand_board_graphics_bbox(bbox, pcb, layers)
     _expand_board_text_box_bbox(bbox, pcb, layers)
     _expand_board_text_bbox(bbox, pcb, layers)
     _expand_dimension_text_bbox(bbox, pcb, layers)
-    _expand_drill_bbox(bbox, pcb)
+    _expand_drill_bbox(bbox, pcb, layers, layer_flash_resolver)
     _expand_image_bbox(bbox, pcb, layers)
 
     return bbox

@@ -19,9 +19,9 @@ Record layout (one record per source item, for traceability):
     * routing
         - ``segment``    → 1 ``ThickSegment`` op
         - ``track_arc``  → 1 ``ArcThreePoint`` op (with track width)
-        - ``via``        → 1 ``FlashPadCircle`` op (size as diameter)
-          Vias also emit a synthetic drill ``Circle`` op after the annular
-          copper op.
+        - ``via``        → an optional effective-copper ``FlashPadCircle``
+          followed by a physical-span drill ``Circle``. A via whose copper is
+          removed from every layer therefore emits a drill-only record.
     * zones
         - ``zone_fill``  → N ``PlotPoly`` ops (one per filled_polygon
                             ring; FILLED_SHAPE)
@@ -76,6 +76,7 @@ from .kicad_plotter_ir import (
     KiCadVertAlign,
 )
 from .kicad_pcb_svg_enrichment import pcb_layer_role, project_net_name_to_classes
+from .kicad_pcb_layer_policy import PcbLayerFlashResolver
 from .kicad_stroke_decompose import (
     decompose_arc,
     decompose_segment,
@@ -686,10 +687,12 @@ def track_arc_to_op(arc: "TrackArc") -> KiCadPlotterOp:
     )
 
 
-def via_to_op(via: "Via") -> KiCadPlotterOp:
-    """Convert a ``via`` into a ``FlashPadCircle`` op (outer copper).
+def via_to_op(
+    via: "Via", *, flashed_layers: Sequence[str] | None = None
+) -> KiCadPlotterOp:
+    """Convert a ``via`` into an effective-copper ``FlashPadCircle`` op.
 
-    Carries the via's copper layer list in its payload so the per-op
+    Carries explicitly supplied effective copper layers in its payload so the per-op
     layer filter restricts the aperture to copper layers only —
     kicad-cli does not emit a via aperture on mask / silk / etc.
     """
@@ -698,9 +701,10 @@ def via_to_op(via: "Via") -> KiCadPlotterOp:
         y=mm_to_nm(via.at_y),
         diameter_nm=mm_to_nm(via.size),
     )
+    layers = list(via.layers) if flashed_layers is None else list(flashed_layers)
     return KiCadPlotterOp(
         kind=op.kind,
-        payload={**op.payload, "role": "via_aperture", "layers": list(via.layers)},
+        payload={**op.payload, "role": "via_aperture", "layers": layers},
     )
 
 
@@ -922,6 +926,7 @@ def _pad_block_extra_attrs(
     *,
     primitive: str,
     pad_index: int,
+    operation_layers: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     get_property = getattr(footprint, "get_property_value", None)
     component = get_property("Reference", "") if callable(get_property) else ""
@@ -936,7 +941,14 @@ def _pad_block_extra_attrs(
         "pad_designator": f"{component}-{pad_number}" if component and pad_number else pad_number,
         "pad_type": _enum_text(getattr(pad, "pad_type", "")),
         "pad_shape": _enum_text(getattr(pad, "shape", "")),
-        "layer_names": ",".join(str(layer) for layer in getattr(pad, "layers", []) or []),
+        "layer_names": ",".join(
+            str(layer)
+            for layer in (
+                operation_layers
+                if operation_layers is not None
+                else getattr(pad, "layers", []) or []
+            )
+        ),
     }
 
     net = _pad_resolved_net(pad, board, net_table)
@@ -975,23 +987,40 @@ def _pad_block_ops(
     *,
     pad_index: int,
     pad_orient_offset: float,
+    flashed_layers: Sequence[str] | None = None,
+    drill_layers: Sequence[str] | None = None,
 ) -> list[KiCadPlotterOp]:
     layers = [str(layer) for layer in getattr(pad, "layers", []) or []]
+    flash_layers = layers if flashed_layers is None else [str(layer) for layer in flashed_layers]
+    physical_drill_layers = (
+        layers if drill_layers is None else [str(layer) for layer in drill_layers]
+    )
+    pad_type = _enum_text(getattr(pad, "pad_type", ""))
+    drill_operation_layers = (
+        layers if pad_type == "np_thru_hole" else physical_drill_layers
+    )
 
-    def prepare(op: KiCadPlotterOp) -> KiCadPlotterOp:
+    def prepare(op: KiCadPlotterOp, operation_layers: list[str]) -> KiCadPlotterOp:
         return _op_with_pad_mask_hints(
-            _op_with_pcb_layers(op, layers),
+            _op_with_pcb_layers(op, operation_layers),
             pad,
             footprint,
             board,
         )
 
-    pad_ops = [
-        prepare(op)
-        for op in pad_to_ops(pad, orient_deg_offset=pad_orient_offset)
-    ]
+    legacy_unlayered_flash = not layers and not bool(
+        getattr(pad, "remove_unused_layers", False)
+    )
+    pad_ops = (
+        [
+            prepare(op, flash_layers)
+            for op in pad_to_ops(pad, orient_deg_offset=pad_orient_offset)
+        ]
+        if flash_layers or legacy_unlayered_flash
+        else []
+    )
     drill_ops = [
-        prepare(op)
+        prepare(op, drill_operation_layers)
         for op in pad_drill_to_ops(pad, orient_deg_offset=pad_orient_offset)
     ]
 
@@ -1012,8 +1041,9 @@ def _pad_block_ops(
                     net_name_to_classes,
                     primitive="pad",
                     pad_index=pad_index,
+                    operation_layers=flash_layers,
                 ),
-                layers=layers,
+                layers=flash_layers,
             )
         )
         ops.extend(pad_ops)
@@ -1021,8 +1051,7 @@ def _pad_block_ops(
 
     if drill_ops:
         label = _pad_block_label(pad, footprint, index=pad_index, suffix="hole")
-        pad_type = _enum_text(getattr(pad, "pad_type", ""))
-        hole_layers = None if pad_type == "np_thru_hole" else layers
+        hole_layers = None if pad_type == "np_thru_hole" else physical_drill_layers
         ops.append(
             KiCadPlotterOp.start_block(
                 label=label,
@@ -1037,6 +1066,7 @@ def _pad_block_ops(
                     net_name_to_classes,
                     primitive="pad-hole",
                     pad_index=pad_index,
+                    operation_layers=drill_operation_layers,
                 ),
                 layers=hole_layers,
             )
@@ -1291,8 +1321,19 @@ def via_to_record(
     via: "Via",
     *,
     mask_clearance_mm: float = 0.0,
+    flashed_layers: Sequence[str] | None = None,
 ) -> KiCadPlotterRecord:
-    operations: list[KiCadPlotterOp] = [via_to_op(via), via_drill_to_op(via)]
+    resolved_flash_layers = (
+        list(via.layers) if flashed_layers is None else list(flashed_layers)
+    )
+    operations: list[KiCadPlotterOp] = []
+    legacy_unlayered_aperture = not via.layers and not any(
+        bool(getattr(via, field, False))
+        for field in ("remove_unused_layers", "start_end_only")
+    )
+    if resolved_flash_layers or legacy_unlayered_aperture:
+        operations.append(via_to_op(via, flashed_layers=resolved_flash_layers))
+    operations.append(via_drill_to_op(via))
     for mask_layer in _via_exposed_mask_layers(via):
         operations.append(
             via_mask_opening_to_op(
@@ -2300,6 +2341,7 @@ def pcb_footprint_to_record(
     board: "KiCadPcb | None" = None,
     net_table: "NetTable | None" = None,
     net_name_to_classes: Mapping[str, Sequence[str]] | None = None,
+    layer_flash_resolver: PcbLayerFlashResolver | None = None,
 ) -> KiCadPlotterRecord:
     """
     Convert a PCB-embedded :class:`Footprint` to a :class:`KiCadPlotterRecord`.
@@ -2515,6 +2557,11 @@ def pcb_footprint_to_record(
         ops.append(_op_with_pcb_layer(op, poly.layer))
     for pad_index, pad in enumerate(footprint.pads):
         pad_orient_offset = -float(getattr(footprint, "at_angle", 0.0) or 0.0)
+        flashed_layers = (
+            layer_flash_resolver.pad_item_layers(pad, footprint)
+            if layer_flash_resolver is not None
+            else None
+        )
         ops.extend(
             _pad_block_ops(
                 pad,
@@ -2524,6 +2571,13 @@ def pcb_footprint_to_record(
                 resolved_net_name_to_classes,
                 pad_index=pad_index,
                 pad_orient_offset=pad_orient_offset,
+                flashed_layers=flashed_layers,
+                drill_layers=(
+                    layer_flash_resolver.copper_stack
+                    if layer_flash_resolver is not None
+                    and layer_flash_resolver.copper_stack
+                    else None
+                ),
             )
         )
 
@@ -2583,6 +2637,7 @@ def pcb_to_ir(
     records: list[KiCadPlotterRecord] = []
     net_table = pcb.net_table()
     net_name_to_classes = _net_class_snapshot(pcb)
+    layer_flash_resolver = PcbLayerFlashResolver.from_board(pcb)
 
     for line in pcb.gr_lines:
         records.append(gr_line_to_record(line))
@@ -2607,7 +2662,13 @@ def pcb_to_ir(
         records.append(track_arc_to_record(arc))
     mask_clearance_mm = float(getattr(pcb, "pad_to_mask_clearance", 0.0) or 0.0)
     for via in pcb.vias:
-        records.append(via_to_record(via, mask_clearance_mm=mask_clearance_mm))
+        records.append(
+            via_to_record(
+                via,
+                mask_clearance_mm=mask_clearance_mm,
+                flashed_layers=layer_flash_resolver.via_flash_layers(via),
+            )
+        )
 
     for table in getattr(pcb, "tables", []) or []:
         records.append(table_to_record(table, pcb))
@@ -2625,6 +2686,7 @@ def pcb_to_ir(
                 board=pcb,
                 net_table=net_table,
                 net_name_to_classes=net_name_to_classes,
+                layer_flash_resolver=layer_flash_resolver,
             )
         )
 

@@ -65,6 +65,42 @@
   </section>
 
   <section
+    data-interface="PcbLayerFlashResolver"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_020_pcb_to_ir.py"
+    data-test-target="test_pth_resolver_uses_exact_pad_layers_and_geometric_connectivity"
+  >
+    <h2>PcbLayerFlashResolver</h2>
+    <h3>Rationale</h3>
+    <p>
+      KiCad stores a pad or via's physical copper span separately from the
+      subset of layers on which its copper land is actually flashed.
+      Board-level consumers need one shared interpretation of those policies.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Resolve <code>remove_unused_layers</code>,
+      <code>keep_end_layers</code>, <code>start_end_only</code>, forced zone
+      connections, and direct same-net geometry against a complete board.
+      Physical drill spans remain available independently from effective
+      copper-flash layers.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must cover exact pad membership, via spans, endpoint retention,
+      forced zone layers, same-footprint exclusions, physical-hole
+      connectivity, drill offsets, and Python/Rust parity on persistent corpus
+      boards including Yoshi.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      The resolver is public when plotter IR, SVG, bounds, zone, manufacturing,
+      and downstream Cruncher consumers can share KiCad-equivalent effective
+      copper layers without shortening or hiding physical drills.
+    </p>
+  </section>
+
+  <section
     data-interface="KiCadPcbProjection"
     data-rack-stratum="L0_foundation"
     data-test-file="tests/L0_foundation/test_L0_042_pcb_projection.py"

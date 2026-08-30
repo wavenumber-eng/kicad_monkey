@@ -19,6 +19,8 @@ CORPUS_BOARDS = (
     CORPUS_ROOT / "kicad/projects/4-ch-backplane/input/4-ch-backplane.kicad_pcb",
     CORPUS_ROOT
     / "kicad/projects/speedy_processing_module/input/11-10084__speedy_processing_module__B.kicad_pcb",
+    CORPUS_ROOT
+    / "kicad/projects/yoshi_mainboard/input/11-10080__yoshi-mainboard__A.kicad_pcb",
 )
 EXTENDED_CARRIERS = """(kicad_pcb
   (version 20260206)
@@ -137,6 +139,7 @@ PAD_DETAIL_CARRIERS = """(kicad_pcb
     (tertiary_drill (size 0.45) (layers "B.Cu" "In3.Cu"))
     (front_post_machining counterbore (size 1.3) (depth 0.3) (angle 80))
     (back_post_machining countersink (size 1.4) (depth 0.35) (angle 70))
+    (remove_unused_layers yes) (keep_end_layers no) (start_end_only no)
     (zone_layer_connections "In3.Cu" "In4.Cu")
     (uuid via-id)))"""
 
@@ -636,6 +639,9 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             "plugging": _front_back_optional_bool_summary(via.plugging),
             "capping": via.capping,
             "filling": via.filling,
+            "remove_unused_layers": via.remove_unused_layers,
+            "keep_end_layers": via.keep_end_layers,
+            "start_end_only": via.start_end_only,
             "net": {
                 "ordinal": via.net.ordinal,
                 "name": via.net.name or None,
@@ -648,6 +654,18 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
                 via.zone_layer_connections
             ),
         }
+    assert summary["via_unused_layer_policies"] == [
+        {
+            "uuid": via.uuid or None,
+            "remove_unused_layers": via.remove_unused_layers,
+            "keep_end_layers": via.keep_end_layers,
+            "start_end_only": via.start_end_only,
+        }
+        for via in board.vias
+        if via.remove_unused_layers is not None
+        or via.keep_end_layers is not None
+        or via.start_end_only is not None
+    ]
     if summary["first_graphic"] is not None:
         graphic_collections = {
             "gr_text": board.gr_texts,

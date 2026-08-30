@@ -253,6 +253,9 @@ class TestRoundTrip:
 \t\t(tertiary_drill (size 0.35) (layers "B.Cu" "In2.Cu"))
 \t\t(front_post_machining counterbore (size 1.0) (depth 0.15) (angle 90))
 \t\t(back_post_machining countersink (size 1.1) (depth 0.2) (angle 70))
+\t\t(remove_unused_layers yes)
+\t\t(keep_end_layers no)
+\t\t(start_end_only no)
 \t\t(zone_layer_connections "In1.Cu")
 \t)
 )
@@ -283,7 +286,63 @@ class TestRoundTrip:
         assert via1.tertiary_drill == via2.tertiary_drill
         assert via1.front_post_machining == via2.front_post_machining
         assert via1.back_post_machining == via2.back_post_machining
+        assert via1.remove_unused_layers is True
+        assert via1.remove_unused_layers == via2.remove_unused_layers
+        assert via1.keep_end_layers is False
+        assert via1.keep_end_layers == via2.keep_end_layers
+        assert via1.start_end_only is False
+        assert via1.start_end_only == via2.start_end_only
         assert via1.zone_layer_connections == via2.zone_layer_connections
+
+    def test_roundtrip_preserves_all_via_unused_layer_policy_forms(self):
+        """Via layer-removal flags retain absence, explicit values, and legacy empty forms."""
+        pcb_text = """(kicad_pcb
+\t(version 20260206)
+\t(generator "pcbnew")
+\t(generator_version "10.0")
+\t(layers
+\t\t(0 "F.Cu" signal)
+\t\t(4 "In1.Cu" signal)
+\t\t(6 "In2.Cu" signal)
+\t\t(2 "B.Cu" signal)
+\t)
+\t(via (at 0 0) (size 1) (drill 0.5) (layers "F.Cu" "B.Cu") (uuid "keep-all"))
+\t(via (at 1 0) (size 1) (drill 0.5) (layers "F.Cu" "B.Cu")
+\t\t(remove_unused_layers yes) (keep_end_layers no) (uuid "remove-all"))
+\t(via (at 2 0) (size 1) (drill 0.5) (layers "F.Cu" "B.Cu")
+\t\t(remove_unused_layers yes) (keep_end_layers yes) (uuid "keep-span-ends"))
+\t(via (at 3 0) (size 1) (drill 0.5) (layers "F.Cu" "B.Cu")
+\t\t(start_end_only yes) (uuid "span-ends-only"))
+\t(via (at 4 0) (size 1) (drill 0.5) (layers "F.Cu" "B.Cu")
+\t\t(remove_unused_layers) (keep_end_layers no) (start_end_only no)
+\t\t(uuid "legacy-and-explicit-no"))
+)
+"""
+        expected = [
+            (None, None, None),
+            (True, False, None),
+            (True, True, None),
+            (None, None, True),
+            (True, False, False),
+        ]
+
+        pcb1 = KiCadPcb.from_string(pcb_text)
+        assert [
+            (via.remove_unused_layers, via.keep_end_layers, via.start_end_only)
+            for via in pcb1.vias
+        ] == expected
+
+        output = pcb1.to_string()
+        assert "(remove_unused_layers yes)" in output
+        assert "(keep_end_layers no)" in output
+        assert "(start_end_only no)" in output
+        assert "\t\t(remove_unused_layers)" not in output
+
+        pcb2 = KiCadPcb.from_string(output)
+        assert [
+            (via.remove_unused_layers, via.keep_end_layers, via.start_end_only)
+            for via in pcb2.vias
+        ] == expected
 
     def test_roundtrip_preserves_auxiliary_layers_and_drill_offsets(self):
         """Modern board layer types and pad drill offsets should parse and round-trip."""

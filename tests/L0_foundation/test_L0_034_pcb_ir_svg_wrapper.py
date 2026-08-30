@@ -789,6 +789,83 @@ def test_render_pcb_ir_to_svg_layer_filter_via_keeps_for_any_layer_in_span():
     assert "via" not in edge_kinds
 
 
+def test_layer_filter_separates_resolved_via_aperture_from_physical_drill_span():
+    from kicad_monkey import pcb_to_ir
+    from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
+    from kicad_monkey.kicad_pcb_ir_svg import _filter_records_by_layer
+
+    pcb = KiCadPcb.from_string(
+        """(kicad_pcb
+  (version 20250830)
+  (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (2 "In1.Cu" power) (4 "In2.Cu" power) (31 "B.Cu" signal))
+  (net 1 "N")
+  (via (at 10 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers no)
+    (zone_layer_connections "In2.Cu") (net 1) (uuid "policy")))"""
+    )
+    records = pcb_to_ir(pcb).records
+
+    connected = _filter_records_by_layer(records, ["In2.Cu"])[0]
+    assert [operation.payload["role"] for operation in connected.operations] == [
+        "via_aperture",
+        "via_drill",
+    ]
+
+    removed = _filter_records_by_layer(records, ["In1.Cu"])[0]
+    assert [operation.payload["role"] for operation in removed.operations] == ["via_drill"]
+
+    connected_svg = render_pcb_ir_to_svg(pcb, layers=["In2.Cu"])
+    removed_svg = render_pcb_ir_to_svg(pcb, layers=["In1.Cu"])
+    assert 'data-ref="via"' in connected_svg
+    assert 'data-ref="via"' not in removed_svg
+    assert 'data-ref="drill_overlay"' in connected_svg
+    assert 'data-ref="drill_overlay"' in removed_svg
+
+    connected_bounds = compute_pcb_svg_bounding_box(pcb, ["In2.Cu"])
+    removed_bounds = compute_pcb_svg_bounding_box(pcb, ["In1.Cu"])
+    assert math.isclose(connected_bounds.width, 0.8)
+    assert math.isclose(removed_bounds.width, 0.4)
+
+    drill_only = KiCadPcb.from_string(
+        """(kicad_pcb
+  (layers (0 "F.Cu" signal) (2 "In1.Cu" power) (31 "B.Cu" signal))
+  (net 1 "N")
+  (via (at 10 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers no) (net 1) (uuid "drill-only")))"""
+    )
+    all_layer_bounds = compute_pcb_svg_bounding_box(drill_only, None)
+    assert math.isclose(all_layer_bounds.width, 0.4)
+    assert math.isclose(all_layer_bounds.height, 0.4)
+
+
+def test_inner_layer_keeps_pth_and_npth_pad_drills_outside_copper_membership():
+    from kicad_monkey import pcb_to_ir
+    from kicad_monkey.kicad_pcb_ir_svg import _filter_records_by_layer
+    from kicad_monkey.kicad_plotter_ir import KiCadPlotterOpKind
+
+    pcb = KiCadPcb.from_string(
+        """(kicad_pcb
+  (layers (0 "F.Cu" signal) (2 "In1.Cu" power) (31 "B.Cu" signal))
+  (footprint "Test:Holes" (layer "F.Cu") (at 0 0)
+    (pad "1" thru_hole circle (at 1 1) (size 1 1) (drill 0.5)
+      (layers "F&B.Cu" "*.Mask"))
+    (pad "2" np_thru_hole circle (at 3 1) (size 0.6 0.6) (drill 0.6)
+      (layers "*.Mask"))))"""
+    )
+    filtered = _filter_records_by_layer(pcb_to_ir(pcb).records, ["In1.Cu"])
+    footprint = next(record for record in filtered if record.kind == "footprint")
+    roles = [
+        operation.payload.get("role")
+        for operation in footprint.operations
+        if operation.kind not in {KiCadPlotterOpKind.START_BLOCK, KiCadPlotterOpKind.END_BLOCK}
+    ]
+    assert roles == ["pad_drill", "npth_hole"]
+
+    svg = render_pcb_ir_to_svg(pcb, layers=["In1.Cu"])
+    assert svg.count('data-ref="pad_hole"') == 2
+
+
 def test_render_pcb_ir_to_svg_layer_filter_emits_filtered_svg():
     """End-to-end: rendering with a layer filter produces a shorter SVG."""
 

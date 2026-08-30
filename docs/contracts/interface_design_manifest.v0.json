@@ -50,6 +50,10 @@
       "group": "pcb"
     },
     {
+      "name": "PcbLayerFlashResolver",
+      "group": "pcb"
+    },
+    {
       "name": "KiCadFootprint",
       "group": "pcb"
     },

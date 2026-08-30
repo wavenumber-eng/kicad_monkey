@@ -203,6 +203,33 @@ fn board_footprint_placement_widths_multiline_and_ownership_are_exact() {
 }
 
 #[test]
+fn board_via_with_removed_copper_renders_as_drill_only() {
+    let mut board = document_by_id(
+        "board_plotter_a0_vectors.json",
+        "via-fabrication-and-mask-edge-cases",
+    );
+    let records = board["records"].as_array_mut().expect("record array");
+    records.retain(|record| record["uuid"] == "via-wildcard");
+    let operations = records[0]["operations"]
+        .as_array_mut()
+        .expect("operation array");
+    operations.retain(|operation| operation["role"] == "via_drill");
+    operations[0]["index"] = json!(0);
+    records[0]["operation_count"] = json!(1);
+    board["total_operations"] = json!(1);
+
+    let decoded = decode_native_svg_render_request_a0(
+        &serde_json::to_vec(&request(board, "board", 20_000_000, 20_000_000, 1_000_000)).unwrap(),
+    )
+    .expect("strict drill-only via request");
+    let svg = render_svg(&decoded).expect("drill-only via SVG").svg;
+
+    assert!(svg.contains("<g id=\"via-wildcard\" data-ref=\"via\" data-object-id=\"via\">"));
+    assert!(svg.contains("<circle cx=\"1000000\" cy=\"1000000\" r=\"125000\""));
+    assert!(!svg.contains("r=\"250000\""));
+}
+
+#[test]
 fn empty_record_ids_are_omitted_and_duplicate_nonempty_ids_fail_closed() {
     let symbol = first_document("symbol_plotter_a0_vectors.json");
     let decoded = decode_native_svg_render_request_a0(

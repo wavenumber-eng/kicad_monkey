@@ -4,7 +4,7 @@
   "artifacts": [
     {
       "path": "contracts/generated/schema/BoardPlotDocument.json",
-      "canonical_sha256": "fd95a069bfa86d91a4cb87c159cc04086419cca8ac2c3b026849895e7d006e2c"
+      "canonical_sha256": "dc3297dda92b5e20fb57388efc9aafcb8e87de9cc2e9385272a0399f140da6fb"
     },
     {
       "path": "contracts/generated/schema/BoardPlotRequest.json",

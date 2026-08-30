@@ -30,6 +30,9 @@ pub struct PcbVia {
     pub front_post_machining: Option<PcbPostMachiningProperties>,
     pub back_post_machining: Option<PcbPostMachiningProperties>,
     pub zone_layer_connections: Option<PcbZoneLayerConnections>,
+    pub remove_unused_layers: Option<bool>,
+    pub keep_end_layers: Option<bool>,
+    pub start_end_only: Option<bool>,
     pub source_range: Range<usize>,
 }
 
@@ -87,6 +90,17 @@ pub(super) fn via_from_span(
         zone_layer_connections: manufacturing::zone_layer_connections_from_children(
             source, &children, limits,
         )?,
+        remove_unused_layers: manufacturing::optional_presence_bool(
+            source,
+            &children,
+            "remove_unused_layers",
+        )?,
+        keep_end_layers: manufacturing::optional_presence_bool(
+            source,
+            &children,
+            "keep_end_layers",
+        )?,
+        start_end_only: manufacturing::optional_presence_bool(source, &children, "start_end_only")?,
         source_range: span.range.clone(),
     })
 }
