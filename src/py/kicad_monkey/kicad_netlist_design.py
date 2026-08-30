@@ -259,10 +259,15 @@ def _canonical_instance_path(top: "KiCadSchematic", sheet_path: str) -> str:
 def compile_design_subgraphs(
     top: "KiCadSchematic",
     *,
+    bus_aliases: Optional[Dict[str, List[str]]] = None,
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
 ) -> List[CompiledSheet]:
     """Compile every sheet in the hierarchy.
+
+    ``bus_aliases`` supplies project-scoped aliases. KiCad loads these before
+    legacy schematic ``(bus_alias ...)`` declarations and uses the project
+    definition when the same alias name appears in both sources.
 
     Returns a list of :class:`CompiledSheet` instances (root first) with
     their ``subgraphs`` and ``coord_to_sg`` populated. Cross-sheet
@@ -271,16 +276,18 @@ def compile_design_subgraphs(
     out: List[CompiledSheet] = list(_walk_design_sheets(top))
     legacy_lookup = _build_legacy_instance_lookup(out)
     legacy_unit_lookup = _build_legacy_unit_lookup(out)
-    # KiCad treats bus aliases as design-wide: any sheet's
-    # ``(bus_alias â€¦)`` declaration is visible to every other sheet
-    # in the hierarchy when resolving bus labels. Collect them across
-    # all compiled sheets up front; later sheets override earlier ones
-    # on name collision (mirrors KiCad's last-loaded-wins behaviour).
+    # KiCad's first-match lookup gives project aliases precedence over later
+    # legacy declarations. Build the effective mapping by collecting legacy
+    # aliases first, then overlaying the project definitions.
     aliases: Dict[str, List[str]] = {}
     for cs in out:
         if cs.schematic is None:
             raise ValueError(f"Compiled sheet {cs.sheet_path!r} has no schematic")
         aliases.update(collect_bus_aliases(cs.schematic))
+    aliases.update({
+        str(name): list(members)
+        for name, members in (bus_aliases or {}).items()
+    })
     for cs in out:
         if cs.schematic is None:
             raise ValueError(f"Compiled sheet {cs.sheet_path!r} has no schematic")
@@ -1901,6 +1908,7 @@ def compile_design_netlist(
     top: "KiCadSchematic",
     project_vars: Optional[Dict[str, str]] = None,
     *,
+    bus_aliases: Optional[Dict[str, List[str]]] = None,
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
 ) -> KiCadNetlist:
@@ -1916,9 +1924,13 @@ def compile_design_netlist(
     ``design_metadata.source`` / ``date`` / ``tool`` stay empty here â€”
     they're filled by the emit target (the kicadsexpr emitter takes them
     as keyword arguments so caller controls the timestamp / tool string).
+
+    ``bus_aliases`` supplies project-scoped definitions to the hierarchical
+    compiler. Legacy aliases embedded in schematic files remain supported.
     """
     compiled = compile_design_subgraphs(
         top,
+        bus_aliases=bus_aliases,
         subpart_first_id=subpart_first_id,
         subpart_id_separator=subpart_id_separator,
     )

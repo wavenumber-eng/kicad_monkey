@@ -125,13 +125,26 @@ def test_project_json_text_variable_and_variant_helpers(tmp_path):
     project = KiCadProject.from_json_dict(
         {
             "text_variables": {"TITLE": "Demo"},
-            "schematic": {"variants": [{"name": "Default"}]},
+            "schematic": {
+                "variants": [{"name": "Default"}],
+                "bus_aliases": {
+                    "I2C": ["SCL", "SDA"],
+                    "USB": ["D+", "D-"],
+                    "FILTERED": ["VALID", 7, None, "", {"not": "a member"}],
+                    "BROKEN": "not-a-list",
+                },
+            },
         }
     )
 
     assert project.get_text_variable("TITLE") == "Demo"
     assert project.get_variant("Default") == ProjectVariant("Default")
     assert list(project.iter_variants()) == [ProjectVariant("Default")]
+    assert project.bus_aliases == {
+        "I2C": ["SCL", "SDA"],
+        "USB": ["D+", "D-"],
+        "FILTERED": ["VALID", ""],
+    }
 
     project.set_text_variable("REV", "A")
     assert project.text_variables["REV"] == "A"
@@ -143,6 +156,7 @@ def test_project_json_text_variable_and_variant_helpers(tmp_path):
     project.to_file(out)
     loaded = KiCadProject.from_file(out)
     assert loaded.to_json()["text_variables"] == {"TITLE": "Demo"}
+    assert loaded.bus_aliases == project.bus_aliases
 
 
 def test_design_from_file_dispatches_by_suffix(tmp_path):

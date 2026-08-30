@@ -24,7 +24,8 @@
     <h3>Purpose</h3>
     <p>
       Wrap project JSON with typed helpers for text variables, variant lookup,
-      serialization, and future project metadata. For new project folders,
+      project-scoped schematic bus aliases, serialization, and future project
+      metadata. For new project folders,
       <code>KiCadProject.create(name, directory)</code> starts the writable
       aggregate that can attach schematics, boards, library tables, worksheet
       references, and then write the resulting folder.
@@ -40,8 +41,9 @@
     <h3>Test Requirements</h3>
     <p>
       Tests must cover JSON construction, text-variable get/set/remove behavior,
-      variant iteration, file writing, reload, constructor compatibility, and
-      <code>KiCadProject.create</code> folder assembly.
+      variant iteration, project-scoped bus-alias loading, file writing, reload,
+      constructor compatibility, and <code>KiCadProject.create</code> folder
+      assembly.
     </p>
     <h3>Working Definition</h3>
     <p>
@@ -67,7 +69,9 @@
     <p>
       Aggregate project, schematic, and board objects; dispatch from common file
       suffixes; expose document queries; and provide design-level IR and JSON
-      entrypoints. The design facade also expands hierarchical sheet
+      entrypoints. Project-scoped bus aliases are threaded into netlist
+      compilation so hierarchical bus members resolve across sheets. The design
+      facade also expands hierarchical sheet
       instantiations so repeated schematic files can be rendered, indexed, and
       reviewed as distinct concrete sheet views.
     </p>
@@ -104,8 +108,9 @@ if (net) {
     <h3>Test Requirements</h3>
     <p>
       Tests must cover file dispatch, aggregate object queries, schematic
-      mutators, hierarchy instance navigation, design JSON output, schematic
-      SVG view-local net linkage, and PCB IR delegation.
+      mutators, hierarchy instance navigation, project-scoped hierarchical bus
+      connectivity, design JSON output, schematic SVG view-local net linkage,
+      and PCB IR delegation.
     </p>
     <h3>Working Definition</h3>
     <p>

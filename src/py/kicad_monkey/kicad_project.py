@@ -2,7 +2,8 @@
 KiCad project-sidecar models for `.kicad_pro` JSON data.
 
 This module intentionally covers the source-model surfaces that materially
-affect PCB semantics today: net settings and text variables.
+affect design semantics today: net settings, schematic bus aliases, and text
+variables.
 """
 
 from __future__ import annotations
@@ -259,8 +260,8 @@ class KiCadProject:
 
     This is the canonical reader for KiCad project files. The full
     parsed JSON is preserved verbatim in :attr:`raw` so the write/save path
-    can round-trip without loss; typed views like :attr:`variants` and
-    :attr:`net_settings` are derived from it.
+    can round-trip without loss; typed views like :attr:`variants`,
+    :attr:`bus_aliases`, and :attr:`net_settings` are derived from it.
 
     For scaffolding new project folders, use :meth:`create`. It starts a blank
     project bound to an on-disk directory; :meth:`add_schematic`,
@@ -355,6 +356,20 @@ class KiCadProject:
                 return default
             node = node[part]
         return node
+
+    @property
+    def bus_aliases(self) -> dict[str, list[str]]:
+        """Return a normalized copy of KiCad's project-scoped bus aliases."""
+        raw_aliases = self.get_path("schematic.bus_aliases", {})
+        if not isinstance(raw_aliases, dict):
+            return {}
+
+        aliases: dict[str, list[str]] = {}
+        for name, members in raw_aliases.items():
+            if not isinstance(name, str) or not isinstance(members, list):
+                continue
+            aliases[name] = [member for member in members if isinstance(member, str)]
+        return aliases
 
     def get_text_variable(self, name: str, default: str = "") -> str:
         """Return a project text variable value."""

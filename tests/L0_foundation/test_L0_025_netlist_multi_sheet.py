@@ -25,12 +25,14 @@ from typing import Optional
 
 from kicad_monkey import (
     KiCadDriverPriority,
+    KiCadDesign,
     compile_design_netlist,
     compile_design_subgraphs,
     merge_design_nets,
 )
 from kicad_monkey.kicad_lib_subsymbol import LibSubSymbol
 from kicad_monkey.kicad_lib_symbol import LibSymbol
+from kicad_monkey.kicad_project import KiCadProject
 from kicad_monkey.kicad_sch_enums import LabelShape, PinElectricalType, PinGraphicStyle
 from kicad_monkey.kicad_sch_label import (
     SchGlobalLabel,
@@ -383,6 +385,53 @@ def test_cross_sheet_bus_members_match_escaped_slash_labels():
     ]
     assert len(merged) == 1, [(n.name, [(t.designator, t.pin) for t in n.terminals]) for n in nl.nets]
     assert "ADC0{slash}GPIO0" in merged[0].name
+
+
+def test_project_scoped_bus_alias_merges_cross_sheet_members():
+    """Project aliases merge members and win over legacy name collisions."""
+    libR = _libsym("Device:R", _pin(0.0, 0.0, number="1"))
+
+    def child(uuid: str, ref: str) -> KiCadSchematic:
+        sch = KiCadSchematic()
+        sch.uuid = uuid
+        sch.lib_symbols.append(libR)
+        sch.symbols.append(_placed("Device:R", reference=ref, at_x=10.0, at_y=10.0))
+        sch.labels.append(SchLabel(text="SCL", at_x=10.0, at_y=10.0))
+        sch.hierarchical_labels.append(
+            SchHierarchicalLabel(text="{I2C}", at_x=0.0, at_y=0.0)
+        )
+        return sch
+
+    root = KiCadSchematic()
+    root.uuid = "root"
+    root.bus_aliases.append(
+        SchBusAlias(name="I2C", members=["LEGACY_MEMBER"])
+    )
+    child_a = child("a", "R1")
+    child_b = child("b", "R2")
+    root.sheets.append(_sheet(
+        "a.kicad_sch", "a", "sheet-a", _spin("{I2C}", 0.0, 0.0)
+    ))
+    root.sheets.append(_sheet(
+        "b.kicad_sch", "b", "sheet-b", _spin("{I2C}", 20.0, 0.0)
+    ))
+    root.sub_schematics["a.kicad_sch"] = child_a
+    root.sub_schematics["b.kicad_sch"] = child_b
+
+    project = KiCadProject.from_json_dict({
+        "schematic": {"bus_aliases": {"I2C": ["SCL", "SDA"]}},
+    })
+    netlist = KiCadDesign(project=project, schematics=[root]).to_netlist()
+
+    merged = [
+        net for net in netlist.nets
+        if {terminal.designator for terminal in net.terminals} == {"R1", "R2"}
+    ]
+    assert len(merged) == 1, [
+        (net.name, [(terminal.designator, terminal.pin) for terminal in net.terminals])
+        for net in netlist.nets
+    ]
+    assert merged[0].name.endswith("SCL")
 
 
 def test_design_duplicate_sheet_pin_names_get_stable_suffixes():
