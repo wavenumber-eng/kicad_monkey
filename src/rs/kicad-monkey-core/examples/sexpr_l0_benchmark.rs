@@ -79,32 +79,80 @@ struct Measurement {
     scan_raw_seconds: Vec<f64>,
     parse_raw_seconds: Vec<f64>,
     build_raw_seconds: Vec<f64>,
-    sparse_memory_raw_seconds: Vec<f64>,
-    sparse_stream_raw_seconds: Vec<f64>,
     lex_drain_seconds: f64,
     lex_collect_seconds: f64,
     scan_seconds: f64,
     parse_seconds: f64,
     build_seconds: f64,
-    sparse_memory_seconds: f64,
-    sparse_stream_seconds: f64,
     lex_drain_best_seconds: f64,
     lex_collect_best_seconds: f64,
     scan_best_seconds: f64,
     parse_best_seconds: f64,
     build_best_seconds: f64,
-    sparse_memory_best_seconds: f64,
-    sparse_stream_best_seconds: f64,
     lex_drain_mib_s: f64,
     lex_collect_mib_s: f64,
     scan_mib_s: f64,
     parse_mib_s: f64,
     build_mib_s: f64,
+    #[serde(flatten)]
+    sparse: SparseMeasurement,
+}
+
+#[derive(Serialize)]
+struct SparseMeasurement {
     sparse_input_bytes: usize,
     sparse_visited_forms: usize,
     sparse_selected_forms: usize,
+    sparse_memory_raw_seconds: Vec<f64>,
+    sparse_stream_raw_seconds: Vec<f64>,
+    sparse_memory_seconds: f64,
+    sparse_stream_seconds: f64,
+    sparse_memory_best_seconds: f64,
+    sparse_stream_best_seconds: f64,
     sparse_memory_mib_s: f64,
     sparse_stream_mib_s: f64,
+}
+
+fn measure_sparse_projection() -> SparseMeasurement {
+    let (source, visited_forms, selected_forms) = benchmark_fixture::speedy_shaped_sparse_fixture();
+    let selector = Selector {
+        paths: Some(BTreeSet::from([vec![
+            "kicad_sch".to_owned(),
+            "symbol".to_owned(),
+            "target".to_owned(),
+        ]])),
+        ..Selector::default()
+    };
+    let limits = ProjectionLimits::default();
+    let memory = scan_form_spans(&source, &selector).expect("sparse memory warmup");
+    let stream = scan_reader_form_spans(Cursor::new(source.as_bytes()), &selector, limits)
+        .expect("sparse stream warmup");
+    assert_eq!(memory, stream);
+    assert_eq!(memory.len(), selected_forms);
+    let sparse_memory_raw_seconds = measure(|| {
+        black_box(scan_form_spans(&source, &selector).expect("sparse memory scan"));
+    });
+    let sparse_stream_raw_seconds = measure(|| {
+        black_box(
+            scan_reader_form_spans(Cursor::new(source.as_bytes()), &selector, limits)
+                .expect("sparse stream scan"),
+        );
+    });
+    let sparse_memory_seconds = median(&sparse_memory_raw_seconds);
+    let sparse_stream_seconds = median(&sparse_stream_raw_seconds);
+    SparseMeasurement {
+        sparse_input_bytes: source.len(),
+        sparse_visited_forms: visited_forms,
+        sparse_selected_forms: selected_forms,
+        sparse_memory_best_seconds: best(&sparse_memory_raw_seconds),
+        sparse_stream_best_seconds: best(&sparse_stream_raw_seconds),
+        sparse_memory_mib_s: mib_per_second(source.len(), sparse_memory_seconds),
+        sparse_stream_mib_s: mib_per_second(source.len(), sparse_stream_seconds),
+        sparse_memory_raw_seconds,
+        sparse_stream_raw_seconds,
+        sparse_memory_seconds,
+        sparse_stream_seconds,
+    }
 }
 
 fn main() {
@@ -117,27 +165,7 @@ fn main() {
     let spans = scan_form_spans(&source, &selector).expect("fixture should scan");
     let tree = parse(&source).expect("fixture should parse");
     let built = build(&tree).expect("fixture tree should build");
-    let (sparse_source, sparse_visited_forms, sparse_selected_forms) =
-        benchmark_fixture::speedy_shaped_sparse_fixture();
-    let sparse_selector = Selector {
-        paths: Some(BTreeSet::from([vec![
-            "kicad_sch".to_owned(),
-            "symbol".to_owned(),
-            "target".to_owned(),
-        ]])),
-        ..Selector::default()
-    };
-    let projection_limits = ProjectionLimits::default();
-    let sparse_memory = scan_form_spans(&sparse_source, &sparse_selector)
-        .expect("sparse fixture should scan in memory");
-    let sparse_stream = scan_reader_form_spans(
-        Cursor::new(sparse_source.as_bytes()),
-        &sparse_selector,
-        projection_limits,
-    )
-    .expect("sparse fixture should scan as a stream");
-    assert_eq!(sparse_memory, sparse_stream);
-    assert_eq!(sparse_memory.len(), sparse_selected_forms);
+    let sparse = measure_sparse_projection();
 
     let lex_drain_raw_seconds = measure(|| {
         black_box(drain_lexer(black_box(&source)).expect("benchmark lexer drain"));
@@ -156,30 +184,11 @@ fn main() {
     let build_raw_seconds = measure(|| {
         black_box(build(black_box(&tree)).expect("benchmark build"));
     });
-    let sparse_memory_raw_seconds = measure(|| {
-        black_box(
-            scan_form_spans(black_box(&sparse_source), black_box(&sparse_selector))
-                .expect("benchmark sparse memory scan"),
-        );
-    });
-    let sparse_stream_raw_seconds = measure(|| {
-        black_box(
-            scan_reader_form_spans(
-                Cursor::new(black_box(sparse_source.as_bytes())),
-                black_box(&sparse_selector),
-                projection_limits,
-            )
-            .expect("benchmark sparse stream scan"),
-        );
-    });
-
     let lex_drain_seconds = median(&lex_drain_raw_seconds);
     let lex_collect_seconds = median(&lex_collect_raw_seconds);
     let scan_seconds = median(&scan_raw_seconds);
     let parse_seconds = median(&parse_raw_seconds);
     let build_seconds = median(&build_raw_seconds);
-    let sparse_memory_seconds = median(&sparse_memory_raw_seconds);
-    let sparse_stream_seconds = median(&sparse_stream_raw_seconds);
     let measurement = Measurement {
         schema: "kicad_monkey.sexpr_benchmark.a1",
         fixture: "synthetic_pcb_20000",
@@ -194,32 +203,22 @@ fn main() {
         scan_best_seconds: best(&scan_raw_seconds),
         parse_best_seconds: best(&parse_raw_seconds),
         build_best_seconds: best(&build_raw_seconds),
-        sparse_memory_best_seconds: best(&sparse_memory_raw_seconds),
-        sparse_stream_best_seconds: best(&sparse_stream_raw_seconds),
         lex_drain_mib_s: mib_per_second(source.len(), lex_drain_seconds),
         lex_collect_mib_s: mib_per_second(source.len(), lex_collect_seconds),
         scan_mib_s: mib_per_second(source.len(), scan_seconds),
         parse_mib_s: mib_per_second(source.len(), parse_seconds),
         build_mib_s: mib_per_second(built.len(), build_seconds),
-        sparse_input_bytes: sparse_source.len(),
-        sparse_visited_forms,
-        sparse_selected_forms,
-        sparse_memory_mib_s: mib_per_second(sparse_source.len(), sparse_memory_seconds),
-        sparse_stream_mib_s: mib_per_second(sparse_source.len(), sparse_stream_seconds),
         lex_drain_raw_seconds,
         lex_collect_raw_seconds,
         scan_raw_seconds,
         parse_raw_seconds,
         build_raw_seconds,
-        sparse_memory_raw_seconds,
-        sparse_stream_raw_seconds,
         lex_drain_seconds,
         lex_collect_seconds,
         scan_seconds,
         parse_seconds,
         build_seconds,
-        sparse_memory_seconds,
-        sparse_stream_seconds,
+        sparse,
     };
     println!(
         "{}",
