@@ -28,6 +28,9 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--archive", required=True, type=Path)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--rounds", type=int, default=13)
+    parser.add_argument("--case-id")
+    parser.add_argument("--scanner", choices=("memory", "stream"))
+    parser.add_argument("--select-only", action="store_true")
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()
 
@@ -277,11 +280,14 @@ def main() -> None:
     corpus: list[dict[str, Any]] = []
     corpus_root = args.corpus_root.resolve()
     for case in manifest["cases"]:
+        if args.case_id is not None and case["id"] != args.case_id:
+            continue
         path = (corpus_root / case["path"]).resolve()
         path.relative_to(corpus_root)
         if path.stat().st_size != case["bytes"] or sha256_file(path) != case["sha256"]:
             raise AssertionError(f"corpus case drift: {case['id']}")
-        for scanner in ("memory", "stream"):
+        scanners = (args.scanner,) if args.scanner is not None else ("memory", "stream")
+        for scanner in scanners:
             print(f"select-all {case['id']} {scanner}", flush=True)
             pairs = _select_all_pairs(
                 {
@@ -304,7 +310,7 @@ def main() -> None:
                     },
                 }
             )
-        for operation in manifest["operations"]:
+        for operation in () if args.select_only else manifest["operations"]:
             print(f"corpus {case['id']} {operation}", flush=True)
             pairs = _corpus_pairs(
                 {
