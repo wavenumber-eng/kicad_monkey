@@ -18,6 +18,7 @@ import pytest
 from kicad_monkey.testing.corpus import get_kicad_corpus_root
 from support_scripts.process_peak_memory import run_with_peak_rss
 from support_scripts.advisory import advisory_benchmarks_enabled
+from support_scripts.performance_provenance import collect_performance_provenance
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -140,9 +141,7 @@ def _measure_operation(
         ),
         "peak_rss_bytes": max(peak_rss),
         "peak_rss_to_input_ratio": max(peak_rss) / input_bytes,
-        "best_input_mib_per_second": (
-            input_bytes / (1024 * 1024) / total_seconds
-        ),
+        "best_input_mib_per_second": (input_bytes / (1024 * 1024) / total_seconds),
         "runs": [
             {
                 **{
@@ -219,6 +218,16 @@ def test_named_corpus_release_performance_and_peak_memory() -> None:
             "rustc": _run([rustc, "--version", "--verbose"]).stdout.strip(),
             "cargo": _run([cargo, "--version"]).stdout.strip(),
         },
+        "provenance": collect_performance_provenance(
+            package_root=PACKAGE_ROOT,
+            executables={"sexpr_corpus_benchmark": executable},
+            feature_sets={"sexpr_corpus_benchmark": []},
+            archive=Path(
+                os.environ.get(
+                    "KM_CORPUS", PACKAGE_ROOT / "tests" / "corpus" / "kicad.zip"
+                )
+            ).resolve(),
+        ),
         "cases": measurements,
     }
     EVIDENCE_PATH.parent.mkdir(parents=True, exist_ok=True)

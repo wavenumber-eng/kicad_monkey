@@ -8,15 +8,19 @@ rounds = 5
 
 [sparse_projection]
 generator = "src/rs/kicad-monkey-core/examples/sexpr_projection_allocation_benchmark.rs"
+fixture_generator = "src/rs/kicad-monkey-core/examples/support/sexpr_benchmark_fixture.rs"
 fixture = "speedy_shaped_sparse_50000"
 scanners = ["memory", "stream"]
 instrumentation = "stats_alloc 0.1.10 isolated process region plus known-allocation control"
+timing = "uninstrumented five-round warmed memory and stream medians in sexpr_l0_benchmark"
 metrics = [
     "visited_forms",
     "selected_forms",
     "allocation_calls",
     "reallocation_calls",
     "allocated_bytes",
+    "sparse_memory_seconds",
+    "sparse_stream_seconds",
 ]
 
 [promotion]

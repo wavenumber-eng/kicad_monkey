@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 use std::hint::black_box;
 use std::io::Cursor;
 
-const ITEMS: usize = 50_000;
-const SELECT_EVERY: usize = 400;
+#[path = "support/sexpr_benchmark_fixture.rs"]
+mod benchmark_fixture;
 
 #[global_allocator]
 static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
@@ -50,7 +50,7 @@ fn counts(stats: Stats) -> AllocationCounts {
 }
 
 fn measure<T>(operation: impl FnOnce() -> T) -> (T, AllocationCounts) {
-    let region = Region::new(&GLOBAL);
+    let region = Region::new(GLOBAL);
     let result = operation();
     (result, counts(region.change()))
 }
@@ -64,25 +64,6 @@ fn validate_control() -> AllocationCounts {
     counts
 }
 
-fn fixture() -> (String, usize, usize) {
-    let mut source = String::with_capacity(20 * 1024 * 1024);
-    source.push_str("(kicad_sch\n");
-    let mut selected = 0;
-    for index in 0..ITEMS {
-        source.push_str("(symbol (property \"Reference\" \"R");
-        source.push_str(&index.to_string());
-        source.push_str("\") (at 12.5 25.0) (effects (font (size 1.27 1.27)))");
-        if index % SELECT_EVERY == 0 {
-            source.push_str(" (target selected)");
-            selected += 1;
-        }
-        source.push_str(")\n");
-    }
-    source.push_str(")\n");
-    let visited = source.bytes().filter(|byte| *byte == b'(').count();
-    (source, visited, selected)
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let scanner = std::env::args()
         .nth(1)
@@ -90,7 +71,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if scanner != "memory" && scanner != "stream" {
         return Err(format!("unsupported scanner: {scanner}").into());
     }
-    let (source, visited_forms, expected_selected) = fixture();
+    let (source, visited_forms, expected_selected) =
+        benchmark_fixture::speedy_shaped_sparse_fixture();
     let selector = Selector {
         paths: Some(BTreeSet::from([vec![
             "kicad_sch".to_owned(),

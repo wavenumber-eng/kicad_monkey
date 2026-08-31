@@ -15,6 +15,7 @@ import pytest
 
 from kicad_monkey.testing.corpus import get_kicad_corpus_root
 from support_scripts.advisory import advisory_benchmarks_enabled
+from support_scripts.performance_provenance import collect_performance_provenance
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -78,9 +79,7 @@ def _benchmark_executable(cargo: str) -> Path:
 
 def _measure(executable: Path, scanner: str, path: Path) -> dict[str, Any]:
     runs = [
-        json.loads(
-            _run([str(executable), scanner, str(path)], timeout=180).stdout
-        )
+        json.loads(_run([str(executable), scanner, str(path)], timeout=180).stdout)
         for _ in range(ROUNDS)
     ]
     assert all(
@@ -98,9 +97,7 @@ def _measure(executable: Path, scanner: str, path: Path) -> dict[str, Any]:
         "best_scan_ns": best["scan_ns"],
         "best_sort_ns": best["sort_ns"],
         "best_sort_fraction": best["sort_fraction"],
-        "median_sort_fraction": statistics.median(
-            run["sort_fraction"] for run in runs
-        ),
+        "median_sort_fraction": statistics.median(run["sort_fraction"] for run in runs),
         "runs": runs,
     }
 
@@ -119,8 +116,7 @@ def test_select_all_reports_scan_and_sort_cost_separately() -> None:
         path = (corpus_root / case["path"]).resolve()
         path.relative_to(corpus_root)
         measurements = [
-            _measure(executable, scanner, path)
-            for scanner in ("memory", "stream")
+            _measure(executable, scanner, path) for scanner in ("memory", "stream")
         ]
         assert measurements[0]["selected_forms"] == measurements[1]["selected_forms"]
         evidence_cases.append(
@@ -139,6 +135,16 @@ def test_select_all_reports_scan_and_sort_cost_separately() -> None:
         "status": "measurement",
         "rounds": ROUNDS,
         "archive_sha256": manifest["archive_sha256"],
+        "provenance": collect_performance_provenance(
+            package_root=PACKAGE_ROOT,
+            executables={"sexpr_selection_sort_benchmark": executable},
+            feature_sets={"sexpr_selection_sort_benchmark": ["measurement"]},
+            archive=Path(
+                os.environ.get(
+                    "KM_CORPUS", PACKAGE_ROOT / "tests" / "corpus" / "kicad.zip"
+                )
+            ).resolve(),
+        ),
         "cases": evidence_cases,
     }
     EVIDENCE_PATH.parent.mkdir(parents=True, exist_ok=True)
