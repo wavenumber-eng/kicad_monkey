@@ -89,7 +89,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--baseline-workspace", required=True, type=Path)
     parser.add_argument("--candidate-workspace", required=True, type=Path)
     parser.add_argument("--archive", required=True, type=Path)
-    parser.add_argument("--rounds", type=int, default=5)
+    parser.add_argument("--rounds", type=int, default=9)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()

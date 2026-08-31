@@ -65,7 +65,7 @@ def collect_performance_provenance(
         "git_sha": git_sha,
         "base_sha": base_sha,
         "git_status_porcelain": _output(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "status", "--porcelain", "--untracked-files=all"],
             root=package_root,
         ).splitlines(),
         "stable_patch_id": patch_id_result[0] if patch_id_result else None,
