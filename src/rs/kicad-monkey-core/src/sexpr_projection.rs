@@ -7,6 +7,7 @@ use crate::sexpr::{
     is_teardrop_numeric_key, parse,
 };
 use scanner::scan_form_spans_unsorted;
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::Range;
@@ -62,30 +63,44 @@ impl Selector {
     }
 
     fn matches(&self, span: &FormSpan) -> bool {
+        self.matches_parts(
+            span.head.as_deref(),
+            span.path.iter().map(String::as_str),
+            span.depth,
+        )
+    }
+
+    fn matches_parts<'path, I>(&self, head: Option<&str>, path: I, depth: usize) -> bool
+    where
+        I: Clone + Iterator<Item = &'path str>,
+    {
         if self
             .heads
             .as_ref()
-            .is_some_and(|heads| span.head.as_ref().is_none_or(|head| !heads.contains(head)))
+            .is_some_and(|heads| head.is_none_or(|value| !heads.contains(value)))
         {
             return false;
         }
-        if self
-            .paths
-            .as_ref()
-            .is_some_and(|paths| !paths.contains(&span.path))
-        {
+        if self.paths.as_ref().is_some_and(|paths| {
+            !paths
+                .iter()
+                .any(|target| target.iter().map(String::as_str).eq(path.clone()))
+        }) {
             return false;
         }
-        if self.min_depth.is_some_and(|minimum| span.depth < minimum) {
+        if self.min_depth.is_some_and(|minimum| depth < minimum) {
             return false;
         }
-        if self.max_depth.is_some_and(|maximum| span.depth > maximum) {
+        if self.max_depth.is_some_and(|maximum| depth > maximum) {
             return false;
         }
         true
     }
 
-    fn should_scan_children(&self, head: Option<&str>, path: &[String], depth: usize) -> bool {
+    fn should_scan_children<'path, I>(&self, head: Option<&str>, path: I, depth: usize) -> bool
+    where
+        I: Clone + Iterator<Item = &'path str>,
+    {
         if head.is_some_and(|value| self.prune_heads.contains(value)) {
             return false;
         }
@@ -93,9 +108,15 @@ impl Selector {
             return false;
         }
         self.paths.as_ref().is_none_or(|paths| {
-            paths
-                .iter()
-                .any(|target| target.len() > path.len() && target[..path.len()] == *path)
+            paths.iter().any(|target| {
+                let mut active = path.clone();
+                let prefix_matches = target
+                    .iter()
+                    .map(String::as_str)
+                    .zip(active.by_ref())
+                    .all(|(expected, actual)| expected == actual);
+                prefix_matches && active.next().is_none() && target.len() > path.clone().count()
+            })
         })
     }
 }
@@ -171,9 +192,8 @@ fn is_pruned(span: &FormSpan, selector: &Selector) -> bool {
 }
 
 #[derive(Debug)]
-struct Frame {
-    head: Option<String>,
-    path: Vec<String>,
+struct Frame<Head> {
+    head: Option<Head>,
     depth: usize,
     start: Position,
     visible: bool,
@@ -228,10 +248,10 @@ pub fn parse_form(source: &str, span: &FormSpan) -> Result<Sexp, Error> {
     parse(span.text(source)?)
 }
 
-fn token_head(token: &Token<'_>) -> String {
+fn token_head<'source>(token: &Token<'source>) -> Cow<'source, str> {
     match token.kind {
-        TokenKind::QuotedString => decode_quoted(token.lexeme),
-        _ => token.lexeme.to_owned(),
+        TokenKind::QuotedString => Cow::Owned(decode_quoted(token.lexeme)),
+        _ => Cow::Borrowed(token.lexeme),
     }
 }
 
@@ -330,7 +350,7 @@ fn invalid_utf8(position: Position) -> Error {
 struct StreamingProjection<'a> {
     selector: &'a Selector,
     limits: ProjectionLimits,
-    stack: Vec<Frame>,
+    stack: Vec<Frame<String>>,
     spans: Vec<FormSpan>,
     state: StreamLexState,
     position: Position,
@@ -518,23 +538,23 @@ impl<'a> StreamingProjection<'a> {
                 self.position,
             ));
         }
-        if let Some(parent) = self.stack.last_mut()
-            && parent.awaiting_head
-        {
-            parent.awaiting_head = false;
-            parent.scan_children = parent.visible
-                && self
-                    .selector
-                    .should_scan_children(None, &parent.path, parent.depth);
+        if self.stack.last().is_some_and(|parent| parent.awaiting_head) {
+            let (visible, depth) = {
+                let parent = self.stack.last_mut().expect("checked above");
+                parent.awaiting_head = false;
+                (parent.visible, parent.depth)
+            };
+            let scan_children = visible
+                && self.selector.should_scan_children(
+                    None,
+                    self.stack.iter().filter_map(|frame| frame.head.as_deref()),
+                    depth,
+                );
+            self.stack.last_mut().expect("checked above").scan_children = scan_children;
         }
         let visible = self.stack.last().is_none_or(|parent| parent.scan_children);
-        let path = self
-            .stack
-            .last()
-            .map_or_else(Vec::new, |parent| parent.path.clone());
         self.stack.push(Frame {
             head: None,
-            path,
             depth: self.stack.len(),
             start: self.position,
             visible,
@@ -557,7 +577,7 @@ impl<'a> StreamingProjection<'a> {
                 .teardrop_bare_field = TeardropBareField::None;
             return Ok(());
         }
-        let Some(frame) = self.stack.pop() else {
+        let Some(frame) = self.stack.last() else {
             return Err(Error::at(
                 ErrorPhase::Tree,
                 ErrorKind::UnbalancedClosingParenthesis,
@@ -565,15 +585,30 @@ impl<'a> StreamingProjection<'a> {
                 close,
             ));
         };
-        let span = FormSpan {
-            head: frame.head,
-            path: frame.path,
-            depth: frame.depth,
-            range: frame.start.offset..self.position.offset,
-            start: frame.start,
-            end: self.position,
-        };
-        if frame.visible && self.selector.matches(&span) {
+        let selected = frame.visible
+            && self.selector.matches_parts(
+                frame.head.as_deref(),
+                self.stack.iter().filter_map(|item| item.head.as_deref()),
+                frame.depth,
+            );
+        let frame = self.stack.pop().expect("checked above");
+        if selected {
+            let mut path = self
+                .stack
+                .iter()
+                .filter_map(|item| item.head.clone())
+                .collect::<Vec<_>>();
+            if let Some(head) = frame.head.as_ref() {
+                path.push(head.clone());
+            }
+            let span = FormSpan {
+                head: frame.head,
+                path,
+                depth: frame.depth,
+                range: frame.start.offset..self.position.offset,
+                start: frame.start,
+                end: self.position,
+            };
             self.spans.push(span);
             if self.spans.len() > self.limits.max_selected_forms {
                 return Err(resource_error(
@@ -646,13 +681,19 @@ impl<'a> StreamingProjection<'a> {
                 self.token_start,
             ));
         };
-        frame.path.push(head.clone());
         frame.head = Some(head);
         frame.awaiting_head = false;
-        frame.scan_children = frame.visible
-            && self
-                .selector
-                .should_scan_children(frame.head.as_deref(), &frame.path, frame.depth);
+        let (visible, depth) = (frame.visible, frame.depth);
+        let scan_children = visible
+            && self.selector.should_scan_children(
+                self.stack.last().and_then(|item| item.head.as_deref()),
+                self.stack.iter().filter_map(|item| item.head.as_deref()),
+                depth,
+            );
+        self.stack
+            .last_mut()
+            .expect("head belongs to an active frame")
+            .scan_children = scan_children;
         self.collect_head = false;
         self.collect_teardrop_scalar = false;
         Ok(())
