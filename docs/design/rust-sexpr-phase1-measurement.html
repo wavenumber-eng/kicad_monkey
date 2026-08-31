@@ -130,5 +130,57 @@
       <li>Do not authorize typed-model expansion until every Phase 1 dependency closes.</li>
     </ul>
   </section>
+
+  <section>
+    <h2>2026-08-31 Native Lexer and Sparse Projection Decision</h2>
+    <p>
+      GitHub issue #75 was implemented as two private, independently measured
+      changes without altering the public parser or projection contracts. The
+      lexer now scans structural ASCII and token runs by byte while preserving
+      Unicode-scalar columns. Projection frames borrow unquoted in-memory heads
+      and derive paths from the active stack; owned public heads and paths are
+      created only for selected forms. The streaming scanner retains only the
+      owned active heads required after input chunks are discarded.
+    </p>
+    <p>
+      Same-host evidence used clean exact commits B0
+      <code>72dea9973eade13034ef043dd62792006fda9722</code>, lexer L
+      <code>beb40f62abab2e6f64f3daaab36f14899114bf8e</code>, and final P
+      <code>697a685ef0843dc0b6a73e8288e1599a049d93d4</code>. Harnesses,
+      inputs, features, release settings, locks, binaries, raw rounds, and host
+      provenance were retained for each comparison.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Gate</th><th>Observed result</th><th>Decision</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>B0 to L lexer</td><td>2.302x median; 2.292x 95% sign-interval lower bound</td><td>Pass</td></tr>
+        <tr><td>L to P sparse memory time</td><td>5.053x median; 5.035x lower bound</td><td>Pass</td></tr>
+        <tr><td>L to P sparse stream time</td><td>2.740x median; 2.704x lower bound</td><td>Pass</td></tr>
+        <tr><td>L to P memory allocations</td><td>1,600,631 to 628 calls; 99.96% reduction</td><td>Pass</td></tr>
+        <tr><td>L to P stream allocations</td><td>1,600,632 to 300,630 calls; 81.22% reduction</td><td>Pass</td></tr>
+        <tr><td>L to P select-all</td><td>1.043x to 1.188x median across all tiers/scanners</td><td>Pass</td></tr>
+        <tr><td>B0 to P native Speedy</td><td>7.618 s to 5.028 s median; 1.515x improvement</td><td>Pass</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The final three-round Speedy run retained semantic parity for all 35
+      structured/report artifacts and all 29 SVGs, left the reviewed source
+      tree unchanged, and measured the Rust path at 15.44x the Python median.
+      The three paired B0-to-P Rust ratios were 1.479x, 1.515x, and 1.578x.
+      Shared Python/Rust span vectors, exact memory/stream resource boundaries,
+      full locked workspace tests, real Node-hosted WASM, reviewed-corpus
+      roundtrip/determinism, Cruncher source-install behavior, and repository
+      audits passed.
+    </p>
+    <p>
+      These values accept the byte lexer and allocation-light projection
+      representation on this host; they are not portable service-level
+      guarantees. A borrowed public tree, selector trie, final-sort removal,
+      <code>memchr</code>, direct typed parsing, and a Python lexer rewrite
+      remain separately scoped work.
+    </p>
+  </section>
 </body>
 </html>

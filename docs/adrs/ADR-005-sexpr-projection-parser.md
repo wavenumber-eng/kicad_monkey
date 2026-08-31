@@ -85,3 +85,35 @@ workloads now make the performance constraints explicit:
 
 Future native accelerators, pull-parser architecture, or direct typed parsing
 remain separate design decisions and are not part of this accepted update.
+
+## 2026-08-31 Native Rust Performance Update
+
+The public projection boundary remains unchanged. The native Rust
+implementation now uses two private, independently measured accelerators:
+
+- the lexer scans structural ASCII and token runs by byte, then uses the
+  Unicode-aware path only when exact scalar-column accounting requires it;
+- projection frames borrow unquoted heads in memory, retain only the owned
+  active head required by streaming input, and derive paths from the active
+  frame stack instead of cloning an owned path for every visited form.
+
+Owned `FormSpan` heads and paths are still materialized at selection time, so
+the public source-span, selector, ordering, resource-limit, diagnostic, native,
+streaming, and WASM contracts do not change. `StructuralIndex` keeps its
+specialized indexed path lookup rather than routing exact stored-span queries
+through the generic iterator matcher.
+
+The accepted same-host evidence compares exact, independently buildable
+commits: B0 `72dea9973eade13034ef043dd62792006fda9722`, lexer L
+`beb40f62abab2e6f64f3daaab36f14899114bf8e`, and final P
+`697a685ef0843dc0b6a73e8288e1599a049d93d4`. B0 to L improved the
+non-collecting lexer median by 2.30x. L to P reduced sparse in-memory
+allocation calls from 1,600,631 to 628 and streaming calls from 1,600,632 to
+300,630; sparse scan medians improved 5.05x and 2.74x respectively. The full
+Speedy native median improved from 7.618 seconds at B0 to 5.028 seconds at P
+with structured-artifact and SVG parity.
+
+These results ratify the two internal changes, not portable performance
+guarantees. A borrowed or arena-backed public tree, selector tries,
+source-order sort removal, `memchr`, direct typed parsing, and a Python lexer
+rewrite remain separate decisions requiring their own evidence.

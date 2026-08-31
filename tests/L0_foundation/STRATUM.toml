@@ -147,10 +147,11 @@ secondary = [
     "Python and Rust process byte-identical generated input",
     "Selected form count and deterministic output size agree",
     "Lexer drain and public token collection are measured independently with raw rounds",
-    "Memory and streaming sparse scans report separately controlled allocation evidence",
+    "Memory and streaming sparse scans report separately controlled allocation evidence with a known-allocation control",
     "All evidence records Git, patch, executable, lock, archive, host, feature, profile, and toolchain identities",
-    "A dedicated A/B probe retains alternating raw pairs, ratios, and dispersion",
-    "Thresholds remain explicitly pending the L0 architecture review",
+    "Dedicated A/B probes retain alternating raw pairs, ratios, dispersion, and an exact median sign interval",
+    "Shared Python, Rust memory, Rust stream, and StructuralIndex vectors preserve selected span behavior",
+    "Accepted same-host promotion targets remain decision evidence rather than portable service-level guarantees",
 ]
 
 [[subtests]]
