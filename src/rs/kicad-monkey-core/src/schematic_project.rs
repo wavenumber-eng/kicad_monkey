@@ -1,25 +1,39 @@
 use crate::{
-    ProjectDocument, ProjectLimits, ProjectView, SchematicSubpartSettings, SourceBundleError,
-    SourceBundleErrorKind, SourceFile,
+    ProjectBusAlias, ProjectDocument, ProjectErrorKind, ProjectLimits, ProjectView,
+    SchematicBundleLimits, SchematicSubpartSettings, SourceBundleError, SourceBundleErrorKind,
+    SourceFile,
 };
 
-pub(crate) fn project_subpart_settings(
+#[derive(Clone, Debug)]
+pub(crate) struct ProjectSchematicSettings {
+    pub(crate) subparts: SchematicSubpartSettings,
+    pub(crate) bus_aliases: Vec<ProjectBusAlias>,
+}
+
+pub(crate) fn project_schematic_settings_with_limits(
     project: Option<&SourceFile>,
-) -> Result<SchematicSubpartSettings, SourceBundleError> {
+    limits: SchematicBundleLimits,
+) -> Result<ProjectSchematicSettings, SourceBundleError> {
     let Some(project) = project else {
-        return Ok(SchematicSubpartSettings::default());
+        return Ok(ProjectSchematicSettings {
+            subparts: SchematicSubpartSettings::default(),
+            bus_aliases: Vec::new(),
+        });
     };
     let document = ProjectDocument::from_reader(
         project.bytes(),
         ProjectLimits {
             max_source_bytes: project.bytes().len(),
             max_output_bytes: project.bytes().len(),
+            max_bus_aliases: limits.max_bus_aliases_per_source,
+            max_bus_alias_members: limits.max_bus_alias_members_per_source,
+            max_typed_string_bytes: limits.max_decoded_string_bytes,
             ..ProjectLimits::default()
         },
     )
     .map_err(|error| {
         SourceBundleError::new(
-            SourceBundleErrorKind::Project,
+            project_error_kind(error.kind),
             Some(project.path()),
             format!("project schematic settings are invalid: {error}"),
         )
@@ -34,20 +48,38 @@ pub(crate) fn project_subpart_settings(
             "project schematic settings container must be a JSON object",
         ));
     }
-    Ok(SchematicSubpartSettings {
-        first_id: setting_codepoint(
-            setting(&view, "schematic.subpart_first_id", project)?,
-            SchematicSubpartSettings::default().first_id,
-            project,
-            "subpart_first_id",
-        )?,
-        separator: setting_codepoint(
-            setting(&view, "schematic.subpart_id_separator", project)?,
-            SchematicSubpartSettings::default().separator,
-            project,
-            "subpart_id_separator",
-        )?,
+    let bus_aliases = view.bus_aliases().map_err(|error| {
+        SourceBundleError::new(
+            project_error_kind(error.kind),
+            Some(project.path()),
+            format!("project schematic bus aliases are invalid: {error}"),
+        )
+    })?;
+    Ok(ProjectSchematicSettings {
+        subparts: SchematicSubpartSettings {
+            first_id: setting_codepoint(
+                setting(&view, "schematic.subpart_first_id", project)?,
+                SchematicSubpartSettings::default().first_id,
+                project,
+                "subpart_first_id",
+            )?,
+            separator: setting_codepoint(
+                setting(&view, "schematic.subpart_id_separator", project)?,
+                SchematicSubpartSettings::default().separator,
+                project,
+                "subpart_id_separator",
+            )?,
+        },
+        bus_aliases,
     })
+}
+
+const fn project_error_kind(kind: ProjectErrorKind) -> SourceBundleErrorKind {
+    if matches!(kind, ProjectErrorKind::ResourceLimit) {
+        SourceBundleErrorKind::ResourceLimit
+    } else {
+        SourceBundleErrorKind::Project
+    }
 }
 
 fn setting(

@@ -20,6 +20,8 @@ pub struct ProjectLimits {
     pub max_json_depth: usize,
     pub max_text_variables: usize,
     pub max_variants: usize,
+    pub max_bus_aliases: usize,
+    pub max_bus_alias_members: usize,
     pub max_net_classes: usize,
     pub max_netclass_assignments: usize,
     pub max_netclass_assignment_references: usize,
@@ -38,6 +40,8 @@ impl Default for ProjectLimits {
             max_json_depth: 256,
             max_text_variables: 1_000_000,
             max_variants: 1_000_000,
+            max_bus_aliases: 1_000_000,
+            max_bus_alias_members: 8_000_000,
             max_net_classes: 1_000_000,
             max_netclass_assignments: 1_000_000,
             max_netclass_assignment_references: 4_000_000,
@@ -87,6 +91,12 @@ impl std::error::Error for ProjectError {}
 pub struct ProjectVariant {
     pub name: String,
     pub description: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct ProjectBusAlias {
+    pub name: String,
+    pub members: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -237,7 +247,63 @@ impl<'a> ProjectView<'a> {
             })
             .collect()
     }
-
+    pub fn bus_aliases(&self) -> Result<Vec<ProjectBusAlias>, ProjectError> {
+        let Some(values) =
+            path(self.root, &["schematic", "bus_aliases"]).and_then(Value::as_object)
+        else {
+            return Ok(Vec::new());
+        };
+        let mut aliases = Vec::<ProjectBusAlias>::new();
+        let mut accepted_alias_count = 0_usize;
+        let mut member_count = 0_usize;
+        let mut budget = StringBudget::new(self.limits.max_typed_string_bytes);
+        for (raw_name, raw_members) in values {
+            let Some(raw_members) = raw_members.as_array() else {
+                continue;
+            };
+            let name = raw_name.trim();
+            if name.is_empty() {
+                continue;
+            }
+            accepted_alias_count = accepted_alias_count
+                .checked_add(1)
+                .ok_or_else(|| limit_error("project bus alias count overflows"))?;
+            check_count(
+                accepted_alias_count,
+                self.limits.max_bus_aliases,
+                "bus aliases",
+            )?;
+            budget.string(name)?;
+            let mut members = Vec::new();
+            for raw_member in raw_members {
+                let Some(raw_member) = raw_member.as_str() else {
+                    continue;
+                };
+                let member = raw_member.trim();
+                if member.is_empty() {
+                    continue;
+                }
+                member_count = member_count
+                    .checked_add(1)
+                    .ok_or_else(|| limit_error("project bus alias member count overflows"))?;
+                check_count(
+                    member_count,
+                    self.limits.max_bus_alias_members,
+                    "bus alias members",
+                )?;
+                budget.string(member)?;
+                members.push(member.to_owned());
+            }
+            if let Some(position) = aliases.iter().position(|alias| alias.name == name) {
+                aliases.remove(position);
+            }
+            aliases.push(ProjectBusAlias {
+                name: name.to_owned(),
+                members,
+            });
+        }
+        Ok(aliases)
+    }
     pub fn net_settings(&self) -> Result<ProjectNetSettings, ProjectError> {
         let settings = self.root.get("net_settings").and_then(Value::as_object);
         let mut budget = StringBudget::new(self.limits.max_typed_string_bytes);
@@ -584,6 +650,7 @@ fn validate_promoted(document: &ProjectDocument) -> Result<(), ProjectError> {
     let view = document.view();
     view.text_variables()?;
     view.variants()?;
+    view.bus_aliases()?;
     view.net_settings()?;
     view.board_design_settings()?;
     Ok(())

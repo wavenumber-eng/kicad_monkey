@@ -4,6 +4,14 @@
 
 ## 2026.8.30
 
+- Read KiCad 10 schematic bus aliases from `.kicad_pro`, normalize names and
+  members using KiCad's whitespace rules, and apply them design-wide in both
+  Python and Rust. Project aliases override same-name legacy `.kicad_sch`
+  declarations while unrelated legacy aliases remain available. Netlist JSON,
+  version-E netlists, compiled graphs, Design JSON, and direct compiler calls
+  now share the same effective alias context. A KiCad CLI-reviewed authored
+  hierarchy fixture covers real buses, entries, member labels, and sheet pins.
+
 - Preserve KiCad via unused-layer policy in both Python and Rust, and apply
   the same `FlashLayer` semantics at the board Plotter-IR boundary for PTH pads
   and vias. Copper aperture operations now carry resolved flashed layers while

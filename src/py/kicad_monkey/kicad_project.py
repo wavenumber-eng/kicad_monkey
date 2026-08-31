@@ -1,8 +1,9 @@
 """
 KiCad project-sidecar models for `.kicad_pro` JSON data.
 
-This module intentionally covers the source-model surfaces that materially
-affect PCB semantics today: net settings and text variables.
+This module intentionally covers project source-model surfaces that materially
+affect design semantics, including net settings, text variables, and KiCad 10
+project-level schematic bus aliases.
 """
 
 from __future__ import annotations
@@ -260,7 +261,7 @@ class KiCadProject:
     This is the canonical reader for KiCad project files. The full
     parsed JSON is preserved verbatim in :attr:`raw` so the write/save path
     can round-trip without loss; typed views like :attr:`variants` and
-    :attr:`net_settings` are derived from it.
+    :attr:`net_settings` and :attr:`bus_aliases` are derived from it.
 
     For scaffolding new project folders, use :meth:`create`. It starts a blank
     project bound to an on-disk directory; :meth:`add_schematic`,
@@ -320,6 +321,8 @@ class KiCadProject:
         if not isinstance(raw, dict):
             raise ValueError(".kicad_pro must be a JSON object")
         sch_block = raw.get("schematic", {}) or {}
+        if not isinstance(sch_block, dict):
+            sch_block = {}
         variants = [
             ProjectVariant.from_json_dict(item)
             for item in (sch_block.get("variants", []) or [])
@@ -342,6 +345,40 @@ class KiCadProject:
     # ------------------------------------------------------------------
     # Read helpers
     # ------------------------------------------------------------------
+
+    @property
+    def bus_aliases(self) -> dict[str, list[str]]:
+        """Return a fresh normalized view of KiCad 10 project bus aliases.
+
+        The authoritative data remains in :attr:`raw`, so mutations made with
+        :meth:`set_path` are immediately visible to Python netlisting and to
+        native consumers serialized from the same project JSON. Mutating the
+        returned dict does not mutate the project.
+        """
+        schematic = self.raw.get("schematic", {})
+        if not isinstance(schematic, dict):
+            return {}
+        raw_aliases = schematic.get("bus_aliases", {})
+        if not isinstance(raw_aliases, dict):
+            return {}
+
+        aliases: dict[str, list[str]] = {}
+        for raw_name, raw_members in raw_aliases.items():
+            if not isinstance(raw_name, str) or not isinstance(raw_members, list):
+                continue
+            name = raw_name.strip()
+            if not name:
+                continue
+            members = [
+                member.strip()
+                for member in raw_members
+                if isinstance(member, str) and member.strip()
+            ]
+            # JSON keys can collide only after whitespace normalization.
+            # Keep the last encountered entry as Monkey's deterministic
+            # policy for malformed hand-authored project data.
+            aliases[name] = members
+        return aliases
 
     def get_path(self, dotted_key: str, default: Any = None) -> Any:
         """Read a value out of :attr:`raw` by dotted JSON path.

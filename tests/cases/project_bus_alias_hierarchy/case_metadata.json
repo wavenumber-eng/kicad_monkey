@@ -1,0 +1,13 @@
+{
+  "generator": "scripts/generate_project_bus_alias_fixture.py",
+  "id": "project_bus_alias_hierarchy",
+  "kicad_format": 10,
+  "license": "Project-authored test fixture",
+  "oracle": "KiCad 10 CLI kicadxml netlist export",
+  "oracle_version": "10.0.5",
+  "origin": "generated_synthetic_project",
+  "purpose": "Project-level bus alias expansion across a hierarchical sheet using real buses, entries, member labels, and terminal-bearing nets.",
+  "reference_outputs": [
+    "project_bus_alias_hierarchy.xml"
+  ]
+}

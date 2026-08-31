@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>project_bus_alias_hierarchy.kicad_sch</source>
+    <date/>
+    <tool>Eeschema 10.0.5</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>project_bus_alias_hierarchy.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+    <sheet number="2" name="/MEMBER_SHEET/" tstamps="/200c9cfe-1b08-56b8-850b-f77c1e9e7f43/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>member_sheet.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="TP1">
+      <value>SYNTH_TERMINAL</value>
+      <fields>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="" part="SYNTH_TERMINAL" description=""/>
+      <property name="Sheetname" value="project_bus_alias_hierarchy"/>
+      <property name="Sheetfile" value="project_bus_alias_hierarchy.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>87da791d-9b94-5c7e-b44c-f030136ab2b5</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="TP2">
+      <value>SYNTH_TERMINAL</value>
+      <fields>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="" part="SYNTH_TERMINAL" description=""/>
+      <property name="Sheetname" value="project_bus_alias_hierarchy"/>
+      <property name="Sheetfile" value="project_bus_alias_hierarchy.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>bee00c42-7288-5bfe-8503-0e735347746c</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="TP101">
+      <value>SYNTH_TERMINAL</value>
+      <fields>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="" part="SYNTH_TERMINAL" description=""/>
+      <property name="Sheetname" value="MEMBER_SHEET"/>
+      <property name="Sheetfile" value="member_sheet.kicad_sch"/>
+      <sheetpath names="/MEMBER_SHEET/" tstamps="/200c9cfe-1b08-56b8-850b-f77c1e9e7f43/"/>
+      <tstamps>f80e6049-cc01-5924-8392-d04bd5ef2e2a</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="TP102">
+      <value>SYNTH_TERMINAL</value>
+      <fields>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="" part="SYNTH_TERMINAL" description=""/>
+      <property name="Sheetname" value="MEMBER_SHEET"/>
+      <property name="Sheetfile" value="member_sheet.kicad_sch"/>
+      <sheetpath names="/MEMBER_SHEET/" tstamps="/200c9cfe-1b08-56b8-850b-f77c1e9e7f43/"/>
+      <tstamps>3c52d827-70e7-51b3-8d6b-fef475a1d75e</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="" part="SYNTH_TERMINAL">
+      <fields>
+        <field name="Reference">TP</field>
+        <field name="Value">SYNTH_TERMINAL</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <pins>
+        <pin num="1" name="~" type="passive"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries/>
+  <nets>
+    <net code="1" name="/CTRL_A" class="Default">
+      <node ref="TP1" pin="1" pinfunction="~_1" pintype="passive"/>
+      <node ref="TP101" pin="1" pinfunction="~_1" pintype="passive"/>
+    </net>
+    <net code="2" name="/CTRL_B" class="Default">
+      <node ref="TP102" pin="1" pinfunction="~_1" pintype="passive"/>
+      <node ref="TP2" pin="1" pinfunction="~_1" pintype="passive"/>
+    </net>
+  </nets>
+</export>

@@ -757,6 +757,7 @@ class KiCadDesign:
 
         netlist = compile_design_netlist(
             top, self.text_variables,
+            bus_aliases=project.bus_aliases if project is not None else None,
             subpart_first_id=subpart_first_id,
             subpart_id_separator=subpart_id_separator,
         )

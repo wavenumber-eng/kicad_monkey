@@ -4,6 +4,7 @@ use crate::schematic_bundle_indexes::{
     resolve_library_pin_owners,
 };
 use crate::schematic_effective::{SchematicEffectiveSymbol, resolve_effective_symbols};
+use crate::schematic_project::{ProjectSchematicSettings, project_schematic_settings_with_limits};
 use crate::schematic_source::{
     SchematicBusAlias, SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
     SchematicLegacySymbolInstance, SchematicLibrarySymbol, SchematicNoConnect,
@@ -18,7 +19,6 @@ use crate::source_bundle::{SourceBundle, SourceBundleError, SourceBundleErrorKin
 use kicad_monkey_contracts::generated::source_bundle_manifest::SourceKind;
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap, HashSet};
-
 mod document;
 mod path_helpers;
 mod sheet_parse;
@@ -29,7 +29,6 @@ use title_block::parse_title_block;
 
 pub use crate::schematic_bundle_limits::SchematicBundleLimits;
 pub use document::{SchematicDocument, SchematicDocumentLimits};
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicSheet {
     pub uuid: String,
@@ -108,7 +107,7 @@ pub struct SchematicBundleIndex {
     project_name: String,
     project_file: String,
     source_anchor: String,
-    subpart_settings: crate::SchematicSubpartSettings,
+    project_settings: ProjectSchematicSettings,
     definitions: Vec<SchematicDefinition>,
     definition_by_path: HashMap<String, usize>,
     occurrences: Vec<SchematicOccurrence>,
@@ -173,8 +172,7 @@ impl SchematicBundleIndex {
             .map_or_else(String::new, portable_file_stem);
         let project_file = portable_file_name(identity_path).to_owned();
         let source_anchor = portable_parent(identity_path).to_owned();
-        let subpart_settings =
-            crate::schematic_project::project_subpart_settings(bundle.project())?;
+        let project_settings = project_schematic_settings_with_limits(bundle.project(), limits)?;
         let project_identity_sha256 = bundle.project_identity_sha256();
         let assemble_indexes_ns = elapsed_ns(indexes_started);
         let index = Self {
@@ -182,7 +180,7 @@ impl SchematicBundleIndex {
             project_name,
             project_file,
             source_anchor,
-            subpart_settings,
+            project_settings,
             definitions,
             definition_by_path,
             occurrences,
@@ -202,11 +200,12 @@ impl SchematicBundleIndex {
     pub fn definitions(&self) -> impl ExactSizeIterator<Item = &SchematicDefinition> {
         self.definitions.iter()
     }
-
     pub fn subpart_settings(&self) -> crate::SchematicSubpartSettings {
-        self.subpart_settings
+        self.project_settings.subparts
     }
-
+    pub fn project_bus_aliases(&self) -> &[crate::ProjectBusAlias] {
+        &self.project_settings.bus_aliases
+    }
     pub fn definition(&self, source_path: &str) -> Option<&SchematicDefinition> {
         self.definition_by_path
             .get(source_path)

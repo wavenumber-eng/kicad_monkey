@@ -98,6 +98,128 @@ fn typed_project_fields_cover_compiler_and_board_settings() {
 }
 
 #[test]
+fn project_bus_aliases_match_kicad_normalization_and_monkey_collision_policy() {
+    let document = ProjectDocument::parse(
+        r#"{"schematic":{"bus_aliases":{" CTRL ":[" A ","",12," A "],"EMPTY":["   "],"CTRL":["B","B"],"IGNORED":"not-an-array","   ":["X"]}}}"#
+            .to_owned(),
+        ProjectLimits::default(),
+    )
+    .expect("project");
+    assert_eq!(
+        document.view().bus_aliases().expect("aliases"),
+        [
+            kicad_monkey_core::ProjectBusAlias {
+                name: "EMPTY".to_owned(),
+                members: Vec::new(),
+            },
+            kicad_monkey_core::ProjectBusAlias {
+                name: "CTRL".to_owned(),
+                members: vec!["B".to_owned(), "B".to_owned()],
+            },
+        ]
+    );
+}
+
+#[test]
+fn project_bus_alias_limits_accept_exact_and_reject_one_under() {
+    let source = r#"{"schematic":{"bus_aliases":{"A":["B","C"],"D":["E"]}}}"#;
+    let exact = ProjectLimits {
+        max_bus_aliases: 2,
+        max_bus_alias_members: 3,
+        max_typed_string_bytes: 5,
+        ..ProjectLimits::default()
+    };
+    assert_eq!(
+        ProjectDocument::parse(source.to_owned(), exact)
+            .expect("source")
+            .view()
+            .bus_aliases()
+            .expect("exact aliases")
+            .len(),
+        2
+    );
+    for limits in [
+        ProjectLimits {
+            max_bus_aliases: 1,
+            ..exact
+        },
+        ProjectLimits {
+            max_bus_alias_members: 2,
+            ..exact
+        },
+        ProjectLimits {
+            max_typed_string_bytes: 4,
+            ..exact
+        },
+    ] {
+        assert_eq!(
+            ProjectDocument::parse(source.to_owned(), limits)
+                .expect("source")
+                .view()
+                .bus_aliases()
+                .expect_err("one under")
+                .kind,
+            ProjectErrorKind::ResourceLimit
+        );
+    }
+}
+
+#[test]
+fn project_bus_alias_mutations_validate_limits_before_commit() {
+    let limits = ProjectLimits {
+        max_bus_aliases: 1,
+        max_bus_alias_members: 2,
+        max_typed_string_bytes: 3,
+        ..ProjectLimits::default()
+    };
+    let mut document =
+        ProjectDocument::parse(r#"{"schematic":{}}"#.to_owned(), limits).expect("project");
+
+    assert!(
+        document
+            .set_path("schematic.bus_aliases", json!({"A": ["B", "C"]}))
+            .expect("exact alias limits")
+    );
+    assert_eq!(
+        document.view().bus_aliases().expect("aliases"),
+        [kicad_monkey_core::ProjectBusAlias {
+            name: "A".to_owned(),
+            members: vec!["B".to_owned(), "C".to_owned()],
+        }]
+    );
+    let accepted_source = document.source().to_owned();
+
+    for value in [
+        json!({"A": ["B", "C"], "D": []}),
+        json!({"A": ["B", "C", "D"]}),
+        json!({"AA": ["B", "C"]}),
+    ] {
+        let error = document
+            .set_path("schematic.bus_aliases", value)
+            .expect_err("one-over mutation");
+        assert_eq!(error.kind, ProjectErrorKind::ResourceLimit);
+        assert_eq!(document.source(), accepted_source);
+    }
+}
+
+#[test]
+fn missing_or_wrong_shaped_project_bus_aliases_are_ignored() {
+    for source in [
+        r#"{}"#,
+        r#"{"schematic":null}"#,
+        r#"{"schematic":{"bus_aliases":[]}}"#,
+        r#"{"schematic":{"bus_aliases":{"A":null}}}"#,
+    ] {
+        let aliases = ProjectDocument::parse(source.to_owned(), ProjectLimits::default())
+            .expect("project")
+            .view()
+            .bus_aliases()
+            .expect("aliases");
+        assert!(aliases.is_empty(), "{source}");
+    }
+}
+
+#[test]
 fn schematic_drawing_settings_convert_mils_and_enforce_the_plot_pen_floor() {
     let project = ProjectDocument::parse(
         r#"{"schematic":{"drawing":{"text_offset_ratio":0.08,"default_line_thickness":10.0}}}"#

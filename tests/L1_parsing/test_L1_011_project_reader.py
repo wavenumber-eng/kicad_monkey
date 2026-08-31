@@ -36,6 +36,7 @@ PROJECT_FILES = _all_kicad_pro_files()
 # Reader basics
 # ===========================================================================
 
+
 class TestKiCadProjectReader:
     """Basic parse coverage for every .kicad_pro in the upstream QA mirror."""
 
@@ -72,6 +73,7 @@ class TestKiCadProjectReader:
 # ===========================================================================
 # Variant catalog (the C-1 deliverable)
 # ===========================================================================
+
 
 class TestKiCadProjectVariants:
     """``KiCadProject.variants`` mirrors ``schematic.variants`` exactly."""
@@ -115,9 +117,72 @@ class TestKiCadProjectVariants:
         assert proj.variants == []
 
 
+class TestKiCadProjectBusAliases:
+    """KiCad 10 ``schematic.bus_aliases`` normalized semantic view."""
+
+    def test_names_and_members_follow_kicad_whitespace_rules(self) -> None:
+        project = KiCadProject.from_json_dict(
+            {
+                "schematic": {
+                    "bus_aliases": {
+                        " CTRL ": [" A ", "", 12, " A "],
+                        "EMPTY": ["   ", None],
+                        "CTRL": ["B", "B"],
+                        "IGNORED": "not-an-array",
+                        "   ": ["X"],
+                    }
+                }
+            }
+        )
+
+        assert project.bus_aliases == {
+            "EMPTY": [],
+            "CTRL": ["B", "B"],
+        }
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            {},
+            {"schematic": None},
+            {"schematic": ["not-an-object"]},
+            {"schematic": {"bus_aliases": []}},
+            {"schematic": {"bus_aliases": {"A": None}}},
+        ],
+    )
+    def test_missing_and_wrong_shaped_alias_data_is_ignored(self, source: dict) -> None:
+        assert KiCadProject.from_json_dict(source).bus_aliases == {}
+
+    def test_raw_json_is_preserved_while_typed_aliases_are_normalized(self) -> None:
+        raw = {"schematic": {"bus_aliases": {" CTRL ": [" A ", ""]}}}
+        project = KiCadProject.from_json_dict(raw)
+
+        assert project.bus_aliases == {"CTRL": ["A"]}
+        assert project.raw == raw
+
+    def test_alias_view_is_fresh_and_set_path_updates_the_authoritative_raw_data(
+        self,
+    ) -> None:
+        project = KiCadProject.from_json_dict(
+            {"schematic": {"bus_aliases": {"CTRL": ["A", "B"]}}}
+        )
+
+        detached = project.bus_aliases
+        detached["CTRL"] = []
+        assert project.bus_aliases == {"CTRL": ["A", "B"]}
+
+        project.set_path("schematic.bus_aliases", {"CTRL": [], "NEXT": [" C "]})
+        assert project.bus_aliases == {"CTRL": [], "NEXT": ["C"]}
+        assert project.to_json()["schematic"]["bus_aliases"] == {
+            "CTRL": [],
+            "NEXT": [" C "],
+        }
+
+
 # ===========================================================================
 # Backward-compat alias
 # ===========================================================================
+
 
 class TestKiCadProjectSidecarAlias:
     """`KiCadProjectSidecar` continues to import / behave like `KiCadProject`."""

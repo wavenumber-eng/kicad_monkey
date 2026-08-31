@@ -6,16 +6,16 @@ Ports KiCad's :func:`NET_SETTINGS::ParseBusVector` and
 to Python. The netlist compiler uses these helpers to:
 
 * detect whether a label drives a bus (vs. a single net)
-* turn a vector label like ``D[7..0]`` into ``[D0, D1, …, D7]``
+* turn a vector label like ``D[7..0]`` into ``[D0, D1, â€¦, D7]``
 * turn a sparse group like ``{D0, D2, D4}`` into ``[D0, D2, D4]``
 * expand a bus alias reference into its declared members
 
 Public API:
 
-* :func:`is_bus_label` — predicate (matches KiCad's ``IsBusLabel``).
-* :func:`parse_bus_vector` — ``"D[7..0]"`` → ``("D", ["D0", … "D7"])``.
-* :func:`parse_bus_group`  — ``"{a,b,c}"`` → ``("",  ["a", "b", "c"])``.
-* :func:`expand_bus_label` — top-level dispatch that handles bus aliases
+* :func:`is_bus_label` â€” predicate (matches KiCad's ``IsBusLabel``).
+* :func:`parse_bus_vector` â€” ``"D[7..0]"`` â†’ ``("D", ["D0", â€¦ "D7"])``.
+* :func:`parse_bus_group`  â€” ``"{a,b,c}"`` â†’ ``("",  ["a", "b", "c"])``.
+* :func:`expand_bus_label` â€” top-level dispatch that handles bus aliases
   + recursive group-member expansion. Plain (non-bus) text returns
   ``[text]``.
 
@@ -30,12 +30,12 @@ Quirks faithfully replicated:
 
 Known unsupported bus-label syntax:
 
-* Formatting markers (``^{…}``, ``_{…}``, ``~{…}``) inside prefixes —
+* Formatting markers (``^{â€¦}``, ``_{â€¦}``, ``~{â€¦}``) inside prefixes â€”
   KiCad treats these as part of the signal name; our port keeps them
   intact via the same brace-nesting rules but doesn't strip them.
-* Quoted strings inside prefixes / member names — wrapper for embedded
+* Quoted strings inside prefixes / member names â€” wrapper for embedded
   spaces; we treat them as literal characters.
-* ``EscapeString`` / ``UnescapeString`` round-trips — we keep names
+* ``EscapeString`` / ``UnescapeString`` round-trips â€” we keep names
   raw; the netlist emit layer applies its own escaping.
 """
 
@@ -72,7 +72,7 @@ def parse_bus_vector(text: str) -> Optional[Tuple[str, List[str]]]:
     ``NET_SETTINGS::ParseBusVector``.
 
     Members are emitted in ascending index order (e.g. ``D[7..0]`` and
-    ``D[0..7]`` both yield ``["D0", "D1", …, "D7"]``); KiCad swaps
+    ``D[0..7]`` both yield ``["D0", "D1", â€¦, "D7"]``); KiCad swaps
     ``begin > end`` before iterating.
     """
     n = len(text)
@@ -86,7 +86,7 @@ def parse_bus_vector(text: str) -> Optional[Tuple[str, List[str]]]:
     while i < n:
         ch = text[i]
         if ch == "{":
-            # KiCad allows {…} only when preceded by a formatting marker
+            # KiCad allows {â€¦} only when preceded by a formatting marker
             # (^, _, ~). In the simple grammar we treat any { as illegal
             # for the vector form unless it's nested inside one we're
             # already tracking.
@@ -161,7 +161,7 @@ def parse_bus_vector(text: str) -> Optional[Tuple[str, List[str]]]:
         ch = text[i]
         if ch == "}":
             if brace_depth == 0:
-                # Stray closing brace — only legal if vector lives
+                # Stray closing brace â€” only legal if vector lives
                 # inside outer formatting we already consumed.
                 return None
             brace_depth -= 1
@@ -197,7 +197,7 @@ def parse_bus_group(text: str) -> Optional[Tuple[str, List[str]]]:
     Returns ``(prefix, members)`` on success or ``None`` when ``text``
     does not match. Mirror of ``NET_SETTINGS::ParseBusGroup``.
 
-    The prefix may be empty (``"{a,b,c}"`` → ``("", ["a","b","c"])``).
+    The prefix may be empty (``"{a,b,c}"`` â†’ ``("", ["a","b","c"])``).
     Member separators are bare commas or spaces; brace-nested members
     keep their braces intact (so a vector member ``D[1..2]`` stays
     intact for recursive expansion by :func:`expand_bus_label`).
@@ -304,7 +304,7 @@ def is_bus_label(text: str) -> bool:
     """Return True when ``text`` parses as either a vector or a group.
 
     Matches :func:`SCH_CONNECTION::IsBusLabel`. Note this does NOT cover
-    plain bus-alias references — KiCad detects those at the
+    plain bus-alias references â€” KiCad detects those at the
     ``CONNECTION_GRAPH`` level via the alias map. Use
     :func:`expand_bus_label` (with an alias dict) for full bus
     detection in netlist contexts.
@@ -320,60 +320,75 @@ def expand_bus_label(
 
     Dispatch order:
 
-    1. Bus alias name — if ``text`` is a key in ``bus_aliases``,
+    1. Bus alias name â€” if ``text`` is a key in ``bus_aliases``,
        expand to its members (each member is itself recursively
        expanded so a member like ``"D[0..3]"`` yields four nets).
-    2. Bus vector — ``D[7..0]`` → ``[D0, D1, …, D7]``.
-    3. Bus group — ``{a, b, c}`` → ``[a, b, c]``, with each member
+    2. Bus vector â€” ``D[7..0]`` â†’ ``[D0, D1, â€¦, D7]``.
+    3. Bus group â€” ``{a, b, c}`` â†’ ``[a, b, c]``, with each member
        recursively expanded.
-    4. Plain text — single-element list ``[text]`` (the fall-through
+    4. Plain text â€” single-element list ``[text]`` (the fall-through
        case, so callers can blindly call this on any label).
     """
-    aliases = bus_aliases or {}
+    return _expand_bus_label(text, bus_aliases or {}, set())
+
+
+def _expand_bus_label(
+    text: str,
+    aliases: Dict[str, List[str]],
+    active_aliases: set[str],
+) -> List[str]:
+    """Recursive implementation with explicit alias-cycle detection."""
 
     # 1. Direct alias reference.
     if text in aliases:
-        out: List[str] = []
-        for member in aliases[text]:
-            out.extend(expand_bus_label(member, aliases))
-        return out
+        return _expand_alias(text, aliases, active_aliases)
 
     # 2. Vector form.
     parsed = parse_bus_vector(text)
     if parsed is not None:
         return parsed[1]
 
-    # 3. Group form (members may recurse — alias inside group, vector
+    # 3. Group form (members may recurse â€” alias inside group, vector
     #    inside group, etc.).
     parsed = parse_bus_group(text)
     if parsed is not None:
-        prefix, members = parsed
-        out = []
-
-        def _apply_prefix(name: str) -> str:
-            # KiCad's prefix-bus rule: ``<prefix>{...}`` qualifies every
-            # member name as ``<prefix>.<name>`` (dot-separated).
-            # Empty prefix leaves the name intact.
-            return f"{prefix}.{name}" if prefix else name
-
-        for member in members:
-            # Alias reference inside the group — expand alias members,
-            # qualify each with the outer prefix.
-            if member in aliases:
-                for sub in expand_bus_label(member, aliases):
-                    out.append(_apply_prefix(sub))
-                continue
-            # Nested vector / sub-group — qualify each expanded leaf.
-            if is_bus_label(member):
-                for sub in expand_bus_label(member, aliases):
-                    out.append(_apply_prefix(sub))
-                continue
-            # Plain literal — qualify directly.
-            out.append(_apply_prefix(member))
-        return out
+        return _expand_group(parsed, aliases, active_aliases)
 
     # 4. Plain net.
     return [text]
+
+
+def _expand_alias(
+    text: str,
+    aliases: Dict[str, List[str]],
+    active_aliases: set[str],
+) -> List[str]:
+    if text in active_aliases:
+        raise ValueError(f"bus alias cycle includes {text!r}")
+    active_aliases.add(text)
+    out: List[str] = []
+    try:
+        for member in aliases[text]:
+            out.extend(_expand_bus_label(member, aliases, active_aliases))
+        return out
+    finally:
+        active_aliases.remove(text)
+
+
+def _expand_group(
+    parsed: Tuple[str, List[str]],
+    aliases: Dict[str, List[str]],
+    active_aliases: set[str],
+) -> List[str]:
+    prefix, members = parsed
+    out: List[str] = []
+    for member in members:
+        nested = member in aliases or is_bus_label(member)
+        expanded = (
+            _expand_bus_label(member, aliases, active_aliases) if nested else [member]
+        )
+        out.extend(f"{prefix}.{name}" if prefix else name for name in expanded)
+    return out
 
 
 __all__ = [

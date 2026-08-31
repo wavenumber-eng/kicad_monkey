@@ -1,5 +1,4 @@
 //! PCB-embedded footprint records in the established Python family order.
-
 use super::layer_policy::BoardLayerFlashResolver;
 use super::text::{
     BoardTextHAlign, BoardTextOperation, BoardTextRenderCacheCoordinateSpace, BoardTextVAlign,

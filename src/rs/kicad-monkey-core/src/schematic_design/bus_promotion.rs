@@ -81,6 +81,19 @@ pub(super) fn collect_design_bus_aliases(
             aliases.insert(alias.name.as_str(), alias.members.as_slice());
         }
     }
+    // KiCad 10 project aliases are authoritative over same-name legacy
+    // schematic declarations, including aliases with no surviving members.
+    for alias in index.project_bus_aliases() {
+        if !aliases.contains_key(alias.name.as_str())
+            && aliases.len() >= limits.max_design_bus_aliases
+        {
+            return Err(limit_error(
+                None,
+                "design bus alias count exceeds its limit",
+            ));
+        }
+        aliases.insert(alias.name.as_str(), alias.members.as_slice());
+    }
     Ok(aliases)
 }
 

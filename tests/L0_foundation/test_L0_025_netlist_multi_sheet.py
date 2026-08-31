@@ -405,6 +405,28 @@ def test_cross_sheet_bus_members_match_escaped_slash_labels():
     assert "ADC0{slash}GPIO0" in merged[0].name
 
 
+def test_project_aliases_override_legacy_aliases_and_keep_unrelated_legacy() -> None:
+    root = KiCadSchematic()
+    root.uuid = "root"
+    root.bus_aliases.extend(
+        [
+            SchBusAlias(name="CTRL", members=["OLD_A", "OLD_B"]),
+            SchBusAlias(name="LEGACY_ONLY", members=["L0", "L0"]),
+        ]
+    )
+
+    compiled = compile_design_subgraphs(
+        root,
+        bus_aliases={"CTRL": [], "PROJECT_ONLY": ["P0", "P1"]},
+    )
+
+    assert compiled[0].bus_aliases_design == {
+        "CTRL": [],
+        "LEGACY_ONLY": ["L0", "L0"],
+        "PROJECT_ONLY": ["P0", "P1"],
+    }
+
+
 def test_design_duplicate_sheet_pin_names_get_stable_suffixes():
     libR = _libsym("Device:R", _pin(0.0, 0.0, number="1"))
 

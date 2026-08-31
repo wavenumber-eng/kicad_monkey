@@ -4,6 +4,11 @@
 
 ## 2026.8.30
 
+- Consume Monkey's KiCad 10 project-level bus aliases in the Python and native
+  Rust design-review paths. Published netlist JSON, version-E netlists,
+  compiled graphs, and Design JSON now agree for hierarchical alias-member
+  nets, with a same-change production Rust CLI workflow test.
+
 - Honor Monkey's resolved PTH pad/via copper-flash layers in native PCB review
   SVG filtering and per-layer STEP geometry. Authored drill spans remain
   physical, so removed internal annuli no longer reappear as copper while
