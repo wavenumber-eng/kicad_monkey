@@ -57,7 +57,7 @@
       "producer": "footprint",
       "source_vector": "footprint_plotter_a0_vectors.json",
       "source_id": "standard-pad-flashes-and-drills",
-      "document_sha256": "c86980fbbae400d86dddf1ca4e64d7ec23063414eea7b52785f205cbc72a8762",
+      "document_sha256": "f774401d1b5bfdda20aae1bb8ccaa408835e4ac8b95eb871b7b9c506bcfd63a8",
       "viewport": {
         "min_x_nm": -100000000,
         "min_y_nm": -100000000,
@@ -66,7 +66,7 @@
       },
       "outcome": "svg",
       "svg_bytes": 1612,
-      "svg_sha256": "a0989b70dc8dba3fdef42994f82c4d372dba57a644f725dfa19072913450095d",
+      "svg_sha256": "437215ecee4e8fc34c0ded3a39f274317656a2225f0ab80dc480907400d417fc",
       "tag_counts": {
         "circle": 4,
         "g": 2,
@@ -467,7 +467,7 @@
       "producer": "board",
       "source_vector": "board_plotter_a0_vectors.json",
       "source_id": "embedded-footprints-follow-zones-and-keep-local-ownership",
-      "document_sha256": "c9bd5dfb58d1e64246f6842c2ffdb876586f3a33912591913df49dc8b2980258",
+      "document_sha256": "d20d7212398a8d80a70b622086279da1506e12ee642ff408f35acbe912420768",
       "viewport": {
         "min_x_nm": -100000000,
         "min_y_nm": -100000000,
@@ -475,8 +475,8 @@
         "height_nm": 200000000
       },
       "outcome": "svg",
-      "svg_bytes": 8609,
-      "svg_sha256": "4d5d5a98718627cd47a9ddb5b8954f906974a497c3432e4c8a2fe9612abe9676",
+      "svg_bytes": 8608,
+      "svg_sha256": "7572cf48abf6601bc8704df704a485b88084168076750cee62960769287a0793",
       "tag_counts": {
         "circle": 1,
         "g": 17,

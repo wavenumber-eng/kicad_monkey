@@ -20,6 +20,7 @@ from .kicad_base import (
     get_value,
     get_at,
     has_flag,
+    parse_maybe_absent_bool,
     unquote_string,
 )
 from .kicad_pcb_polygon_ops import (
@@ -195,6 +196,9 @@ class Via(ToPolyMixin):
     zone_layer_connections: Optional[ZoneLayerConnections] = None
     uuid: Optional[str] = None
     via_type: Optional[str] = None
+    remove_unused_layers: Optional[bool] = None
+    keep_end_layers: Optional[bool] = None
+    start_end_only: Optional[bool] = None
     _raw_sexp: Optional[list] = field(default=None, repr=False)
 
     @classmethod
@@ -279,6 +283,9 @@ class Via(ToPolyMixin):
             front_post_machining=front_post_machining,
             back_post_machining=back_post_machining,
             zone_layer_connections=zone_layer_connections,
+            remove_unused_layers=parse_maybe_absent_bool(sexp, "remove_unused_layers"),
+            keep_end_layers=parse_maybe_absent_bool(sexp, "keep_end_layers"),
+            start_end_only=parse_maybe_absent_bool(sexp, "start_end_only"),
             uuid=unquote_string(get_value(sexp, 'uuid')),
             via_type=via_type,
             _raw_sexp=sexp
@@ -312,6 +319,13 @@ class Via(ToPolyMixin):
             result.append(self.front_post_machining.to_sexp("front_post_machining"))
         if self.back_post_machining:
             result.append(self.back_post_machining.to_sexp("back_post_machining"))
+        for name, value in (
+            ("remove_unused_layers", self.remove_unused_layers),
+            ("keep_end_layers", self.keep_end_layers),
+            ("start_end_only", self.start_end_only),
+        ):
+            if value is not None:
+                result.append([name, "yes" if value else "no"])
         if self.zone_layer_connections is not None:
             result.append(self.zone_layer_connections.to_sexp())
         net_elem = self.net.to_inline_net_sexp()

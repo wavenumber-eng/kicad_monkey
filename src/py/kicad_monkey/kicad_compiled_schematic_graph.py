@@ -712,8 +712,10 @@ def build_compiled_schematic_graph(
     identity_allocator = SchCompiledSchematicGraphIdentityAllocator(design_scope=scope)
     graph = KiCadCompiledSchematicGraph()
     subpart_first_id, subpart_id_separator = _design_subpart_settings(design)
+    project_model = design.project
     compiled = compile_design_subgraphs(
         top,
+        bus_aliases=project_model.bus_aliases if project_model is not None else None,
         subpart_first_id=subpart_first_id,
         subpart_id_separator=subpart_id_separator,
         include_off_board=True,

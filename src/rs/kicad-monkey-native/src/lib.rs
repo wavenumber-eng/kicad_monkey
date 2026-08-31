@@ -1195,6 +1195,8 @@ fn project_limits(limits: AppLimits) -> ProjectLimits {
         max_json_depth: default.max_json_depth.min(256),
         max_text_variables: family(default.max_text_variables),
         max_variants: family(default.max_variants),
+        max_bus_aliases: family(default.max_bus_aliases),
+        max_bus_alias_members: family(default.max_bus_alias_members),
         max_net_classes: family(default.max_net_classes),
         max_netclass_assignments: family(default.max_netclass_assignments),
         max_netclass_assignment_references: family(default.max_netclass_assignment_references),
@@ -1207,11 +1209,9 @@ fn project_limits(limits: AppLimits) -> ProjectLimits {
         ),
     }
 }
-
 fn family(default: usize) -> usize {
     default.min(MAX_FAMILY_ITEMS)
 }
-
 fn bytes(default: usize, requested: usize) -> usize {
     default.min(requested)
 }

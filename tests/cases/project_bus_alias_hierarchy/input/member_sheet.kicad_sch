@@ -1,0 +1,325 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "60e57bc0-c1e6-5ea6-b0df-d56d46f803b7")
+	(paper "A4")
+	(lib_symbols
+		(symbol "SYNTH_TERMINAL"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "TP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "SYNTH_TERMINAL"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "SYNTH_TERMINAL_1_0"
+				(pin passive line
+					(at 0 0 180)
+					(length 2.54)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(bus_entry
+		(at 151.45 105.41)
+		(size 2.54 -2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "57821dc0-1ad1-5e6a-bfba-21c6505bb3ae")
+	)
+	(bus_entry
+		(at 151.45 100.33)
+		(size 2.54 2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5b749cd9-6be8-5254-a0e7-6d62740fba2b")
+	)
+	(wire
+		(pts
+			(xy 131.45 100.33) (xy 151.45 100.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0753ca33-6055-519c-b177-e8b6469251f8")
+	)
+	(wire
+		(pts
+			(xy 131.45 105.41) (xy 151.45 105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3900b3cf-486e-569d-a369-2c9d3dec8513")
+	)
+	(bus
+		(pts
+			(xy 153.99 102.87) (xy 171.45 102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c9889dd6-cde9-56cd-b346-74108b0db1c1")
+	)
+	(label "CTRL_A"
+		(at 136.45 100.33 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "1cdc8e43-8777-5e01-8068-589f1ee39eaf")
+	)
+	(label "CTRL_B"
+		(at 136.45 105.41 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "58d1e571-f0ac-56c9-a18b-476b007d427a")
+	)
+	(label "{CTRL}"
+		(at 161.45 102.87 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "9055cd1d-6ab9-555c-9d3a-4cb6cf690402")
+	)
+	(hierarchical_label "{CTRL}"
+		(shape input)
+		(at 171.45 102.87 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "1f02b380-2beb-545d-a84c-b91bd4da4eee")
+	)
+	(symbol
+		(lib_id "SYNTH_TERMINAL")
+		(at 131.45 105.41 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "3c52d827-70e7-51b3-8d6b-fef475a1d75e")
+		(property "Reference" "TP102"
+			(at 129.54 106.934 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SYNTH_TERMINAL"
+			(at 135.128 108.966 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 131.45 105.41 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 131.45 105.41 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 131.45 105.41 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c0c6117b-8678-53b5-aa78-2fb1701da785")
+		)
+		(instances
+			(project "project_bus_alias_hierarchy"
+				(path "/3c88a746-fc48-5646-886a-ca6fd56938e8/200c9cfe-1b08-56b8-850b-f77c1e9e7f43"
+					(reference "TP102")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "SYNTH_TERMINAL")
+		(at 131.45 100.33 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f80e6049-cc01-5924-8392-d04bd5ef2e2a")
+		(property "Reference" "TP101"
+			(at 130.048 94.996 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SYNTH_TERMINAL"
+			(at 135.382 97.282 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 131.45 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 131.45 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 131.45 100.33 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ed8d566b-e932-55f2-b143-6ec464e2da7e")
+		)
+		(instances
+			(project "project_bus_alias_hierarchy"
+				(path "/3c88a746-fc48-5646-886a-ca6fd56938e8/200c9cfe-1b08-56b8-850b-f77c1e9e7f43"
+					(reference "TP101")
+					(unit 1)
+				)
+			)
+		)
+	)
+)

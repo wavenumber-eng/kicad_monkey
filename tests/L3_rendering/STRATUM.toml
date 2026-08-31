@@ -458,3 +458,29 @@ secondary = [
     "PCB and schematic kicad-cli exporters produce valid SVG artifacts without claiming visual parity",
     "A focused Arial board cache matches the live KiCad save oracle through the native carrier at 0.002 mm tolerance",
 ]
+
+[[subtests]]
+id = "L3_028"
+file = "test_L3_028_project_bus_alias_hierarchy.py"
+name = "KiCad 10 Project Bus Alias Hierarchy"
+description = "Project-level aliases expand terminal-bearing bus members across a hierarchical sheet like KiCad"
+test_cases = "tests/cases/project_bus_alias_hierarchy"
+test_case_type = "authored_oracle"
+concerns = ["schematic", "project", "bus_alias", "hierarchy", "netlist", "oracle"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_design"
+modules = [
+    "kicad_monkey.kicad_project",
+    "kicad_monkey.kicad_netlist_design",
+    "kicad_monkey.kicad_compiled_schematic_graph",
+]
+
+[subtests.objectives]
+primary = "KiCad 10 project-only bus aliases produce the same hierarchical member nets as the reviewed KiCad CLI oracle"
+secondary = [
+    "The fixture contains real buses, bus entries, member labels, and a hierarchical bus boundary",
+    "Neither schematic contains a legacy bus_alias declaration",
+    "Direct compiler calls accept explicit project alias context",
+    "Design netlist JSON and full design JSON remain consistent",
+]

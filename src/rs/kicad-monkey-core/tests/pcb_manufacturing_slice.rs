@@ -21,6 +21,7 @@ const SOURCE: &str = r#"(kicad_pcb
     (tertiary_drill (size 0.45) (layers "B.Cu" "In3.Cu"))
     (front_post_machining counterbore (size 1.3) (depth 0.3) (angle 80))
     (back_post_machining countersink (size 1.4) (depth 0.35) (angle 70))
+    (remove_unused_layers yes) (keep_end_layers no) (start_end_only yes)
     (zone_layer_connections "In3.Cu" "In4.Cu")
     (uuid via-id)))"#;
 
@@ -76,6 +77,45 @@ fn via_reuses_the_same_manufacturing_semantics() {
             .forced_layers,
         (0.6, 0.45, 1.3, 1.4),
         &["In3.Cu", "In4.Cu"],
+    );
+    assert_eq!(via.remove_unused_layers, Some(true));
+    assert_eq!(via.keep_end_layers, Some(false));
+    assert_eq!(via.start_end_only, Some(true));
+}
+
+#[test]
+fn via_unused_layer_policies_preserve_absence_explicit_values_and_empty_forms() {
+    let source = r#"(kicad_pcb
+      (via (at 0 0) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu"))
+      (via (at 1 0) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers no))
+      (via (at 2 0) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers yes))
+      (via (at 3 0) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (start_end_only yes))
+      (via (at 4 0) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers) (keep_end_layers no) (start_end_only no)))"#;
+    let policies = PcbView::parse(source, PcbLimits::default())
+        .expect("board")
+        .vias()
+        .map(|via| {
+            let via = via.expect("typed via");
+            (
+                via.remove_unused_layers,
+                via.keep_end_layers,
+                via.start_end_only,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        policies,
+        vec![
+            (None, None, None),
+            (Some(true), Some(false), None),
+            (Some(true), Some(true), None),
+            (None, None, Some(true)),
+            (Some(true), Some(false), Some(false)),
+        ]
     );
 }
 

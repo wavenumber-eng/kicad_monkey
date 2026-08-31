@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 2026.8.30
+
+- Consume Monkey's KiCad 10 project-level bus aliases in the Python and native
+  Rust design-review paths. Published netlist JSON, version-E netlists,
+  compiled graphs, and Design JSON now agree for hierarchical alias-member
+  nets, with a same-change production Rust CLI workflow test.
+
+- Honor Monkey's resolved PTH pad/via copper-flash layers in native PCB review
+  SVG filtering and per-layer STEP geometry. Authored drill spans remain
+  physical, so removed internal annuli no longer reappear as copper while
+  drill overlays and cuts remain present. PTH and NPTH pad drills remain
+  through-board even when their authored copper membership omits an internal
+  layer, and pad drill offsets move the copper land rather than the hole.
+
 ## 2026.8.22
 
 - Raise the public dependency floor to `kicad-monkey>=2026.8.22` and update

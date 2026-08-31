@@ -20,6 +20,7 @@ Distinct from F-7 (`test_L0_017_footprint_to_ir.py`):
 from __future__ import annotations
 
 import math
+import json
 from collections import Counter
 
 import pytest
@@ -30,6 +31,7 @@ from kicad_monkey import (
     KiCadPlotterDocument,
     KiCadPlotterOpKind,
     KiCadPlotterRecord,
+    PcbLayerFlashResolver,
     KiCadSvgRenderOptions,
     Net,
     gr_arc_to_op,
@@ -74,6 +76,7 @@ from kicad_monkey.kicad_pcb_graphics import GrTextBox
 from kicad_monkey.kicad_pcb_routing import Arc as TrackArc
 from kicad_monkey.kicad_pcb_routing import FrontBackOptBool, NetRef, Segment, Via
 from kicad_monkey.kicad_pcb_zone import FilledPolygon, Zone
+from kicad_monkey.contracts.generated import decode_board_plot_document_a0
 from kicad_monkey.kicad_primitives import Effects, Font, Stroke
 from kicad_monkey.kicad_property import Property
 
@@ -90,6 +93,205 @@ def _assert_bounds_tuple(bounds, expected: tuple[float, float, float, float]) ->
     assert bounds.min_y == pytest.approx(expected[1], abs=1e-9)
     assert bounds.max_x == pytest.approx(expected[2], abs=1e-9)
     assert bounds.max_y == pytest.approx(expected[3], abs=1e-9)
+
+
+def test_board_ir_resolves_pth_flash_layers_without_shortening_drill_spans() -> None:
+    pcb = KiCadPcb.from_string(
+        """(kicad_pcb
+  (version 20250830)
+  (generator "pcbnew")
+  (layers
+    (0 "F.Cu" signal)
+    (2 "In1.Cu" power)
+    (4 "In2.Cu" power)
+    (31 "B.Cu" signal)
+    (36 "B.SilkS" user "b.Silkscreen")
+    (37 "F.SilkS" user "f.Silkscreen")
+    (44 "Edge.Cuts" user)
+  )
+  (net 1 "N")
+  (via (at 1 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers no)
+    (zone_layer_connections "In2.Cu") (net 1) (uuid "remove"))
+  (via (at 2 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers yes)
+    (zone_layer_connections "In2.Cu") (net 1) (uuid "ends"))
+  (via (at 3 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (start_end_only yes) (net 1) (uuid "only"))
+  (via (at 4 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers no) (net 1) (uuid "drill-only"))
+  (footprint "Test:Policy" (layer "F.Cu") (at 10 10)
+    (pad "1" thru_hole circle (at 0 0) (size 1 1) (drill 0.5)
+      (layers "*.Cu" "*.Mask") (remove_unused_layers yes)
+      (keep_end_layers yes) (zone_layer_connections "In1.Cu")
+      (net 1 "N") (uuid "pad")))
+)"""
+    )
+
+    doc = pcb_to_ir(pcb, document_id="policy-board")
+    vias = {record.uuid: record for record in doc.records if record.kind == "via"}
+
+    assert vias["remove"].operations[0].payload["layers"] == ["In2.Cu"]
+    assert vias["remove"].operations[1].payload["layers"] == ["F.Cu", "B.Cu"]
+    assert vias["ends"].operations[0].payload["layers"] == [
+        "F.Cu",
+        "In2.Cu",
+        "B.Cu",
+    ]
+    assert vias["only"].operations[0].payload["layers"] == ["F.Cu", "B.Cu"]
+    assert [operation.payload["role"] for operation in vias["drill-only"].operations] == [
+        "via_drill"
+    ]
+
+    footprint = next(record for record in doc.records if record.kind == "footprint")
+    pad_blocks = [
+        operation
+        for operation in footprint.operations
+        if operation.kind == KiCadPlotterOpKind.START_BLOCK
+        and operation.payload.get("data_ref") == "pad"
+    ]
+    hole_blocks = [
+        operation
+        for operation in footprint.operations
+        if operation.kind == KiCadPlotterOpKind.START_BLOCK
+        and operation.payload.get("data_ref") == "pad_hole"
+    ]
+    assert pad_blocks[0].payload["layers"] == ["F.Cu", "In1.Cu", "B.Cu", "*.Mask"]
+    assert hole_blocks[0].payload["layers"] == ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
+    pad_start_index = footprint.operations.index(pad_blocks[0])
+    pad_flash = footprint.operations[pad_start_index + 1]
+    assert pad_flash.payload["layers"] == pad_blocks[0].payload["layers"]
+    assert pad_blocks[0].payload["extra_attrs"]["layer_names"] == (
+        "F.Cu,In1.Cu,B.Cu,*.Mask"
+    )
+    assert hole_blocks[0].payload["extra_attrs"]["layer_names"] == (
+        "F.Cu,In1.Cu,In2.Cu,B.Cu"
+    )
+    decode_board_plot_document_a0(json.dumps(doc.to_dict()).encode("utf-8"))
+
+
+def test_pth_resolver_uses_exact_pad_layers_and_geometric_connectivity() -> None:
+    pcb = KiCadPcb.from_string(
+        """(kicad_pcb
+  (layers
+    (0 "F.Cu" signal)
+    (2 "In1.Cu" power)
+    (4 "In2.Cu" power)
+    (31 "B.Cu" signal))
+  (net 1 "N")
+  (segment (start 9 10) (end 9.6 10) (width 0.1) (layer "In1.Cu") (net 1))
+  (segment (start 9 11) (end 9.8 11) (width 0.1) (layer "In1.Cu") (net 1))
+  (segment (start 39 38) (end 39.5 38) (width 0.1) (layer "In1.Cu") (net 1))
+  (segment (start 19 20) (end 21 20) (width 0.1) (layer "In2.Cu") (net 1))
+  (arc (start 30 30) (mid 31 29) (end 32 30) (width 0.1) (layer "In1.Cu") (net 1))
+  (via (at 20 20) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers no) (net 1) (uuid "crossed-via"))
+  (via (at 31 29) (size 0.4) (drill 0.2) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers no) (net 1) (uuid "arc-via"))
+  (via (at 50.8 50) (size 1.2) (drill 0.2) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers yes) (net 1) (uuid "layer-other"))
+  (via (at 60.4 60) (size 1) (drill 0.2) (layers "F.Cu" "B.Cu")
+    (remove_unused_layers yes) (keep_end_layers no)
+    (zone_layer_connections "In1.Cu") (net 1) (uuid "forced-other"))
+  (footprint "Test:Policy" (layer "F.Cu") (at 0 0)
+    (pad "exact" thru_hole circle (at 2 2) (size 1 1) (drill 0.5)
+      (layers "F.Cu" "In2.Cu" "B.Cu") (net 1 "N"))
+    (pad "alias" thru_hole circle (at 4 2) (size 1 1) (drill 0.5)
+      (layers "F&B.Cu" "*.Mask") (net 1 "N"))
+    (pad "internal-ends" thru_hole circle (at 6 2) (size 1 1) (drill 0.5)
+      (layers "In1.Cu" "In2.Cu") (remove_unused_layers yes)
+      (keep_end_layers yes) (net 1 "N"))
+    (pad "smd-policy-ignored" smd rect (at 8 2) (size 1 1)
+      (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N"))
+    (pad "inside-endpoint" thru_hole circle (at 10 10) (size 1 1) (drill 0.5)
+      (layers "In1.Cu") (remove_unused_layers yes) (keep_end_layers no)
+      (net 1 "N"))
+    (pad "hole-contact" thru_hole circle (at 10 11) (size 1 1) (drill 0.5)
+      (layers "In1.Cu") (remove_unused_layers yes) (keep_end_layers no)
+      (net 1 "N"))
+    (pad "conditional-a" thru_hole circle (at 12 12) (size 1 1) (drill 0.5)
+      (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N")))
+  (footprint "Test:Other" (layer "F.Cu") (at 0 0)
+    (pad "conditional-b" thru_hole circle (at 12 12) (size 1 1) (drill 0.5)
+      (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N")))
+  (footprint "Test:Rotated" (layer "F.Cu") (at 40 40 90)
+    (pad "absolute-slot" thru_hole oval (at 2 0 0) (size 2 1)
+      (drill oval 1.2 0.2) (layers "In1.Cu")
+      (remove_unused_layers yes) (net 1 "N")))
+  (footprint "Test:LayerTarget" (layer "F.Cu") (at 0 0)
+    (pad "layer-target" thru_hole circle (at 50 50) (size 1 1) (drill 0.5)
+      (layers "*.Cu") (remove_unused_layers yes) (net 1 "N"))
+    (pad "forced-target" thru_hole circle (at 60 60) (size 1 1) (drill 0.2)
+      (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N"))))"""
+    )
+    resolver = PcbLayerFlashResolver.from_board(pcb)
+    footprint = pcb.footprints[0]
+    pads = {pad.number: pad for pad in footprint.pads}
+    conditional_b_footprint = pcb.footprints[1]
+    conditional_b = conditional_b_footprint.pads[0]
+
+    assert resolver.pad_item_layers(pads["exact"], footprint) == (
+        "F.Cu",
+        "In2.Cu",
+        "B.Cu",
+    )
+    assert resolver.pad_item_layers(pads["alias"], footprint) == (
+        "F.Cu",
+        "B.Cu",
+        "*.Mask",
+    )
+    assert resolver.pad_item_layers(pads["internal-ends"], footprint) == ()
+    assert resolver.pad_item_layers(pads["smd-policy-ignored"], footprint) == ("In1.Cu",)
+    assert resolver.pad_item_layers(pads["inside-endpoint"], footprint) == ()
+    assert resolver.pad_item_layers(pads["hole-contact"], footprint) == ("In1.Cu",)
+    assert resolver.pad_item_layers(pads["conditional-a"], footprint) == ()
+    assert resolver.pad_item_layers(conditional_b, conditional_b_footprint) == ()
+    rotated_footprint = pcb.footprints[2]
+    assert resolver.pad_item_layers(rotated_footprint.pads[0], rotated_footprint) == (
+        "In1.Cu",
+    )
+    layer_target = pcb.footprints[3]
+    assert resolver.pad_item_layers(layer_target.pads[0], layer_target) == (
+        "F.Cu",
+        "B.Cu",
+    )
+    assert resolver.pad_item_layers(layer_target.pads[1], layer_target) == ()
+    assert resolver.via_flash_layers(pcb.vias[0]) == ("In2.Cu",)
+    assert resolver.via_flash_layers(pcb.vias[1]) == ("In1.Cu",)
+
+
+def test_offset_moves_pad_copper_but_not_physical_drill() -> None:
+    from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
+
+    pcb = KiCadPcb.from_string(
+        """(kicad_pcb
+  (layers (0 "F.Cu" signal) (2 "In1.Cu" power) (31 "B.Cu" signal))
+  (footprint "Test:Offset" (layer "F.Cu") (at 10 20 90)
+    (pad "1" thru_hole circle (at 2 2 0) (size 1 1)
+      (drill oval 0.4 1.2 (offset 0.5 0)) (layers "*.Cu"))))"""
+    )
+    footprint = next(record for record in pcb_to_ir(pcb).records if record.kind == "footprint")
+    flash = next(
+        footprint.operations[index + 1]
+        for index, operation in enumerate(footprint.operations)
+        if operation.kind == KiCadPlotterOpKind.START_BLOCK
+        and operation.payload.get("data_ref") == "pad"
+    )
+    drill = next(
+        footprint.operations[index + 1]
+        for index, operation in enumerate(footprint.operations)
+        if operation.kind == KiCadPlotterOpKind.START_BLOCK
+        and operation.payload.get("data_ref") == "pad_hole"
+    )
+
+    assert (flash.payload["x"], flash.payload["y"]) == (2_000_000, 2_500_000)
+    assert (drill.payload["start_x"] + drill.payload["end_x"]) // 2 == 2_000_000
+    assert (drill.payload["start_y"] + drill.payload["end_y"]) // 2 == 2_000_000
+    assert drill.payload["layers"] == ["F.Cu", "In1.Cu", "B.Cu"]
+
+    bounds = compute_pcb_svg_bounding_box(pcb)
+    assert bounds.width == pytest.approx(1.2, abs=1e-6)
+    assert bounds.height == pytest.approx(1.2, abs=1e-6)
 
 
 @pytest.mark.parametrize(

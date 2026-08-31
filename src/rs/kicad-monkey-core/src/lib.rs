@@ -129,9 +129,9 @@ pub use plotter_types::{
     ThickSegment,
 };
 pub use project::{
-    ProjectBoardDesignSettings, ProjectDiffPairDimensions, ProjectDocument, ProjectError,
-    ProjectErrorKind, ProjectLimits, ProjectNetClass, ProjectNetClassPattern, ProjectNetSettings,
-    ProjectTuningDefaults, ProjectTuningSettings, ProjectVariant, ProjectView,
+    ProjectBoardDesignSettings, ProjectBusAlias, ProjectDiffPairDimensions, ProjectDocument,
+    ProjectError, ProjectErrorKind, ProjectLimits, ProjectNetClass, ProjectNetClassPattern,
+    ProjectNetSettings, ProjectTuningDefaults, ProjectTuningSettings, ProjectVariant, ProjectView,
 };
 pub use schematic_bundle::{
     SchematicBundleIndex, SchematicBundleIndexBuildProfile, SchematicBundleLimits,

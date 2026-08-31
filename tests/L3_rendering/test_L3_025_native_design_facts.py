@@ -32,6 +32,14 @@ REFERENCE_CASES = (
 )
 YOSHI_POWER_SYMBOL_ID = "0712f77e-8c3e-4d5a-85be-9f5a0ee70922"
 YOSHI_UNRENDERED_PIN_ID = "dc9808a5-00d5-4a27-a92d-73f6a1ccbd03"
+PROJECT_BUS_ALIAS_FIXTURE = (
+    PACKAGE_ROOT
+    / "tests"
+    / "cases"
+    / "project_bus_alias_hierarchy"
+    / "input"
+    / "project_bus_alias_hierarchy.kicad_pro"
+)
 
 
 def _unordered_sexpr(value: object) -> object:
@@ -68,7 +76,9 @@ def _rendered_schematic_ids(design: KiCadDesign) -> set[str]:
     ids: set[str] = set()
     options = KiCadSvgRenderOptions.enriched_default()
     for instance in design.schematic_instances():
-        svg = render_ir_to_svg(design.to_schematic_instance_ir(instance), options=options)
+        svg = render_ir_to_svg(
+            design.to_schematic_instance_ir(instance), options=options
+        )
         for element in ET.fromstring(svg).iter():
             element_id = element.attrib.get("id", "")
             if element_id:
@@ -104,15 +114,17 @@ def _assert_reference_project_parity(native: Path) -> None:
                 executable=native,
             )
         except KiCadNativeError as error:
-            raise AssertionError(f"native design facts failed for {case_id}: {error}") from error
+            raise AssertionError(
+                f"native design facts failed for {case_id}: {error}"
+            ) from error
         expected_graph = build_compiled_schematic_graph(design).to_json()
         assert first.compiled_schematic_graph == expected_graph, case_id
-        assert second.compiled_schematic_graph == first.compiled_schematic_graph, case_id
+        assert second.compiled_schematic_graph == first.compiled_schematic_graph, (
+            case_id
+        )
         assert second.source_snapshot_sha256 == first.source_snapshot_sha256, case_id
         assert second.kicad_netlist == first.kicad_netlist, case_id
-        expected_netlist = design.to_kicad_netlist_sexpr(
-            tool="kicad_cruncher", date=""
-        )
+        expected_netlist = design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date="")
         assert _unordered_sexpr(parse_sexp(first.kicad_netlist)) == _unordered_sexpr(
             parse_sexp(expected_netlist)
         ), case_id
@@ -130,13 +142,56 @@ def _assert_reference_project_parity(native: Path) -> None:
     assert graph_ids <= rendered_ids
 
 
+def _assert_project_bus_alias_native_parity(native: Path) -> None:
+    design = KiCadDesign.from_project_file(PROJECT_BUS_ALIAS_FIXTURE)
+    top = design.top_schematic
+    assert top is not None and top.source_path is not None
+
+    first = native_design_facts_for_design(
+        design,
+        source_path=str(top.source_path),
+        date="",
+        tool="kicad_cruncher",
+        executable=native,
+    )
+    assert (
+        first.compiled_schematic_graph
+        == build_compiled_schematic_graph(design).to_json()
+    )
+    assert _unordered_sexpr(parse_sexp(first.kicad_netlist)) == _unordered_sexpr(
+        parse_sexp(design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date=""))
+    )
+
+    assert design.project is not None
+    design.project.set_path("schematic.bus_aliases", {"CTRL": []})
+    design.refresh_netlist()
+    second = native_design_facts_for_design(
+        design,
+        source_path=str(top.source_path),
+        date="",
+        tool="kicad_cruncher",
+        executable=native,
+    )
+    assert second.source_snapshot_sha256 != first.source_snapshot_sha256
+    assert (
+        second.compiled_schematic_graph
+        == build_compiled_schematic_graph(design).to_json()
+    )
+    assert _unordered_sexpr(parse_sexp(second.kicad_netlist)) == _unordered_sexpr(
+        parse_sexp(design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date=""))
+    )
+
+
 def test_source_bound_native_design_facts_drive_cruncher_without_fallback() -> None:
     env = dict(os.environ)
     env["CARGO_BUILD_JOBS"] = "4"
     env["RUST_TEST_THREADS"] = "2"
     env["KICAD_CRUNCHER_NATIVE_DESIGN_FACTS"] = "1"
-    native = PACKAGE_ROOT / "target" / "debug" / (
-        "kicad-monkey-native.exe" if os.name == "nt" else "kicad-monkey-native"
+    native = (
+        PACKAGE_ROOT
+        / "target"
+        / "debug"
+        / ("kicad-monkey-native.exe" if os.name == "nt" else "kicad-monkey-native")
     )
     env["KICAD_MONKEY_NATIVE"] = str(native)
     npm = "npm.cmd" if os.name == "nt" else "npm"
@@ -219,3 +274,4 @@ def test_source_bound_native_design_facts_drive_cruncher_without_fallback() -> N
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
     _assert_reference_project_parity(native)
+    _assert_project_bus_alias_native_parity(native)

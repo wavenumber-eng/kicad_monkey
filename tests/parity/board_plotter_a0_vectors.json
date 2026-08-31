@@ -7048,8 +7048,8 @@
        {
         "kind": "FlashPadOval",
         "index": 12,
-        "x": 1000000,
-        "y": 2000000,
+        "x": 1212132,
+        "y": 2070711,
         "size_x_nm": 2000000,
         "size_y_nm": 1500000,
         "orient_deg": 45.0,
@@ -7101,10 +7101,10 @@
        {
         "kind": "ThickSegment",
         "index": 15,
-        "start_x": 1070711,
-        "start_y": 1929290,
-        "end_x": 1353553,
-        "end_y": 2212132,
+        "start_x": 858579,
+        "start_y": 1858579,
+        "end_x": 1141421,
+        "end_y": 2141421,
         "width_nm": 600000,
         "role": "pad_drill",
         "layers": [

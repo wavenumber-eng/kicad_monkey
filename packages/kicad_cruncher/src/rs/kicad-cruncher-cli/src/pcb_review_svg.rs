@@ -628,11 +628,7 @@ fn filter_operations(
             let role = inner["role"].as_str().unwrap_or_default();
             if role == "npth_hole"
                 || layers.is_empty()
-                || layer_set_matches(
-                    &layers,
-                    wanted,
-                    matches!(role, "via_aperture" | "via_drill"),
-                )
+                || layer_set_matches(&layers, wanted, role == "via_drill")
             {
                 if layers.is_empty() && record["kind"].as_str() == Some("footprint") {
                     let bound =
@@ -651,11 +647,7 @@ fn filter_operations(
         if matches!(operation["kind"].as_str(), Some("StartBlock" | "EndBlock"))
             || role == "npth_hole"
             || layers.is_empty()
-            || layer_set_matches(
-                &layers,
-                wanted,
-                matches!(role, "via_aperture" | "via_drill"),
-            )
+            || layer_set_matches(&layers, wanted, role == "via_drill")
         {
             extend_operations(&mut output, std::slice::from_ref(operation), maximum)?;
         }
@@ -1645,6 +1637,11 @@ fn footprint_hole_layers(record: &Value) -> Vec<String> {
 
 fn via_hole_attrs(record: &Value) -> BTreeMap<String, String> {
     let mut attrs = record_attrs(record);
+    attrs.remove("data-layer-name");
+    attrs.remove("data-layer-role");
+    attrs.remove("data-layer-names");
+    attrs.remove("data-layer-roles");
+    set_layer_attrs(&mut attrs, &via_hole_layers(record));
     let uuid = record["uuid"].as_str().unwrap_or_default();
     attrs.insert("data-primitive".to_owned(), "via-hole".to_owned());
     attrs.insert("id".to_owned(), format!("{uuid}:drill_overlay"));
@@ -1688,6 +1685,31 @@ fn via_hole_attrs(record: &Value) -> BTreeMap<String, String> {
         }
     }
     attrs
+}
+
+fn via_hole_layers(record: &Value) -> Vec<String> {
+    let mut retained = record.clone();
+    let Some(object) = retained.as_object_mut() else {
+        return Vec::new();
+    };
+    let drill_operations = object
+        .get("operations")
+        .and_then(Value::as_array)
+        .map(|operations| {
+            operations
+                .iter()
+                .filter(|operation| {
+                    matches!(
+                        operation["role"].as_str(),
+                        Some("via_drill" | "via_mask_drill" | "npth_hole")
+                    )
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    object.insert("operations".to_owned(), Value::Array(drill_operations));
+    ordered_layers(&retained)
 }
 
 fn hole_kind(record: &Value) -> &str {
@@ -2070,6 +2092,9 @@ fn array<'a>(value: &'a Value, key: &str) -> Result<&'a [Value], DesignError> {
         .map(Vec::as_slice)
         .ok_or_else(|| DesignError::new(format!("board plot {key} is not an array")))
 }
+
+#[cfg(test)]
+mod issue72_tests;
 
 #[cfg(test)]
 mod tests {

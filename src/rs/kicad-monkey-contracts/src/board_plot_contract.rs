@@ -1424,30 +1424,27 @@ fn validate_via_operations(
     operations: &[BoardOperation],
     record_index: usize,
 ) -> Result<(), ValidationError> {
-    let mut valid = operations.len() >= 2 && operations.len().is_multiple_of(2);
-    if valid {
-        for (index, operation) in operations.iter().enumerate() {
-            valid = match (index, operation) {
-                (0, BoardOperation::FlashPadCircleOperation(value)) => {
-                    via_flash_has_role(value, PlotterViaFlashRole::ViaAperture)
-                }
-                (1, BoardOperation::CircleOperation(value)) => {
-                    via_drill_has_role(value, BoardDrillRole::ViaDrill)
-                }
-                (index, BoardOperation::FlashPadCircleOperation(value))
-                    if index.is_multiple_of(2) =>
-                {
-                    via_flash_has_role(value, PlotterViaFlashRole::ViaMaskOpening)
-                }
-                (index, BoardOperation::CircleOperation(value)) if !index.is_multiple_of(2) => {
-                    via_drill_has_role(value, BoardDrillRole::ViaMaskDrill)
-                }
-                _ => false,
-            };
-            if !valid {
-                break;
-            }
-        }
+    let mut index = 0;
+    if operations.first().is_some_and(|operation| {
+        matches!(operation, BoardOperation::FlashPadCircleOperation(value)
+            if via_flash_has_role(value, PlotterViaFlashRole::ViaAperture))
+    }) {
+        index += 1;
+    }
+    let mut valid = operations.get(index).is_some_and(|operation| {
+        matches!(operation, BoardOperation::CircleOperation(value)
+            if via_drill_has_role(value, BoardDrillRole::ViaDrill))
+    });
+    index += usize::from(valid);
+    while valid && index < operations.len() {
+        valid = operations.get(index).is_some_and(|operation| {
+            matches!(operation, BoardOperation::FlashPadCircleOperation(value)
+                if via_flash_has_role(value, PlotterViaFlashRole::ViaMaskOpening))
+        }) && operations.get(index + 1).is_some_and(|operation| {
+            matches!(operation, BoardOperation::CircleOperation(value)
+                if via_drill_has_role(value, BoardDrillRole::ViaMaskDrill))
+        });
+        index += 2;
     }
     if valid {
         Ok(())
@@ -1455,14 +1452,14 @@ fn validate_via_operations(
         Err(validation_error(
             "invalid_board_operation",
             format!("$.records[{record_index}].operations"),
-            "via records carry an aperture/drill pair then mask opening/drill pairs",
+            "via records carry an optional copper aperture, a drill, then mask opening/drill pairs",
         ))
     }
 }
 
-// Via operations carry the via's layer list verbatim, which the established
-// Python serializer leaves empty for unrouted vias; only the pad-only states
-// are rejected here.
+// A via aperture carries an already-resolved effective flash-layer set and may
+// be absent when every annulus is removed. The mandatory drill retains the
+// authored physical span; only pad-only operation states are rejected here.
 fn via_flash_has_role(value: &FlashPadCircleOperation, role: PlotterViaFlashRole) -> bool {
     value.role == Some(role) && value.mask_margin_nm.is_none()
 }

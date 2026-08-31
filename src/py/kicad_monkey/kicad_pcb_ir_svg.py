@@ -226,7 +226,9 @@ def _filter_record_ops_by_layer(
                 inner = ops[operation_index + 1]
                 inner_layers = _op_layer_set(inner)
                 role = str((getattr(inner, "payload", None) or {}).get("role", ""))
-                allow_copper_span = role in {"via_aperture", "via_drill"}
+                # Via aperture layers are already resolved by pcb_to_ir;
+                # only the physical drill still uses its authored end-point span.
+                allow_copper_span = role == "via_drill"
                 if (
                     role == "npth_hole"
                     or not inner_layers
@@ -254,7 +256,7 @@ def _filter_record_ops_by_layer(
             new_ops.append(op)
             operation_index += 1
             continue
-        allow_copper_span = role in {"via_aperture", "via_drill"}
+        allow_copper_span = role == "via_drill"
         if not op_layers or _layer_set_matches_wanted(
             op_layers,
             wanted,

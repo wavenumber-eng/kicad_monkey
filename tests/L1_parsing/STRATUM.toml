@@ -188,7 +188,7 @@ secondary = [
 file = "test_L1_008_shared_corpus_source_model_readiness.py"
 name = "Shared Corpus Source Model Readiness"
 description = "Validate the real KiCad OOP surface on the shared KiCad corpus"
-test_cases = "${KM_CORPUS_ROOT}/kicad/common"
+test_cases = "${KM_CORPUS_ROOT}/kicad/manifest.json"
 test_case_type = "shared_corpus"
 
 [subtests.code_under_test]
@@ -201,7 +201,8 @@ secondary = [
     "Board layers are exposed on real demo boards",
     "Footprints, nets, zones, and vias are exposed on real demo boards",
     "Edge.Cuts carriers are visible through board graphics",
-    "Footprint-local pads and properties are present on the OOP model"
+    "Footprint-local pads and properties are present on the OOP model",
+    "Yoshi preserves real pad and via unused-copper-layer policies across round-trip"
 ]
 
 # -----------------------------------------------------------------------------
@@ -578,7 +579,7 @@ secondary = [
     "Rotated, mirrored, stroked text boxes and default-aligned table cells use Python TextParams cache geometry",
     "Track records follow graphics with bare locked flags, verbatim widths, and truthy net-name extras",
     "Track arcs plot from the file end point back to the start with no lock state",
-    "Via records emit an aperture/drill pair then mask pairs gated by explicit untenting on outer copper",
+    "Via records separate KiCad-effective copper apertures from physical drill spans, including valid drill-only records, then emit mask pairs gated by explicit untenting on outer copper",
     "Via drills fall back to half the pad size only for non-positive diameters while extras stay raw",
     "Via fabrication flags surface as ipc4761 string extras only when authored",
     "Track and via records observe the shared operation and per-family record budgets",

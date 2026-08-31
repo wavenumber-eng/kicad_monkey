@@ -17,14 +17,16 @@
     <h3>Rationale</h3>
     <p>
       Project-level tools need stable access to `.kicad_pro` text variables,
-      variants, and JSON persistence without depending on raw dictionaries.
+      variants, KiCad 10 schematic bus aliases, and JSON persistence without
+      depending on raw dictionaries.
       Project creation tools also need a named aggregate API for assembling a
       new project folder without overloading the public constructor.
     </p>
     <h3>Purpose</h3>
     <p>
       Wrap project JSON with typed helpers for text variables, variant lookup,
-      serialization, and future project metadata. For new project folders,
+      normalized project bus aliases, serialization, and future project
+      metadata. For new project folders,
       <code>KiCadProject.create(name, directory)</code> starts the writable
       aggregate that can attach schematics, boards, library tables, worksheet
       references, and then write the resulting folder.
@@ -37,11 +39,34 @@
       compatibility. New multi-file project assembly uses
       <code>KiCadProject.create</code>, not positional constructor overloads.
     </p>
+    <h3>Bus Alias Model</h3>
+    <p>
+      <code>bus_aliases</code> is a fresh computed view of KiCad 10
+      <code>schematic.bus_aliases</code> in <code>raw</code>. Names and string
+      members are trimmed, blank or malformed entries are discarded, member
+      order and duplicates are retained, and a valid empty alias is retained.
+      If malformed JSON keys collide only after trimming, the last project
+      entry wins. Mutating the returned dict has no effect; use
+      <code>set_path("schematic.bus_aliases", value)</code> so serialization,
+      Python compilation, source fingerprints, and native compilation consume
+      the same authoritative JSON.
+    </p>
+    <p>
+      During design compilation, normalized KiCad 10 project aliases override
+      same-name legacy <code>.kicad_sch</code> aliases, including with an empty
+      member list; unrelated legacy aliases remain available. Legacy aliases
+      retain their source-model behavior and are not normalized by this API.
+      Direct compiler entrypoints accept the effective project alias map as
+      explicit context.
+    </p>
     <h3>Test Requirements</h3>
     <p>
       Tests must cover JSON construction, text-variable get/set/remove behavior,
-      variant iteration, file writing, reload, constructor compatibility, and
-      <code>KiCadProject.create</code> folder assembly.
+      variant iteration, project-alias normalization and raw/view mutation
+      consistency, file writing, reload, constructor compatibility, and
+      <code>KiCadProject.create</code> folder assembly. Integration tests must
+      cover Python and native consumers, project-over-legacy precedence,
+      malformed cycles, hierarchy promotion, and Design indexes.
     </p>
     <h3>Working Definition</h3>
     <p>

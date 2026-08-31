@@ -85,6 +85,22 @@ SVG, their `pad-hole` groups remain visible in layer-filtered views for every
 board layer, including inner copper layers, while `data-layer-names` preserves
 the source pad layer declaration.
 
+Plated pad-hole operations instead list the complete enabled copper stack,
+because their physical drill scope is through-board even when the pad's copper
+membership is only `F&B.Cu` or has removed internal annuli. NPTH hole roles
+remain unlayered/all-layer cutouts and retain the authored layer declaration.
+
+For plated through-hole pads and vias, copper-flash scope and drill scope are
+separate. `via_aperture` and pad flash operations carry the layers resolved
+from KiCad's unused-layer policy, geometric local copper connectivity, and
+`zone_layer_connections`. Pad membership is exact; unlike via endpoint pairs,
+pad layer lists do not imply an intervening span, and `F&B.Cu` expands only to
+the two external copper layers. Pad/via drill operations keep the authored
+physical span. Consumers must not treat the two endpoint names on a resolved
+`via_aperture` operation as a span; only `via_drill` endpoint layers expand
+across the intervening copper stack. When no annular land is flashed, a via
+record legitimately contains its drill without a `via_aperture` operation.
+
 Via metadata uses:
 
 - `data-via-type`: `through`, `blind`, `buried`, or `micro`

@@ -115,8 +115,16 @@ pub(super) fn pad_from_span(
         thermal_bridge_angle: optional_child_f64(source, &children, "thermal_bridge_angle")?,
         thermal_gap: optional_child_f64(source, &children, "thermal_gap")?,
         zone_connect: optional_child_i64(source, &children, "zone_connect")?,
-        remove_unused_layers: optional_presence_bool(source, &children, "remove_unused_layers")?,
-        keep_end_layers: optional_presence_bool(source, &children, "keep_end_layers")?,
+        remove_unused_layers: manufacturing::optional_presence_bool(
+            source,
+            &children,
+            "remove_unused_layers",
+        )?,
+        keep_end_layers: manufacturing::optional_presence_bool(
+            source,
+            &children,
+            "keep_end_layers",
+        )?,
         teardrops: manufacturing::teardrop_parameters_from_children(source, &children, limits)?,
         backdrill: manufacturing::drill_properties_from_children(
             source,
@@ -175,19 +183,6 @@ fn tolerant_optional_child_f64(
         return Ok(None);
     };
     Ok(first_string(source, span)?.and_then(|value| value.parse().ok()))
-}
-
-fn optional_presence_bool(
-    source: &str,
-    children: &[FormSpan],
-    head: &str,
-) -> Result<Option<bool>, Error> {
-    let Some(span) = child(children, head) else {
-        return Ok(None);
-    };
-    Ok(Some(first_string(source, span)?.is_none_or(|value| {
-        matches!(value.to_ascii_lowercase().as_str(), "yes" | "true" | "1")
-    })))
 }
 
 fn custom_options_from_children(

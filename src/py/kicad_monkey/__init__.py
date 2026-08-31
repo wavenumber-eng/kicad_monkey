@@ -629,6 +629,8 @@ __all__ = [
     "zone_filled_polygon_to_op",
     "zone_to_record",
     "pcb_footprint_to_record",
+    # Board-scoped PTH copper-flash policy (lazy loaded)
+    "PcbLayerFlashResolver",
     # PCB IR → SVG wrapper (lazy loaded)
     "render_pcb_ir_to_svg",
     # Schematic connectivity primitives (lazy loaded)
@@ -1124,6 +1126,7 @@ _LAZY_EXPORT_MODULES: dict[str, str] = {
     'zone_filled_polygon_to_op': 'kicad_pcb_to_ir',
     'zone_to_record': 'kicad_pcb_to_ir',
     'pcb_footprint_to_record': 'kicad_pcb_to_ir',
+    'PcbLayerFlashResolver': 'kicad_pcb_layer_policy',
     'render_pcb_ir_to_svg': 'kicad_pcb_ir_svg',
     'SCH_IU_PER_MM': 'kicad_schematic_connectivity',
     'snap_mm_to_iu': 'kicad_schematic_connectivity',

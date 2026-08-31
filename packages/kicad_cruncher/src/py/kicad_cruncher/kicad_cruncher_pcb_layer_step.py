@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
+from kicad_monkey import PcbLayerFlashResolver
 from kicad_monkey.kicad_base import PadShape, PadType
 from kicad_monkey.kicad_geometry import rotate_point
 from kicad_monkey.kicad_pcb_pad_svg import pad_on_layer
@@ -1791,15 +1792,16 @@ def _collect_layer_features(
     pcb: object, layer: str, opts: PcbLayerStepOptions
 ) -> list[_SourceFeature]:
     features: list[_SourceFeature] = []
+    layer_flash_resolver = PcbLayerFlashResolver.from_board(pcb)
     if opts.include_tracks or opts.include_poured_polygons:
         features.extend(_track_features(pcb, layer, opts))
     if opts.include_arcs or opts.include_poured_polygons:
         features.extend(_arc_features(pcb, layer, opts))
     if _is_copper_layer(layer):
         if opts.include_component_pads:
-            features.extend(_pad_features(pcb, layer, opts))
+            features.extend(_pad_features(pcb, layer, opts, layer_flash_resolver))
         if opts.include_vias:
-            features.extend(_via_features(pcb, layer))
+            features.extend(_via_features(pcb, layer, layer_flash_resolver))
     if opts.include_poured_polygons:
         features.extend(_zone_features(pcb, layer))
     if opts.include_regions:
@@ -1829,14 +1831,19 @@ def _arc_features(pcb: object, layer: str, opts: PcbLayerStepOptions) -> list[_S
     ]
 
 
-def _pad_features(pcb: object, layer: str, opts: PcbLayerStepOptions) -> list[_SourceFeature]:
+def _pad_features(
+    pcb: object,
+    layer: str,
+    opts: PcbLayerStepOptions,
+    layer_flash_resolver: PcbLayerFlashResolver,
+) -> list[_SourceFeature]:
     features: list[_SourceFeature] = []
     for footprint in getattr(pcb, "footprints", []) or []:
         designator = _footprint_designator(footprint)
         if not _matches_designator_filter(designator, opts.include_designators):
             continue
         for pad in getattr(footprint, "pads", []) or []:
-            if not pad_on_layer(pad, layer):
+            if layer not in layer_flash_resolver.pad_item_layers(pad, footprint):
                 continue
             region = _pad_region(footprint, pad, layer, opts)
             if region is None:
@@ -1852,11 +1859,15 @@ def _pad_features(pcb: object, layer: str, opts: PcbLayerStepOptions) -> list[_S
     return features
 
 
-def _via_features(pcb: object, layer: str) -> list[_SourceFeature]:
+def _via_features(
+    pcb: object,
+    layer: str,
+    layer_flash_resolver: PcbLayerFlashResolver,
+) -> list[_SourceFeature]:
     return [
         _SourceFeature("via", region)
         for via in getattr(pcb, "vias", []) or []
-        if _via_spans_layer(via, layer)
+        if layer in layer_flash_resolver.via_flash_layers(via)
         for region in _via_copper_regions(via)
     ]
 
@@ -1965,8 +1976,6 @@ def _pad_drill_features(
     features: list[_DrillFeature] = []
     for footprint in getattr(pcb, "footprints", []) or []:
         for pad in getattr(footprint, "pads", []) or []:
-            if not pad_on_layer(pad, layer):
-                continue
             feature = _pad_hole_feature(footprint, pad, layer, opts)
             if feature is not None:
                 features.append(feature)
@@ -2298,19 +2307,9 @@ def _pad_slot_rotation_degrees(pad: object, width: float, height: float) -> floa
 
 
 def _pad_drill_center_local(pad: object) -> tuple[float, float]:
-    offset_x = float(getattr(pad, "drill_offset_x", 0.0) or 0.0)
-    offset_y = float(getattr(pad, "drill_offset_y", 0.0) or 0.0)
-    if not math.isclose(offset_x, 0.0, abs_tol=1e-12) or not math.isclose(
-        offset_y, 0.0, abs_tol=1e-12
-    ):
-        offset_x, offset_y = rotate_point(
-            offset_x,
-            offset_y,
-            -float(getattr(pad, "at_angle", 0.0) or 0.0),
-        )
     return (
-        float(getattr(pad, "at_x", 0.0) or 0.0) + offset_x,
-        float(getattr(pad, "at_y", 0.0) or 0.0) + offset_y,
+        float(getattr(pad, "at_x", 0.0) or 0.0),
+        float(getattr(pad, "at_y", 0.0) or 0.0),
     )
 
 

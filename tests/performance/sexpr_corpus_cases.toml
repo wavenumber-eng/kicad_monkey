@@ -1,5 +1,5 @@
 schema = "kicad_monkey.performance_corpus.a0"
-archive_sha256 = "2f0ab3ae70a4b7dfe7a8acb0030687b152c45dbd97d8a443015e06d6c28f9f26"
+archive_sha256 = "12a23e9849579198395a2a0d58aa8d8c368f08d6fa9612fb9439d765255e8b71"
 status = "measurement"
 operations = ["parse", "roundtrip"]
 

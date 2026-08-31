@@ -17,7 +17,13 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 from kicad_cruncher import kicad_cruncher_cmd_design as design_cmd
-from kicad_monkey import KiCadDesign, get_value, parse_sexp
+from kicad_monkey import (
+    KiCadDesign,
+    find_all_elements,
+    find_element,
+    get_value,
+    parse_sexp,
+)
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 _WORKSPACE = Path(__file__).resolve().parents[4]
@@ -121,6 +127,18 @@ _EMBEDDED_BERKELEY_PROJECT = (
 _MANIFEST_SCHEMA = (
     _PACKAGE_ROOT / "docs" / "contracts" / "design_review_manifest.a0.schema.json"
 )
+_PROJECT_BUS_ALIAS_PROJECT = (
+    _WORKSPACE
+    / "tests"
+    / "cases"
+    / "project_bus_alias_hierarchy"
+    / "input"
+    / "project_bus_alias_hierarchy.kicad_pro"
+)
+_PROJECT_BUS_ALIAS_EXPECTED = {
+    "/CTRL_A": {("TP1", "1"), ("TP101", "1")},
+    "/CTRL_B": {("TP2", "1"), ("TP102", "1")},
+}
 
 
 def _first_json_difference(actual: object, expected: object, path: str = "$") -> str:
@@ -304,6 +322,31 @@ def _bundle_digest(root: Path) -> dict[str, str]:
     }
 
 
+def _json_net_terminals(payload: dict) -> dict[str, set[tuple[str, str]]]:
+    return {
+        str(net["name"]): {
+            (str(terminal["designator"]), str(terminal["pin"]))
+            for terminal in net["terminals"]
+        }
+        for net in payload["nets"]
+    }
+
+
+def _sexpr_net_terminals(text: str) -> dict[str, set[tuple[str, str]]]:
+    nets = find_element(parse_sexp(text), "nets")
+    assert nets is not None
+    return {
+        str(get_value(net, "name") or ""): {
+            (
+                str(get_value(node, "ref") or ""),
+                str(get_value(node, "pin") or ""),
+            )
+            for node in find_all_elements(net, "node")
+        }
+        for net in find_all_elements(nets, "net")
+    }
+
+
 def _assert_rust_bundle(output: Path, project: Path = _PROJECT) -> None:
     manifest = json.loads((output / "design_review_manifest.json").read_text("utf-8"))
     Draft202012Validator(json.loads(_MANIFEST_SCHEMA.read_text("utf-8"))).validate(
@@ -387,6 +430,45 @@ def test_rust_design_aliases_publish_the_same_complete_transactional_bundle(
         _assert_rust_bundle(output)
         digests.append(_bundle_digest(output))
     assert digests[0] == digests[1] == digests[2]
+
+
+@pytest.mark.parametrize(
+    "source_suffix",
+    (".kicad_pro", ".kicad_sch"),
+    ids=("project-entrypoint", "adjacent-schematic-entrypoint"),
+)
+def test_rust_design_workflow_publishes_project_bus_alias_members_consistently(
+    tmp_path: Path, source_suffix: str
+) -> None:
+    output = tmp_path / "project-bus-alias-review"
+    source = _PROJECT_BUS_ALIAS_PROJECT.resolve().with_suffix(source_suffix)
+
+    completed = _run(
+        [str(_RUST_EXE), "design", str(source), "-o", str(output)],
+        timeout=120,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert completed.stderr == ""
+    manifest = json.loads((output / "design_review_manifest.json").read_text("utf-8"))
+    Draft202012Validator(json.loads(_MANIFEST_SCHEMA.read_text("utf-8"))).validate(
+        manifest
+    )
+    assert manifest["design_facts"]["backend"] == "kicad-monkey-native"
+    design_json = json.loads((output / manifest["design_json"]).read_text("utf-8"))
+    netlist_json = json.loads((output / manifest["netlist_json"]).read_text("utf-8"))
+    graph = json.loads(
+        (output / manifest["compiled_schematic_graph"]["file"]).read_text("utf-8")
+    )
+    sexpr = (output / manifest["netlist_kicad_sexpr"]).read_text("utf-8")
+
+    assert graph == design_json["compiled_schematic_graph"]
+    assert _json_net_terminals(netlist_json) == _PROJECT_BUS_ALIAS_EXPECTED
+    assert _json_net_terminals(design_json) == _PROJECT_BUS_ALIAS_EXPECTED
+    assert _sexpr_net_terminals(sexpr) == _PROJECT_BUS_ALIAS_EXPECTED
+    assert netlist_json == KiCadDesign.from_file(source).to_netlist_json()
+    assert len(manifest["schematic_svgs"]) == 2
+    assert manifest["pcb_svgs"] == []
 
 
 def test_rust_design_failure_preserves_the_previous_bundle(tmp_path: Path) -> None:

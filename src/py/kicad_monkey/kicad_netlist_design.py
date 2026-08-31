@@ -255,6 +255,7 @@ def _canonical_instance_path(top: "KiCadSchematic", sheet_path: str) -> str:
 def compile_design_subgraphs(
     top: "KiCadSchematic",
     *,
+    bus_aliases: Optional[Dict[str, List[str]]] = None,
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
     include_off_board: bool = True,
@@ -282,6 +283,11 @@ def compile_design_subgraphs(
         if cs.schematic is None:
             raise ValueError(f"Compiled sheet {cs.sheet_path!r} has no schematic")
         aliases.update(collect_bus_aliases(cs.schematic))
+    # KiCad 10 moved authoritative aliases to ``schematic.bus_aliases`` in
+    # the project file. Project definitions override same-name legacy
+    # schematic declarations while unrelated legacy aliases remain visible.
+    if bus_aliases:
+        aliases.update(bus_aliases)
     for cs in out:
         if cs.schematic is None:
             raise ValueError(f"Compiled sheet {cs.sheet_path!r} has no schematic")
@@ -2030,6 +2036,7 @@ def compile_design_netlist(
     top: "KiCadSchematic",
     project_vars: Optional[Dict[str, str]] = None,
     *,
+    bus_aliases: Optional[Dict[str, List[str]]] = None,
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
 ) -> KiCadNetlist:
@@ -2048,6 +2055,7 @@ def compile_design_netlist(
     """
     compiled = compile_design_subgraphs(
         top,
+        bus_aliases=bus_aliases,
         subpart_first_id=subpart_first_id,
         subpart_id_separator=subpart_id_separator,
     )

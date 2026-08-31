@@ -488,9 +488,10 @@ export interface TrackArcPlotRecord {
   net_classes?: string[];
 }
 /**
- * One board via record: copper aperture, synthetic drill, and per-side mask
- * opening/drill pairs when tenting explicitly exposes that side. IPC-4761
- * fabrication metadata mirrors the established stringified booleans.
+ * One board via record: optional resolved copper aperture, mandatory physical
+ * drill, and per-side mask opening/drill pairs when tenting explicitly exposes
+ * that side. A fully removed annulus is represented by the drill alone.
+ * IPC-4761 fabrication metadata mirrors the established stringified booleans.
  */
 export interface ViaPlotRecord {
   uuid: string;

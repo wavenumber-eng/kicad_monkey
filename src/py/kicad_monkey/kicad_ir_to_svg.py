@@ -1845,7 +1845,11 @@ def _op_visible_on_layers(
 
     if role in {"via_aperture", "via_drill"}:
         if isinstance(layers, IterableABC) and not isinstance(layers, (str, bytes)):
-            return _layers_visible(layers, visible_layers, allow_copper_span=True)
+            return _layers_visible(
+                layers,
+                visible_layers,
+                allow_copper_span=(role == "via_drill"),
+            )
         return False
 
     layer = op.payload.get("layer")

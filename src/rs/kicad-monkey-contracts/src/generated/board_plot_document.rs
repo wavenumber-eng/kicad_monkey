@@ -7167,15 +7167,16 @@ pub struct TrackSegmentPlotRecord {
     pub operations: ::std::vec::Vec<PlotterOperation>,
     pub uuid: ::std::string::String,
 }
-/**One board via record: copper aperture, synthetic drill, and per-side mask
-opening/drill pairs when tenting explicitly exposes that side. IPC-4761
-fabrication metadata mirrors the established stringified booleans.*/
+/**One board via record: optional resolved copper aperture, mandatory physical
+drill, and per-side mask opening/drill pairs when tenting explicitly exposes
+that side. A fully removed annulus is represented by the drill alone.
+IPC-4761 fabrication metadata mirrors the established stringified booleans.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "One board via record: copper aperture, synthetic drill, and per-side mask\nopening/drill pairs when tenting explicitly exposes that side. IPC-4761\nfabrication metadata mirrors the established stringified booleans.",
+///  "description": "One board via record: optional resolved copper aperture, mandatory physical\ndrill, and per-side mask opening/drill pairs when tenting explicitly exposes\nthat side. A fully removed annulus is represented by the drill alone.\nIPC-4761 fabrication metadata mirrors the established stringified booleans.",
 ///  "type": "object",
 ///  "required": [
 ///    "drill",

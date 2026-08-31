@@ -163,23 +163,29 @@ def test_group_mixed_separators():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("text", [
-    "D[7..0]",
-    "D[0..7]",
-    "D[0..1]+",
-    "{A,B,C}",
-    "MIX{A,B}",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "D[7..0]",
+        "D[0..7]",
+        "D[0..1]+",
+        "{A,B,C}",
+        "MIX{A,B}",
+    ],
+)
 def test_is_bus_label_recognises_bus_forms(text):
     assert is_bus_label(text)
 
 
-@pytest.mark.parametrize("text", [
-    "VCC",
-    "/SIG",
-    "Net-(R1-1)",
-    "GND",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "VCC",
+        "/SIG",
+        "Net-(R1-1)",
+        "GND",
+    ],
+)
 def test_is_bus_label_rejects_plain_nets(text):
     assert not is_bus_label(text)
 
@@ -245,6 +251,17 @@ def test_expand_alias_chain_recursion():
     assert expand_bus_label("OUTER", aliases) == ["X0", "X1", "Y"]
 
 
+def test_expand_alias_cycle_fails_closed():
+    """Project-derived aliases must not recurse indefinitely when malformed."""
+    aliases = {
+        "A": ["B"],
+        "B": ["C"],
+        "C": ["A"],
+    }
+    with pytest.raises(ValueError, match="bus alias cycle includes 'A'"):
+        expand_bus_label("A", aliases)
+
+
 def test_expand_no_aliases_falls_through_for_unknown_name():
     """Unknown name + no bus syntax → fall through to plain singleton."""
     assert expand_bus_label("UNKNOWN_NAME") == ["UNKNOWN_NAME"]
@@ -253,7 +270,14 @@ def test_expand_no_aliases_falls_through_for_unknown_name():
 def test_expand_with_descending_vector_yields_ascending():
     """Confirm `expand_bus_label("D[7..0]")` matches KiCad's ascending output."""
     assert expand_bus_label("D[7..0]") == [
-        "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7"
+        "D0",
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
     ]
 
 

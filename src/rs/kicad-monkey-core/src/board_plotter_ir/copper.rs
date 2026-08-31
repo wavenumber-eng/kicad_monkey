@@ -88,12 +88,14 @@ fn exposed_mask_layers(via: &PcbVia) -> Vec<&'static str> {
         .collect()
 }
 
-pub(super) fn via_operation_count(via: &PcbVia) -> usize {
-    2 + 2 * exposed_mask_layers(via).len()
+pub(super) fn via_operation_count(via: &PcbVia, has_aperture: bool) -> usize {
+    usize::from(has_aperture) + 1 + 2 * exposed_mask_layers(via).len()
 }
 
 pub(super) fn via_record(
     via: PcbVia,
+    flashed_layers: Vec<String>,
+    has_aperture: bool,
     mask_clearance: f64,
     net_classes: &BoardNetClassAssignments,
     budget: &mut BudgetTracker,
@@ -111,22 +113,23 @@ pub(super) fn via_record(
         via.size * 0.5
     };
     let drill_nm = mm_to_nm(drill_mm)?;
-    let mut operations = vec![
-        BoardViaOperation {
+    let mut operations = Vec::new();
+    if has_aperture {
+        operations.push(BoardViaOperation {
             kind: BoardViaOperationKind::Aperture,
             x,
             y,
             diameter_nm: size_nm,
-            layers: via.layers.clone(),
-        },
-        BoardViaOperation {
-            kind: BoardViaOperationKind::Drill,
-            x,
-            y,
-            diameter_nm: drill_nm,
-            layers: via.layers.clone(),
-        },
-    ];
+            layers: flashed_layers,
+        });
+    }
+    operations.push(BoardViaOperation {
+        kind: BoardViaOperationKind::Drill,
+        x,
+        y,
+        diameter_nm: drill_nm,
+        layers: via.layers.clone(),
+    });
     let opening_nm = mm_to_nm(via.size + 2.0 * mask_clearance)?;
     for mask in exposed_mask_layers(&via) {
         operations.push(BoardViaOperation {

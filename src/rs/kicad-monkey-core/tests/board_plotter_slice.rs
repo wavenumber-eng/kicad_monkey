@@ -1,10 +1,10 @@
 use kicad_monkey_core::{
-    BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
-    BoardPlotRecord, BoardSegmentRecord, BoardTextVariables, BoardTrackArcRecord,
+    BoardFootprintOperation, BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments,
+    BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTextVariables, BoardTrackArcRecord,
     BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord, ErrorKind, PcbLimits,
     PlotterFill, PlotterOperation, board_plot_document, board_plot_document_with_net_classes,
     board_plot_document_with_sidecars, board_plot_facts_with_sidecars,
-    board_plot_facts_with_sidecars_profiled,
+    board_plot_facts_with_sidecars_profiled, project_board_plot_document_a0,
 };
 
 fn graphic(record: &BoardPlotRecord) -> &BoardGraphicRecord {
@@ -596,6 +596,262 @@ fn via_records_emit_aperture_drill_then_exposed_mask_pairs() {
     for operation in &record.operations {
         assert_eq!((operation.x, operation.y), (7_000_000, 8_000_000));
     }
+}
+
+#[test]
+fn pth_policy_resolves_flash_layers_but_preserves_physical_drill_spans() {
+    let source = r#"(kicad_pcb
+      (version 20250830)
+      (generator pcbnew)
+      (layers
+        (0 "F.Cu" signal)
+        (2 "In1.Cu" power)
+        (4 "In2.Cu" power)
+        (31 "B.Cu" signal))
+      (setup (pad_to_mask_clearance 0))
+      (net 1 "N")
+      (via (at 1 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers no)
+        (zone_layer_connections "In2.Cu") (net 1) (uuid "remove"))
+      (via (at 2 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers yes)
+        (zone_layer_connections "In2.Cu") (net 1) (uuid "ends"))
+      (via (at 3 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (start_end_only yes) (net 1) (uuid "only"))
+      (via (at 4 1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers no) (net 1) (uuid "drill-only"))
+      (footprint "Test:Policy" (layer "F.Cu") (at 10 10)
+        (pad "1" thru_hole circle (at 0 0) (size 1 1) (drill 0.5)
+          (layers "*.Cu" "*.Mask") (remove_unused_layers yes)
+          (keep_end_layers yes) (zone_layer_connections "In1.Cu")
+          (net 1 "N") (uuid "pad"))))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("policy IR");
+    project_board_plot_document_a0(
+        document.clone(),
+        None,
+        "policy-board".to_owned(),
+        Default::default(),
+    )
+    .expect("drill-only via contract");
+
+    let remove = via(&document.records[0]);
+    assert_eq!(remove.operations[0].kind, BoardViaOperationKind::Aperture);
+    assert_eq!(remove.operations[0].layers, ["In2.Cu"]);
+    assert_eq!(remove.operations[1].kind, BoardViaOperationKind::Drill);
+    assert_eq!(remove.operations[1].layers, ["F.Cu", "B.Cu"]);
+
+    let ends = via(&document.records[1]);
+    assert_eq!(ends.operations[0].layers, ["F.Cu", "In2.Cu", "B.Cu"]);
+    let only = via(&document.records[2]);
+    assert_eq!(only.operations[0].layers, ["F.Cu", "B.Cu"]);
+    let drill_only = via(&document.records[3]);
+    assert_eq!(drill_only.operations.len(), 1);
+    assert_eq!(drill_only.operations[0].kind, BoardViaOperationKind::Drill);
+    assert_eq!(drill_only.operations[0].layers, ["F.Cu", "B.Cu"]);
+
+    let BoardPlotRecord::Footprint(footprint) = &document.records[4] else {
+        panic!("expected footprint record");
+    };
+    let BoardFootprintOperation::StartBlock(pad) = &footprint.operations[0] else {
+        panic!("expected pad block");
+    };
+    assert_eq!(pad.layers, ["F.Cu", "In1.Cu", "B.Cu", "*.Mask"]);
+    let BoardFootprintOperation::StartBlock(hole) = &footprint.operations[3] else {
+        panic!("expected pad-hole block");
+    };
+    assert_eq!(hole.layers, ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]);
+}
+
+#[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one source vector verifies matched pad/via policy branches and exclusions"
+)]
+fn pth_policy_uses_exact_pad_layers_and_geometric_connectivity() {
+    let source = r#"(kicad_pcb
+      (version 20250830)
+      (generator pcbnew)
+      (layers
+        (0 "F.Cu" signal)
+        (2 "In1.Cu" power)
+        (4 "In2.Cu" power)
+        (31 "B.Cu" signal))
+      (net 1 "N")
+      (segment (start 9 10) (end 9.6 10) (width 0.1) (layer "In1.Cu") (net 1))
+      (segment (start 9 11) (end 9.8 11) (width 0.1) (layer "In1.Cu") (net 1))
+      (segment (start 39 38) (end 39.5 38) (width 0.1) (layer "In1.Cu") (net 1))
+      (segment (start 19 20) (end 21 20) (width 0.1) (layer "In2.Cu") (net 1))
+      (arc (start 30 30) (mid 31 29) (end 32 30) (width 0.1) (layer "In1.Cu") (net 1))
+      (via (at 20 20) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers no) (net 1) (uuid "crossed-via"))
+      (via (at 31 29) (size 0.4) (drill 0.2) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers no) (net 1) (uuid "arc-via"))
+      (via (at 50.8 50) (size 1.2) (drill 0.2) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers yes) (net 1) (uuid "layer-other"))
+      (via (at 60.4 60) (size 1) (drill 0.2) (layers "F.Cu" "B.Cu")
+        (remove_unused_layers yes) (keep_end_layers no)
+        (zone_layer_connections "In1.Cu") (net 1) (uuid "forced-other"))
+      (footprint "Test:Policy" (layer "F.Cu") (at 0 0)
+        (pad "exact" thru_hole circle (at 2 2) (size 1 1) (drill 0.5)
+          (layers "F.Cu" "In2.Cu" "B.Cu") (net 1 "N"))
+        (pad "alias" thru_hole circle (at 4 2) (size 1 1) (drill 0.5)
+          (layers "F&B.Cu" "*.Mask") (net 1 "N"))
+        (pad "internal-ends" thru_hole circle (at 6 2) (size 1 1) (drill 0.5)
+          (layers "In1.Cu" "In2.Cu") (remove_unused_layers yes)
+          (keep_end_layers yes) (net 1 "N"))
+        (pad "smd-policy-ignored" smd rect (at 8 2) (size 1 1)
+          (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N"))
+        (pad "inside-endpoint" thru_hole circle (at 10 10) (size 1 1) (drill 0.5)
+          (layers "In1.Cu") (remove_unused_layers yes) (keep_end_layers no)
+          (net 1 "N"))
+        (pad "hole-contact" thru_hole circle (at 10 11) (size 1 1) (drill 0.5)
+          (layers "In1.Cu") (remove_unused_layers yes) (keep_end_layers no)
+          (net 1 "N"))
+        (pad "conditional-a" thru_hole circle (at 12 12) (size 1 1) (drill 0.5)
+          (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N")))
+      (footprint "Test:Other" (layer "F.Cu") (at 0 0)
+        (pad "conditional-b" thru_hole circle (at 12 12) (size 1 1) (drill 0.5)
+          (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N")))
+      (footprint "Test:Rotated" (layer "F.Cu") (at 40 40 90)
+        (pad "absolute-slot" thru_hole oval (at 2 0 0) (size 2 1)
+          (drill oval 1.2 0.2) (layers "In1.Cu")
+          (remove_unused_layers yes) (net 1 "N")))
+      (footprint "Test:LayerTarget" (layer "F.Cu") (at 0 0)
+        (pad "layer-target" thru_hole circle (at 50 50) (size 1 1) (drill 0.5)
+          (layers "*.Cu") (remove_unused_layers yes) (net 1 "N"))
+        (pad "forced-target" thru_hole circle (at 60 60) (size 1 1) (drill 0.2)
+          (layers "In1.Cu") (remove_unused_layers yes) (net 1 "N"))))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("policy IR");
+    let crossed = document
+        .records
+        .iter()
+        .find_map(|record| match record {
+            BoardPlotRecord::Via(via) if via.uuid == "crossed-via" => Some(via),
+            _ => None,
+        })
+        .expect("crossed via");
+    assert_eq!(crossed.operations[0].layers, ["In2.Cu"]);
+    let arc_via = document
+        .records
+        .iter()
+        .find_map(|record| match record {
+            BoardPlotRecord::Via(via) if via.uuid == "arc-via" => Some(via),
+            _ => None,
+        })
+        .expect("arc via");
+    assert_eq!(arc_via.operations[0].layers, ["In1.Cu"]);
+
+    let footprint = document
+        .records
+        .iter()
+        .find_map(|record| match record {
+            BoardPlotRecord::Footprint(footprint) => Some(footprint),
+            _ => None,
+        })
+        .expect("footprint");
+    let flash_layers = footprint
+        .operations
+        .iter()
+        .filter_map(|operation| match operation {
+            BoardFootprintOperation::StartBlock(block) if block.data_ref == "pad" => {
+                Some((block.object_id.as_str(), block.layers.as_slice()))
+            }
+            _ => None,
+        })
+        .collect::<std::collections::HashMap<_, _>>();
+    assert_eq!(flash_layers["exact"], ["F.Cu", "In2.Cu", "B.Cu"]);
+    assert_eq!(flash_layers["alias"], ["F.Cu", "B.Cu", "*.Mask"]);
+    assert_eq!(flash_layers["smd-policy-ignored"], ["In1.Cu"]);
+    assert!(!flash_layers.contains_key("inside-endpoint"));
+    assert_eq!(flash_layers["hole-contact"], ["In1.Cu"]);
+    assert!(!flash_layers.contains_key("internal-ends"));
+    assert!(!flash_layers.contains_key("conditional-a"));
+    assert!(document.records.iter().any(|record| match record {
+        BoardPlotRecord::Footprint(other) =>
+            other.library_link == "Test:Other"
+                && !other.operations.iter().any(|operation| matches!(
+                    operation,
+                    BoardFootprintOperation::StartBlock(block) if block.data_ref == "pad"
+                )),
+        _ => false,
+    }));
+    assert!(document.records.iter().any(|record| match record {
+        BoardPlotRecord::Footprint(rotated) =>
+            rotated.library_link == "Test:Rotated"
+                && rotated.operations.iter().any(|operation| matches!(
+                    operation,
+                    BoardFootprintOperation::StartBlock(block)
+                        if block.data_ref == "pad" && block.layers == ["In1.Cu"]
+                )),
+        _ => false,
+    }));
+    assert!(document.records.iter().any(|record| match record {
+        BoardPlotRecord::Footprint(target) =>
+            target.library_link == "Test:LayerTarget"
+                && target.operations.iter().any(|operation| matches!(
+                    operation,
+                    BoardFootprintOperation::StartBlock(block)
+                        if block.data_ref == "pad" && block.layers == ["F.Cu", "B.Cu"]
+                ))
+                && !target.operations.iter().any(|operation| matches!(
+                    operation,
+                    BoardFootprintOperation::StartBlock(block)
+                        if block.data_ref == "pad" && block.object_id == "forced-target"
+                )),
+        _ => false,
+    }));
+}
+
+#[test]
+fn pad_offset_moves_copper_not_drill_and_drill_only_geometry_sets_bounds() {
+    let source = r#"(kicad_pcb
+      (layers (0 "F.Cu" signal) (2 "In1.Cu" power) (31 "B.Cu" signal))
+      (footprint "Test:Offset" (layer "F.Cu") (at 10 20 90)
+        (pad "1" thru_hole circle (at 2 2 0) (size 1 1)
+          (drill oval 0.4 1.2 (offset 0.5 0)) (layers "*.Cu"))))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("offset pad");
+    let BoardPlotRecord::Footprint(footprint) = &document.records[0] else {
+        panic!("expected footprint");
+    };
+    let BoardFootprintOperation::Pad(PlotterOperation::FlashPadCircle(flash)) =
+        &footprint.operations[1]
+    else {
+        panic!("expected circular copper flash");
+    };
+    assert_eq!((flash.x, flash.y), (2_000_000, 2_500_000));
+    let BoardFootprintOperation::StartBlock(hole) = &footprint.operations[3] else {
+        panic!("expected hole block");
+    };
+    assert_eq!(hole.layers, ["F.Cu", "In1.Cu", "B.Cu"]);
+    let BoardFootprintOperation::Pad(PlotterOperation::ThickSegment(drill)) =
+        &footprint.operations[4]
+    else {
+        panic!("expected slot drill");
+    };
+    assert_eq!(
+        (
+            (drill.start_x + drill.end_x) / 2,
+            (drill.start_y + drill.end_y) / 2,
+        ),
+        (2_000_000, 2_000_000)
+    );
+
+    let facts = board_plot_facts_with_sidecars(
+        source,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::default(),
+    )
+    .expect("offset pad facts");
+    let bounds = facts
+        .bounds(None, Default::default())
+        .expect("offset pad bounds")
+        .expect("non-empty bounds");
+    assert_eq!(
+        (bounds[2] - bounds[0], bounds[3] - bounds[1]),
+        (1_200_000, 1_200_000)
+    );
 }
 
 #[test]

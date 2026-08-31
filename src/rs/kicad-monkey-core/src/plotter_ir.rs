@@ -685,7 +685,7 @@ fn parse_pad(
         && drill
             .diameter_mm
             .is_some_and(|diameter| size_x_mm.max(size_y_mm) <= diameter);
-    let context = PadOperationContext {
+    let base_context = PadOperationContext {
         x,
         y,
         orient_deg,
@@ -695,20 +695,28 @@ fn parse_pad(
         layers: &layers,
         mask_margin_nm,
     };
+    let offset_x_nm = mm_to_nm(drill.offset_x_mm)?;
+    let offset_y_nm = mm_to_nm(drill.offset_y_mm)?;
+    let [offset_x_nm, offset_y_nm] = rotate_nm(offset_x_nm, offset_y_nm, orient_deg)?;
+    let context = PadOperationContext {
+        x: checked_safe_add(x, offset_x_nm)?,
+        y: checked_safe_add(y, offset_y_nm)?,
+        ..base_context
+    };
 
     let mut output = FootprintPadOperations::default();
     if !suppress_npth_flash {
         let flash = match shape {
             "circle" => Some(PlotterOperation::FlashPadCircle(FlashPadCircle {
-                x,
-                y,
+                x: context.x,
+                y: context.y,
                 diameter_nm: size_x_nm,
                 layers: layers.clone(),
                 mask_margin_nm,
             })),
             "oval" => Some(PlotterOperation::FlashPadOval(FlashPadOval {
-                x,
-                y,
+                x: context.x,
+                y: context.y,
                 size_x_nm,
                 size_y_nm,
                 orient_deg,
@@ -716,8 +724,8 @@ fn parse_pad(
                 mask_margin_nm,
             })),
             "rect" => Some(PlotterOperation::FlashPadRect(FlashPadRect {
-                x,
-                y,
+                x: context.x,
+                y: context.y,
                 size_x_nm,
                 size_y_nm,
                 orient_deg,
@@ -737,8 +745,8 @@ fn parse_pad(
                 let half_x = size_x_nm / 2;
                 let half_y = size_y_nm / 2;
                 Some(PlotterOperation::FlashPadTrapez(FlashPadTrapez {
-                    x,
-                    y,
+                    x: context.x,
+                    y: context.y,
                     size_x_nm,
                     size_y_nm,
                     corners: [
@@ -772,7 +780,7 @@ fn parse_pad(
     }
 
     if matches!(pad_type, "thru_hole" | "np_thru_hole")
-        && let Some(drill_operation) = pad_drill_operation(context, drill)?
+        && let Some(drill_operation) = pad_drill_operation(base_context, drill)?
     {
         if output.flash.len() >= max_operations {
             return Err(limit_error());
@@ -1000,13 +1008,7 @@ fn pad_drill_operation(
     } else {
         "pad_drill"
     };
-    let offset_x_nm = mm_to_nm(drill.offset_x_mm)?;
-    let offset_y_nm = mm_to_nm(drill.offset_y_mm)?;
-    let [offset_x_nm, offset_y_nm] = rotate_nm(offset_x_nm, offset_y_nm, context.orient_deg)?;
-    let center = [
-        checked_safe_add(context.x, offset_x_nm)?,
-        checked_safe_add(context.y, offset_y_nm)?,
-    ];
+    let center = [context.x, context.y];
 
     if drill.oval
         && let (Some(width_mm), Some(height_mm)) = (drill.width_mm, drill.height_mm)

@@ -29,12 +29,26 @@
   pin mappings (number, UUID, and optional alternate).</p>
 
   <p>Top-level <code>bus_alias</code> declarations are typed in source order with
-  their member order preserved. The native bus-expression module parses vectors,
+  their source name and member order preserved. The native bus-expression module parses vectors,
   groups, qualified groups, and recursive aliases. It retains current KiCad
   formatting, quoted-name, escaped-space, slash-escape, ascending-vector, and
   suffix behavior while preserving the established Python compiler's dotted
   group qualification and alias recursion semantics. Expansion is iterative;
   alias cycles fail closed rather than recursing indefinitely.</p>
+
+  <p>KiCad 10 project aliases are read from
+  <code>schematic.bus_aliases</code> in <code>.kicad_pro</code> and exposed as
+  the bounded public <code>ProjectBusAlias</code> source-model record. Project
+  names and string members follow KiCad 10 trimming and blank-removal behavior;
+  member order, duplicates, and valid empty aliases are retained. Distinct
+  malformed JSON keys that collide only after normalization use Monkey's
+  explicit last-project-entry policy. This normalization is not applied to
+  legacy KiCad 9 schematic aliases because KiCad 9 and KiCad 10 expose
+  different <code>BUS_ALIAS</code> setter behavior, as recorded in the
+  <a href="https://github.com/KiCad/kicad-source-mirror/blob/9.0.7/eeschema/bus_alias.h">KiCad 9</a>
+  and
+  <a href="https://github.com/KiCad/kicad-source-mirror/blob/10.0.6/eeschema/bus_alias.h">KiCad 10</a>
+  headers.</p>
 
   <p><code>build_schematic_bus_subgraphs</code> now realizes the separate KiCad
   bus-connectivity domain. It groups physically connected bus polylines,
@@ -84,9 +98,11 @@
   driver supplies a bounded synthetic naming candidate. Global wire labels and
   global power remain stronger than that promotion.</p>
 
-  <p>Bus aliases are collected once in realized occurrence order for design
+  <p>Legacy bus aliases are collected once in realized occurrence order for design
   compilation, with later definitions replacing earlier definitions exactly as in
-  the Python compiler. The same borrowed alias map drives both occurrence wire/bus
+  the Python compiler. KiCad 10 project aliases are then applied authoritatively,
+  overriding the same legacy name even when the project member list is empty while
+  retaining unrelated legacy definitions. The same borrowed alias map drives both occurrence wire/bus
   compilation and cross-sheet bus-form recognition; alias names or member strings
   are not cloned into each occurrence.</p>
 

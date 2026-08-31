@@ -476,6 +476,14 @@ def compare_via(v1: Via, v2: Via) -> List[str]:
         diffs.append(f"free: {v1.free} != {v2.free}")
     if v1.tenting != v2.tenting:
         diffs.append(f"tenting: {v1.tenting} != {v2.tenting}")
+    if v1.remove_unused_layers != v2.remove_unused_layers:
+        diffs.append(
+            f"remove_unused_layers: {v1.remove_unused_layers} != {v2.remove_unused_layers}"
+        )
+    if v1.keep_end_layers != v2.keep_end_layers:
+        diffs.append(f"keep_end_layers: {v1.keep_end_layers} != {v2.keep_end_layers}")
+    if v1.start_end_only != v2.start_end_only:
+        diffs.append(f"start_end_only: {v1.start_end_only} != {v2.start_end_only}")
     if v1.net != v2.net:
         diffs.append(f"net: {v1.net} != {v2.net}")
     diffs.extend([f"backdrill.{d}" for d in compare_drill_props(v1.backdrill, v2.backdrill)])
