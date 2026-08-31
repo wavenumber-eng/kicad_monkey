@@ -12,7 +12,7 @@ import statistics
 import subprocess
 from typing import Any
 
-from performance_provenance import sha256_file
+from performance_provenance import collect_performance_provenance, sha256_file
 
 
 METRICS = (
@@ -86,21 +86,88 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--candidate-executable", required=True, type=Path)
     parser.add_argument("--baseline-sha", required=True)
     parser.add_argument("--candidate-sha", required=True)
+    parser.add_argument("--baseline-workspace", required=True, type=Path)
+    parser.add_argument("--candidate-workspace", required=True, type=Path)
+    parser.add_argument("--archive", required=True, type=Path)
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--output", required=True, type=Path)
     return parser.parse_args()
 
 
+def _rebuild(workspace: Path, executable: Path) -> dict[str, Any]:
+    target_directory = executable.parents[2]
+    command = [
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "--package",
+        "kicad-monkey-core",
+        "--example",
+        "sexpr_l0_benchmark",
+    ]
+    environment = {**os.environ, "CARGO_TARGET_DIR": str(target_directory)}
+    completed = subprocess.run(
+        command,
+        cwd=workspace,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"exact-source rebuild failed in {workspace}\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    if not executable.is_file():
+        raise FileNotFoundError(f"rebuild did not produce {executable}")
+    return {
+        "command": command,
+        "cwd": str(workspace),
+        "cargo_target_dir": str(target_directory),
+        "executable_sha256": sha256_file(executable),
+    }
+
+
 def main() -> None:
     args = _arguments()
     workspace = args.workspace.resolve()
+    baseline_workspace = args.baseline_workspace.resolve()
+    candidate_workspace = args.candidate_workspace.resolve()
+    archive = args.archive.resolve()
     baseline_executable = args.baseline_executable.resolve()
     candidate_executable = args.candidate_executable.resolve()
-    if args.rounds < 3:
-        raise ValueError("at least three paired rounds are required")
+    if args.rounds < 9:
+        raise ValueError("at least nine paired rounds are required")
     if not baseline_executable.is_file() or not candidate_executable.is_file():
         raise FileNotFoundError("both benchmark executables must exist")
+    builds = {
+        "baseline": _rebuild(baseline_workspace, baseline_executable),
+        "candidate": _rebuild(candidate_workspace, candidate_executable),
+    }
+    provenances = {
+        "baseline": collect_performance_provenance(
+            package_root=baseline_workspace,
+            executables={"sexpr_l0_benchmark": baseline_executable},
+            feature_sets={"sexpr_l0_benchmark": []},
+            archive=archive,
+        ),
+        "candidate": collect_performance_provenance(
+            package_root=candidate_workspace,
+            executables={"sexpr_l0_benchmark": candidate_executable},
+            feature_sets={"sexpr_l0_benchmark": []},
+            archive=archive,
+        ),
+    }
+    if provenances["baseline"]["git_sha"] != args.baseline_sha:
+        raise AssertionError("baseline workspace does not match --baseline-sha")
+    if provenances["candidate"]["git_sha"] != args.candidate_sha:
+        raise AssertionError("candidate workspace does not match --candidate-sha")
+    if any(value["git_status_porcelain"] for value in provenances.values()):
+        raise AssertionError("benchmark source worktrees must be clean")
 
     pairs: list[dict[str, Any]] = []
     fixture_identity: dict[str, Any] | None = None
@@ -180,6 +247,10 @@ def main() -> None:
                 "path": str(candidate_executable),
                 "sha256": sha256_file(candidate_executable),
             },
+        },
+        "source_to_binary": {
+            "builds": builds,
+            "provenance": provenances,
         },
         "locks": {
             "cargo_sha256": sha256_file(workspace / "Cargo.lock"),
