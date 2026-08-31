@@ -1,6 +1,6 @@
 use kicad_monkey_core::{
-    ErrorKind, ErrorPhase, Limits, Patch, Sexp, TokenKind, apply_patches, apply_patches_with_limit,
-    build, build_with_limit, lex, parse, parse_bytes, parse_with_limits,
+    ErrorKind, ErrorPhase, Lexer, Limits, Patch, Position, Sexp, TokenKind, apply_patches,
+    apply_patches_with_limit, build, build_with_limit, lex, parse, parse_bytes, parse_with_limits,
 };
 use serde::Deserialize;
 use std::fs;
@@ -54,6 +54,66 @@ fn lexer_preserves_borrowed_token_kinds_and_byte_positions() {
         &source[tokens[2].position.offset..][..tokens[2].lexeme.len()],
         tokens[2].lexeme
     );
+}
+
+fn reference_position(source: &str, offset: usize) -> Position {
+    let mut position = Position {
+        offset: 0,
+        line: 1,
+        column: 1,
+    };
+    let mut characters = source[..offset].chars().peekable();
+    while let Some(character) = characters.next() {
+        position.offset += character.len_utf8();
+        if character == '\r' {
+            if characters.peek() == Some(&'\n') {
+                position.offset += characters.next().expect("peeked LF").len_utf8();
+            }
+            position.line += 1;
+            position.column = 1;
+        } else if character == '\n' {
+            position.line += 1;
+            position.column = 1;
+        } else {
+            position.column += 1;
+        }
+    }
+    position
+}
+
+#[test]
+fn byte_lexer_preserves_unicode_columns_comments_escapes_and_newline_forms() {
+    let source =
+        "\u{2003}# α comment\r\n(røot café\u{2003}\"a\\\"λ\r\nb\" x#y)\r(next)\n(last)\u{a0}";
+    let mut lexer = Lexer::new(source);
+    let tokens = lexer
+        .by_ref()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("fixture should lex");
+    let expected = [
+        (TokenKind::Left, "("),
+        (TokenKind::Atom, "røot"),
+        (TokenKind::Atom, "café"),
+        (TokenKind::QuotedString, "\"a\\\"λ\r\nb\""),
+        (TokenKind::Atom, "x#y"),
+        (TokenKind::Right, ")"),
+        (TokenKind::Left, "("),
+        (TokenKind::Atom, "next"),
+        (TokenKind::Right, ")"),
+        (TokenKind::Left, "("),
+        (TokenKind::Atom, "last"),
+        (TokenKind::Right, ")"),
+    ];
+    assert_eq!(tokens.len(), expected.len());
+    for (token, (kind, lexeme)) in tokens.iter().zip(expected) {
+        assert_eq!(token.kind, kind);
+        assert_eq!(token.lexeme, lexeme);
+        assert_eq!(
+            token.position,
+            reference_position(source, token.position.offset)
+        );
+    }
+    assert_eq!(lexer.position(), reference_position(source, source.len()));
 }
 
 #[test]

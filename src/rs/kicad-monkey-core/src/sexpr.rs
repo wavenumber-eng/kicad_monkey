@@ -310,7 +310,7 @@ impl<'a> Lexer<'a> {
         let byte = self.source.as_bytes()[start.offset];
         match byte {
             b'(' => {
-                self.advance_to(start.offset + 1);
+                self.advance_ascii_run(start.offset + 1);
                 Ok(Some(Token {
                     kind: TokenKind::Left,
                     lexeme: &self.source[start.offset..start.offset + 1],
@@ -318,7 +318,7 @@ impl<'a> Lexer<'a> {
                 }))
             }
             b')' => {
-                self.advance_to(start.offset + 1);
+                self.advance_ascii_run(start.offset + 1);
                 Ok(Some(Token {
                     kind: TokenKind::Right,
                     lexeme: &self.source[start.offset..start.offset + 1],
@@ -332,11 +332,28 @@ impl<'a> Lexer<'a> {
 
     fn skip_layout(&mut self) {
         loop {
-            while let Some(character) = self.current_char() {
-                if !character.is_whitespace() {
-                    break;
+            while self.position.offset < self.source.len() {
+                let offset = self.position.offset;
+                match self.source.as_bytes()[offset] {
+                    b' ' | b'\t' | 0x0b | 0x0c => {
+                        let mut end = offset + 1;
+                        while end < self.source.len()
+                            && matches!(self.source.as_bytes()[end], b' ' | b'\t' | 0x0b | 0x0c)
+                        {
+                            end += 1;
+                        }
+                        self.advance_ascii_run(end);
+                    }
+                    b'\r' | b'\n' => self.advance_newline(),
+                    byte if byte.is_ascii() => break,
+                    _ => {
+                        let character = self.current_non_ascii_char();
+                        if !character.is_whitespace() {
+                            break;
+                        }
+                        self.advance_non_ascii(character);
+                    }
                 }
-                self.advance_one();
             }
 
             if self.position.offset >= self.source.len()
@@ -348,36 +365,47 @@ impl<'a> Lexer<'a> {
                 return;
             }
 
-            while let Some(character) = self.current_char() {
-                if character == '\r' || character == '\n' {
-                    break;
-                }
-                self.advance_one();
-            }
+            let start = self.position.offset;
+            let end = self.source.as_bytes()[start..]
+                .iter()
+                .position(|byte| matches!(byte, b'\r' | b'\n'))
+                .map_or(self.source.len(), |relative| start + relative);
+            self.advance_text_run(end);
         }
     }
 
     fn scan_quoted(&mut self, start: Position) -> Result<Token<'a>, Error> {
-        self.advance_one();
-        let mut escaped = false;
-        while let Some(character) = self.current_char() {
-            if escaped {
-                escaped = false;
-                self.advance_one();
-                continue;
-            }
-            if character == '\\' {
-                escaped = true;
-                self.advance_one();
-                continue;
-            }
-            self.advance_one();
-            if character == '"' {
-                return Ok(Token {
-                    kind: TokenKind::QuotedString,
-                    lexeme: &self.source[start.offset..self.position.offset],
-                    position: start,
-                });
+        self.advance_ascii_run(start.offset + 1);
+        while self.position.offset < self.source.len() {
+            let offset = self.position.offset;
+            match self.source.as_bytes()[offset] {
+                b'"' => {
+                    self.advance_ascii_run(offset + 1);
+                    return Ok(Token {
+                        kind: TokenKind::QuotedString,
+                        lexeme: &self.source[start.offset..self.position.offset],
+                        position: start,
+                    });
+                }
+                b'\\' => {
+                    self.advance_ascii_run(offset + 1);
+                    self.advance_one_scalar();
+                }
+                b'\r' | b'\n' => self.advance_newline(),
+                byte if byte.is_ascii() => {
+                    let mut end = offset + 1;
+                    while end < self.source.len()
+                        && self.source.as_bytes()[end].is_ascii()
+                        && !matches!(self.source.as_bytes()[end], b'"' | b'\\' | b'\r' | b'\n')
+                    {
+                        end += 1;
+                    }
+                    self.advance_ascii_run(end);
+                }
+                _ => {
+                    let character = self.current_non_ascii_char();
+                    self.advance_non_ascii(character);
+                }
             }
         }
 
@@ -390,11 +418,32 @@ impl<'a> Lexer<'a> {
     }
 
     fn scan_atom(&mut self, start: Position) -> Token<'a> {
-        while let Some(character) = self.current_char() {
-            if character.is_whitespace() || character == '(' || character == ')' {
-                break;
+        while self.position.offset < self.source.len() {
+            let offset = self.position.offset;
+            let byte = self.source.as_bytes()[offset];
+            if byte.is_ascii() {
+                if byte.is_ascii_whitespace() || matches!(byte, b'(' | b')') {
+                    break;
+                }
+                let mut end = offset + 1;
+                while end < self.source.len() {
+                    let candidate = self.source.as_bytes()[end];
+                    if !candidate.is_ascii()
+                        || candidate.is_ascii_whitespace()
+                        || matches!(candidate, b'(' | b')')
+                    {
+                        break;
+                    }
+                    end += 1;
+                }
+                self.advance_ascii_run(end);
+            } else {
+                let character = self.current_non_ascii_char();
+                if character.is_whitespace() {
+                    break;
+                }
+                self.advance_non_ascii(character);
             }
-            self.advance_one();
         }
         let lexeme = &self.source[start.offset..self.position.offset];
         Token {
@@ -404,41 +453,94 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn current_char(&self) -> Option<char> {
-        self.source[self.position.offset..].chars().next()
+    fn current_non_ascii_char(&self) -> char {
+        self.source[self.position.offset..]
+            .chars()
+            .next()
+            .expect("offset is in bounds and source is valid UTF-8")
     }
 
-    fn advance_one(&mut self) {
+    fn advance_one_scalar(&mut self) {
         let offset = self.position.offset;
         if offset >= self.source.len() {
             return;
         }
+        match self.source.as_bytes()[offset] {
+            b'\r' | b'\n' => self.advance_newline(),
+            byte if byte.is_ascii() => self.advance_ascii_run(offset + 1),
+            _ => {
+                let character = self.current_non_ascii_char();
+                self.advance_non_ascii(character);
+            }
+        }
+    }
 
-        let remaining = &self.source[offset..];
-        if remaining.starts_with("\r\n") {
+    fn advance_newline(&mut self) {
+        let offset = self.position.offset;
+        if self.source.as_bytes()[offset] == b'\r'
+            && self.source.as_bytes().get(offset + 1) == Some(&b'\n')
+        {
             self.position.offset += 2;
-            self.position.line += 1;
-            self.position.column = 1;
-            self.line_start = self.position.offset;
-            return;
-        }
-
-        let Some(character) = remaining.chars().next() else {
-            return;
-        };
-        self.position.offset += character.len_utf8();
-        if character == '\r' || character == '\n' {
-            self.position.line += 1;
-            self.position.column = 1;
-            self.line_start = self.position.offset;
         } else {
-            self.position.column += 1;
+            self.position.offset += 1;
         }
+        self.position.line += 1;
+        self.position.column = 1;
+        self.line_start = self.position.offset;
+    }
+
+    fn advance_ascii_run(&mut self, end: usize) {
+        debug_assert!(end >= self.position.offset);
+        debug_assert!(
+            self.source.as_bytes()[self.position.offset..end]
+                .iter()
+                .all(u8::is_ascii)
+        );
+        debug_assert!(
+            !self.source.as_bytes()[self.position.offset..end]
+                .iter()
+                .any(|byte| matches!(byte, b'\r' | b'\n'))
+        );
+        self.position.column += end - self.position.offset;
+        self.position.offset = end;
+    }
+
+    fn advance_non_ascii(&mut self, character: char) {
+        debug_assert!(!character.is_ascii());
+        self.position.offset += character.len_utf8();
+        self.position.column += 1;
+    }
+
+    fn advance_text_run(&mut self, end: usize) {
+        debug_assert!(
+            !self.source.as_bytes()[self.position.offset..end]
+                .iter()
+                .any(|byte| matches!(byte, b'\r' | b'\n'))
+        );
+        self.position.column += self.source[self.position.offset..end].chars().count();
+        self.position.offset = end;
     }
 
     fn advance_to(&mut self, end: usize) {
         while self.position.offset < end {
-            self.advance_one();
+            let offset = self.position.offset;
+            match self.source.as_bytes()[offset] {
+                b'\r' | b'\n' => self.advance_newline(),
+                byte if byte.is_ascii() => {
+                    let mut run_end = offset + 1;
+                    while run_end < end
+                        && self.source.as_bytes()[run_end].is_ascii()
+                        && !matches!(self.source.as_bytes()[run_end], b'\r' | b'\n')
+                    {
+                        run_end += 1;
+                    }
+                    self.advance_ascii_run(run_end);
+                }
+                _ => {
+                    let character = self.current_non_ascii_char();
+                    self.advance_non_ascii(character);
+                }
+            }
         }
     }
 }
