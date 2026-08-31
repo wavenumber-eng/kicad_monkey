@@ -149,6 +149,7 @@ secondary = [
     "Lexer drain and public token collection are measured independently with raw rounds",
     "Memory and streaming sparse scans report separately controlled allocation evidence",
     "All evidence records Git, patch, executable, lock, archive, host, feature, profile, and toolchain identities",
+    "A dedicated A/B probe retains alternating raw pairs, ratios, and dispersion",
     "Thresholds remain explicitly pending the L0 architecture review",
 ]
 

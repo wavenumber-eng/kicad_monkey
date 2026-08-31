@@ -5,6 +5,8 @@ generator = "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs"
 items = 20000
 operations = ["lexer_drain", "lexer_collect", "structural_scan", "full_parse", "deterministic_build"]
 rounds = 5
+ab_probe = "tests/support_scripts/sexpr_ab_performance_probe.py"
+ab_order = "alternating baseline/candidate pairs with raw payload retention"
 
 [sparse_projection]
 generator = "src/rs/kicad-monkey-core/examples/sexpr_projection_allocation_benchmark.rs"
