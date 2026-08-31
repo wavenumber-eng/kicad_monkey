@@ -3,8 +3,21 @@ id = "sexpr.synthetic_pcb_20000"
 status = "measurement"
 generator = "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs"
 items = 20000
-operations = ["structural_scan", "full_parse", "deterministic_build"]
+operations = ["lexer_drain", "lexer_collect", "structural_scan", "full_parse", "deterministic_build"]
 rounds = 5
+
+[sparse_projection]
+generator = "src/rs/kicad-monkey-core/examples/sexpr_projection_allocation_benchmark.rs"
+fixture = "speedy_shaped_sparse_50000"
+scanners = ["memory", "stream"]
+instrumentation = "stats_alloc 0.1.10 isolated process region plus known-allocation control"
+metrics = [
+    "visited_forms",
+    "selected_forms",
+    "allocation_calls",
+    "reallocation_calls",
+    "allocated_bytes",
+]
 
 [promotion]
 threshold_status = "pending_corpus_and_platform_ratification"
@@ -12,6 +25,9 @@ corpus_measurement_status = "windows_complete_linux_pending"
 corpus_manifest = "tests/performance/sexpr_corpus_cases.toml"
 required_metrics = [
     "input_bytes",
+    "token_count",
+    "lex_drain_seconds",
+    "lex_collect_seconds",
     "selected_forms",
     "output_bytes",
     "scan_seconds",

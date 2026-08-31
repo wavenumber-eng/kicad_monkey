@@ -26,11 +26,15 @@ ROUNDS = 3
 
 
 def _fixture() -> str:
-    return "(kicad_pcb\n" + "".join(
-        f'  (footprint "Bench:R_0805" (property "Reference" "R{index}") '
-        '(at 1.25 2.5 90) (pad "1" smd rect (at 0 0)))\n'
-        for index in range(ITEMS)
-    ) + ")\n"
+    return (
+        "(kicad_pcb\n"
+        + "".join(
+            f'  (footprint "Bench:R_0805" (property "Reference" "R{index}") '
+            '(at 1.25 2.5 90) (pad "1" smd rect (at 0 0)))\n'
+            for index in range(ITEMS)
+        )
+        + ")\n"
+    )
 
 
 def _best(operation: Callable[[], Any]) -> float:
@@ -77,11 +81,32 @@ def test_release_rust_measurement_uses_the_same_frozen_python_workload() -> None
         "build_seconds": _best(lambda: build_sexp(tree)),
     }
 
-    assert rust["schema"] == "kicad_monkey.sexpr_benchmark.a0"
+    assert rust["schema"] == "kicad_monkey.sexpr_benchmark.a1"
     assert rust["input_bytes"] == len(source.encode("utf-8"))
     assert rust["output_bytes"] == len(built.encode("utf-8"))
     assert rust["selected_forms"] == ITEMS
-    assert all(rust[name] > 0 for name in ("scan_mib_s", "parse_mib_s", "build_mib_s"))
+    assert rust["token_count"] > 0
+    assert rust["rounds"] == 5
+    assert all(
+        len(rust[name]) == rust["rounds"]
+        for name in (
+            "lex_drain_raw_seconds",
+            "lex_collect_raw_seconds",
+            "scan_raw_seconds",
+            "parse_raw_seconds",
+            "build_raw_seconds",
+        )
+    )
+    assert all(
+        rust[name] > 0
+        for name in (
+            "lex_drain_mib_s",
+            "lex_collect_mib_s",
+            "scan_mib_s",
+            "parse_mib_s",
+            "build_mib_s",
+        )
+    )
 
     evidence = {
         "schema": "kicad_monkey.sexpr_cross_language_benchmark.a0",
@@ -99,5 +124,57 @@ def test_release_rust_measurement_uses_the_same_frozen_python_workload() -> None
     output.mkdir(parents=True, exist_ok=True)
     (output / "rust_sexpr_l0_benchmark.json").write_text(
         json.dumps(evidence, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_sparse_projection_allocation_probe_is_controlled_and_scanner_specific() -> (
+    None
+):
+    if not advisory_benchmarks_enabled():
+        pytest.skip("advisory benchmark; run Rack with --lane strict")
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for Rust performance evidence"
+    measurements: dict[str, dict[str, Any]] = {}
+    for scanner in ("memory", "stream"):
+        completed = subprocess.run(
+            [
+                cargo,
+                "run",
+                "--release",
+                "--locked",
+                "--package",
+                "kicad-monkey-core",
+                "--example",
+                "sexpr_projection_allocation_benchmark",
+                "--features",
+                "measurement",
+                "--",
+                scanner,
+            ],
+            cwd=PACKAGE_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
+        measurement = json.loads(completed.stdout.strip())
+        assert measurement["schema"] == (
+            "kicad_monkey.sexpr_projection_allocation_benchmark.a0"
+        )
+        assert measurement["scanner"] == scanner
+        assert measurement["selected_forms"] > 0
+        assert measurement["selected_forms"] * 1_000 < measurement["visited_forms"]
+        assert measurement["control"]["allocation_calls"] == 1
+        assert measurement["control"]["reallocation_calls"] == 0
+        assert measurement["control"]["allocated_bytes"] >= 4_096
+        assert measurement["allocation"]["allocation_calls"] > 0
+        measurements[scanner] = measurement
+
+    output = PACKAGE_ROOT / "tests" / "rack_results" / "evidence"
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "rust_sexpr_sparse_projection_allocations.json").write_text(
+        json.dumps(measurements, indent=2) + "\n",
         encoding="utf-8",
     )
