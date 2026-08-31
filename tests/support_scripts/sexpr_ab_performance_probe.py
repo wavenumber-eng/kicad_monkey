@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -23,6 +24,30 @@ METRICS = (
     "sparse_memory_seconds",
     "sparse_stream_seconds",
 )
+
+
+def _median_sign_interval(values: list[float]) -> dict[str, float | int] | None:
+    """Return the narrowest exact distribution-free interval with >=95% coverage."""
+    count = len(values)
+    rank = 0
+    coverage = 0.0
+    for candidate_rank in range(1, (count + 1) // 2 + 1):
+        tail = sum(math.comb(count, index) for index in range(candidate_rank))
+        candidate_coverage = 1.0 - (2.0 * tail / (2**count))
+        if candidate_coverage < 0.95:
+            break
+        rank = candidate_rank
+        coverage = candidate_coverage
+    if rank == 0:
+        return None
+    ordered = sorted(values)
+    return {
+        "coverage": coverage,
+        "lower_ratio": ordered[rank - 1],
+        "upper_ratio": ordered[count - rank],
+        "lower_order_statistic": rank,
+        "upper_order_statistic": count - rank + 1,
+    }
 
 
 def _run(executable: Path) -> dict[str, Any]:
@@ -136,6 +161,7 @@ def main() -> None:
             "min_ratio": min(values),
             "median_ratio": statistics.median(values),
             "max_ratio": max(values),
+            "median_sign_interval": _median_sign_interval(values),
         }
     evidence = {
         "schema": "kicad_monkey.sexpr_ab_performance.a0",

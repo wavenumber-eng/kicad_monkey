@@ -7,6 +7,7 @@ operations = ["lexer_drain", "lexer_collect", "structural_scan", "full_parse", "
 rounds = 5
 ab_probe = "tests/support_scripts/sexpr_ab_performance_probe.py"
 ab_order = "alternating baseline/candidate pairs with raw payload retention"
+ab_decision_interval = "exact distribution-free median sign interval with at least 95% coverage and at least nine pairs"
 
 [sparse_projection]
 generator = "src/rs/kicad-monkey-core/examples/sexpr_projection_allocation_benchmark.rs"
