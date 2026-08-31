@@ -63,11 +63,27 @@ impl Selector {
     }
 
     fn matches(&self, span: &FormSpan) -> bool {
-        self.matches_parts(
-            span.head.as_deref(),
-            span.path.iter().map(String::as_str),
-            span.depth,
-        )
+        if self
+            .heads
+            .as_ref()
+            .is_some_and(|heads| span.head.as_ref().is_none_or(|head| !heads.contains(head)))
+        {
+            return false;
+        }
+        if self
+            .paths
+            .as_ref()
+            .is_some_and(|paths| !paths.contains(&span.path))
+        {
+            return false;
+        }
+        if self.min_depth.is_some_and(|minimum| span.depth < minimum) {
+            return false;
+        }
+        if self.max_depth.is_some_and(|maximum| span.depth > maximum) {
+            return false;
+        }
+        true
     }
 
     fn matches_parts<'path, I>(&self, head: Option<&str>, path: I, depth: usize) -> bool

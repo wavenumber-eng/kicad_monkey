@@ -98,6 +98,18 @@ def test_projection_spans_match_language_neutral_vector() -> None:
             )
         }
 
+    for case in payload["selections"]:
+        fields = case["selector"]
+        selector = SexpSelector(
+            heads=fields.get("heads"),
+            paths=fields.get("paths"),
+            min_depth=fields.get("min_depth"),
+            max_depth=fields.get("max_depth"),
+            prune_heads=fields.get("prune_heads", ()),
+        )
+        selected = list(iter_sexp_form_spans(payload["source"], selector))
+        assert selected == [actual[index] for index in case["span_indices"]], case["id"]
+
 
 def test_selector_filters_by_exact_path_and_depth() -> None:
     selector = SexpSelector(

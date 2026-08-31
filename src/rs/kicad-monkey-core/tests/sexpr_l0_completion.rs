@@ -363,6 +363,7 @@ struct ProjectionVectors {
     schema: String,
     source: String,
     spans: Vec<ProjectionVectorSpan>,
+    selections: Vec<ProjectionVectorSelection>,
 }
 
 #[derive(Deserialize)]
@@ -376,6 +377,35 @@ struct ProjectionVectorSpan {
     column: usize,
     end_line: usize,
     end_column: usize,
+}
+
+#[derive(Deserialize)]
+struct ProjectionVectorSelection {
+    id: String,
+    selector: ProjectionVectorSelector,
+    span_indices: Vec<usize>,
+}
+
+#[derive(Deserialize)]
+struct ProjectionVectorSelector {
+    heads: Option<Vec<String>>,
+    paths: Option<Vec<Vec<String>>>,
+    min_depth: Option<usize>,
+    max_depth: Option<usize>,
+    #[serde(default)]
+    prune_heads: Vec<String>,
+}
+
+impl ProjectionVectorSelector {
+    fn into_selector(self) -> Selector {
+        Selector {
+            heads: self.heads.map(BTreeSet::from_iter),
+            paths: self.paths.map(BTreeSet::from_iter),
+            min_depth: self.min_depth,
+            max_depth: self.max_depth,
+            prune_heads: BTreeSet::from_iter(self.prune_heads),
+        }
+    }
 }
 
 #[test]
@@ -415,46 +445,15 @@ fn memory_and_stream_projection_match_across_selector_combinations() {
         "../../../../tests/parity/sexpr_projection_vectors.a0.json"
     ))
     .expect("projection vectors should decode");
-    let selectors = [
-        Selector {
-            heads: Some(BTreeSet::from([
-                "plain".to_owned(),
-                "quoted-head".to_owned(),
-                "µ".to_owned(),
-            ])),
-            ..Selector::default()
-        },
-        Selector {
-            paths: Some(BTreeSet::from([vec![
-                "root".to_owned(),
-                "target".to_owned(),
-                "leaf".to_owned(),
-            ]])),
-            min_depth: Some(2),
-            max_depth: Some(2),
-            ..Selector::default()
-        },
-        Selector {
-            prune_heads: BTreeSet::from(["prune".to_owned()]),
-            ..Selector::default()
-        },
-        Selector {
-            min_depth: Some(1),
-            max_depth: Some(1),
-            ..Selector::default()
-        },
-        Selector {
-            paths: Some(BTreeSet::from([vec![
-                "root".to_owned(),
-                "prune".to_owned(),
-                "hidden".to_owned(),
-            ]])),
-            prune_heads: BTreeSet::from(["prune".to_owned()]),
-            ..Selector::default()
-        },
-    ];
-
-    for selector in selectors {
+    let all = scan_form_spans(&vectors.source, &Selector::default()).expect("all spans");
+    let index = StructuralIndex::new(&vectors.source).expect("structural index");
+    for case in vectors.selections {
+        let selector = case.selector.into_selector();
+        let expected = case
+            .span_indices
+            .iter()
+            .map(|index| &all[*index])
+            .collect::<Vec<_>>();
         let memory = scan_form_spans(&vectors.source, &selector).expect("memory scan");
         let streaming = scan_reader_form_spans(
             Cursor::new(vectors.source.as_bytes()),
@@ -462,7 +461,24 @@ fn memory_and_stream_projection_match_across_selector_combinations() {
             ProjectionLimits::default(),
         )
         .expect("stream scan");
-        assert_eq!(streaming, memory, "selector {selector:?}");
+        assert_eq!(
+            memory.iter().collect::<Vec<_>>(),
+            expected,
+            "memory selector {}",
+            case.id
+        );
+        assert_eq!(
+            streaming.iter().collect::<Vec<_>>(),
+            expected,
+            "stream selector {}",
+            case.id
+        );
+        assert_eq!(
+            index.select(&selector).expect("indexed selection"),
+            expected,
+            "index selector {}",
+            case.id
+        );
     }
 
     let malformed = "(root (prune (hidden \"unterminated)))";
