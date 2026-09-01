@@ -3,8 +3,9 @@ use kicad_monkey_core::board_plotter_ir::{
     BoardFootprintOperation, BoardFootprintRecord, BoardTextRenderCacheCoordinateSpace,
 };
 use kicad_monkey_core::{
-    BoardNetClassAssignments, BoardPlotLimits, BoardPlotRecord, ErrorKind, PlotterOperation,
-    board_plot_document, board_plot_document_with_net_classes,
+    BoardNetClassAssignments, BoardPlotLimits, BoardPlotRecord, ErrorKind, PlotDocumentMetadata,
+    PlotDocumentProjectionLimits, PlotterOperation, board_plot_document,
+    board_plot_document_with_net_classes, project_board_plot_document_with_metadata_a0,
 };
 
 const CANONICAL_SOURCE: &str = r#"(kicad_pcb
@@ -195,6 +196,46 @@ fn embedded_footprint_records_follow_python_order_placement_and_child_metadata()
     assert_canonical_record_fields(record);
     assert_canonical_child_metadata(record);
     assert_canonical_user_text(record);
+}
+
+#[test]
+fn typed_board_projection_matches_the_full_embedded_footprint_python_vector() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/board_plotter_a0_vectors.json"
+    )))
+    .expect("board parity vectors");
+    let vector = &vectors["vectors"][12];
+    assert_eq!(
+        vector["id"],
+        "embedded-footprints-follow-zones-and-keep-local-ownership"
+    );
+    let source = vector["source"].as_str().expect("source");
+    let classes = BoardNetClassAssignments::from_entries([("GND", vec!["Power", "HighCurrent"])]);
+    let document =
+        board_plot_document_with_net_classes(source, BoardPlotLimits::default(), &classes)
+            .expect("embedded footprint document");
+    let projected = project_board_plot_document_with_metadata_a0(
+        document,
+        PlotDocumentMetadata {
+            source_path: Some(
+                vector["source_path"]
+                    .as_str()
+                    .expect("source path")
+                    .to_owned(),
+            ),
+            document_id: vector["document_id"]
+                .as_str()
+                .expect("document id")
+                .to_owned(),
+        },
+        PlotDocumentProjectionLimits::default(),
+    )
+    .expect("typed board projection");
+    assert_eq!(
+        serde_json::to_value(projected).expect("projected JSON"),
+        vector["expected"]
+    );
 }
 
 fn assert_duplicate_reference_record(record: &BoardFootprintRecord) {

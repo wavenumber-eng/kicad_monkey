@@ -353,8 +353,20 @@ define_plotter_projector!(
     std::convert::identity
 );
 define_plotter_projector!(
+    board,
+    board_plot_document,
+    Option<Vec<String>>,
+    |layers: Vec<String>| (!layers.is_empty()).then_some(layers)
+);
+define_plotter_projector!(
     symbol,
     symbol_plot_document,
+    Vec<String>,
+    std::convert::identity
+);
+define_plotter_projector!(
+    schematic,
+    schematic_plot_document,
     Vec<String>,
     std::convert::identity
 );
@@ -366,5 +378,7 @@ pub fn contract_plotter_operation(
     footprint::project(index, operation).map_err(|error| error.to_string())
 }
 
+pub(crate) use board::project as contract_board_plotter_operation;
 pub(crate) use footprint::project as contract_footprint_plotter_operation;
+pub(crate) use schematic::project as contract_schematic_plotter_operation;
 pub(crate) use symbol::project as contract_symbol_plotter_operation;

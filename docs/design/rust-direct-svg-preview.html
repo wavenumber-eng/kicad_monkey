@@ -126,6 +126,11 @@ render_{footprint,symbol,board,schematic}_svg(
   visibility. Visibility contains only truthful retained controls for pin
   names/numbers, hidden pins/fields, and identities. Limits cap each map,
   patterns, total entries, and aggregate UTF-8 bytes.</p>
+  <p>All four family entry points use this same resolved context pipeline.
+  Supported color, semantic, layer, operation, text, visibility, identity, and
+  viewport overrides are applied before both bounds and emission; a family may
+  reject an inapplicable selector, but it must not silently discard a supported
+  override. Four-family non-default-context tests enforce this contract.</p>
   <p>Fit uses the padded visible-content rectangle directly. It invents no
   target aspect ratio or pixel size. A GUI that needs an aspect-ratio frame can
   derive an explicit viewport from the returned bounds in its layout space.</p>

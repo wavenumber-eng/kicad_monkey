@@ -28,7 +28,7 @@ use crate::plotter_ir::ensure_javascript_safe_integer;
 use crate::plotter_text_cache::{PlotterTextCacheResources, PlotterTextCacheSession};
 use crate::plotter_types::{PlotterOperation, ThickSegment};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::time::Instant;
 
 use copper::{segment_record, track_arc_record, via_operation_count, via_record, zone_record};
@@ -673,6 +673,45 @@ pub struct BoardPlotFacts<'a> {
     view: PcbView<'a>,
 }
 
+/// Complete source-layer facts required by truthful presentation filtering.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoardRenderFacts {
+    enabled_layers: Vec<String>,
+    copper_stack: Vec<String>,
+}
+
+impl BoardRenderFacts {
+    pub fn enabled_layers(&self) -> &[String] {
+        &self.enabled_layers
+    }
+
+    pub fn copper_stack(&self) -> &[String] {
+        &self.copper_stack
+    }
+}
+
+/// One atomic source-model document/facts pair. Construction is core-owned so
+/// facts from a different board cannot be paired with the document.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardPlotSourceArtifact {
+    document: BoardPlotDocument,
+    render_facts: BoardRenderFacts,
+}
+
+impl BoardPlotSourceArtifact {
+    pub fn document(&self) -> &BoardPlotDocument {
+        &self.document
+    }
+
+    pub fn render_facts(&self) -> &BoardRenderFacts {
+        &self.render_facts
+    }
+
+    pub(crate) fn into_parts(self) -> (BoardPlotDocument, BoardRenderFacts) {
+        (self.document, self.render_facts)
+    }
+}
+
 /// Opt-in successful-build timings for board Plotter-IR production.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BoardPlotBuildProfile {
@@ -720,6 +759,77 @@ impl BoardPlotFacts<'_> {
     pub fn into_document(self) -> BoardPlotDocument {
         self.document
     }
+
+    pub fn into_source_artifact(self) -> Result<BoardPlotSourceArtifact, Error> {
+        let mut enabled_layers = Vec::new();
+        let mut seen = HashSet::new();
+        for layer in self.view.layers() {
+            let name = layer?.name;
+            if !seen.insert(name.clone()) {
+                return Err(Error::build(
+                    ErrorKind::UnexpectedToken,
+                    format!("duplicate board layer name {name:?}"),
+                ));
+            }
+            enabled_layers.push(name);
+        }
+        let copper_stack = enabled_layers
+            .iter()
+            .filter(|name| name.ends_with(".Cu"))
+            .cloned()
+            .collect();
+        Ok(BoardPlotSourceArtifact {
+            document: self.document,
+            render_facts: BoardRenderFacts {
+                enabled_layers,
+                copper_stack,
+            },
+        })
+    }
+}
+
+/// Build one atomic board Plotter-IR/source-layer artifact with project
+/// sidecars. This parses the source once through the existing source-bound
+/// facts path.
+pub fn board_plot_artifact_with_sidecars(
+    source: &str,
+    plot_limits: BoardPlotLimits,
+    pcb_limits: PcbLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+) -> Result<BoardPlotSourceArtifact, Error> {
+    board_plot_artifact_with_text_cache_sidecar(
+        source,
+        plot_limits,
+        pcb_limits,
+        net_classes,
+        text_variables,
+        None,
+    )
+}
+
+/// Build one atomic board artifact with optional deterministic text-cache
+/// resources. This is the fit-capable direct-render producer; the document and
+/// complete layer facts are derived from the same parsed board view.
+pub fn board_plot_artifact_with_text_cache_sidecar(
+    source: &str,
+    plot_limits: BoardPlotLimits,
+    pcb_limits: PcbLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+    text_cache: Option<&PlotterTextCacheResources<'_>>,
+) -> Result<BoardPlotSourceArtifact, Error> {
+    build_board_plot_facts_internal(
+        source,
+        plot_limits,
+        pcb_limits,
+        net_classes,
+        text_variables,
+        text_cache,
+        false,
+    )
+    .map(|(facts, _profile)| facts)
+    .and_then(BoardPlotFacts::into_source_artifact)
 }
 
 /// Build one immutable, source-bound board fact set with project sidecars.
@@ -736,6 +846,7 @@ pub fn board_plot_facts_with_sidecars<'a>(
         pcb_limits,
         net_classes,
         text_variables,
+        None,
         false,
     )
     .map(|(facts, _profile)| facts)
@@ -754,6 +865,7 @@ pub fn board_plot_facts_with_sidecars_profiled<'a>(
         pcb_limits,
         net_classes,
         text_variables,
+        None,
         true,
     )
 }
@@ -764,8 +876,12 @@ fn build_board_plot_facts_internal<'a>(
     pcb_limits: PcbLimits,
     net_classes: &BoardNetClassAssignments,
     text_variables: &BoardTextVariables,
+    text_cache: Option<&PlotterTextCacheResources<'_>>,
     profile_enabled: bool,
 ) -> Result<(BoardPlotFacts<'a>, BoardPlotFactsBuildProfile), Error> {
+    let text_cache_started = profile_enabled.then(Instant::now);
+    let text_cache = text_cache.map(PlotterTextCacheSession::new).transpose()?;
+    let text_cache_setup_ns = elapsed_ns(text_cache_started);
     let view_started = profile_enabled.then(Instant::now);
     let view = PcbView::parse_selected(
         source,
@@ -779,7 +895,10 @@ fn build_board_plot_facts_internal<'a>(
         plot_limits,
         net_classes,
         text_variables,
-        PreparedTextCache::default(),
+        PreparedTextCache {
+            session: text_cache,
+            setup_ns: text_cache_setup_ns,
+        },
         profile_enabled,
     )?;
     Ok((

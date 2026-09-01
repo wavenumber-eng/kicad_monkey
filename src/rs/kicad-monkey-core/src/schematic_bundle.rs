@@ -112,7 +112,7 @@ pub struct SchematicBundleIndex {
     definition_by_path: HashMap<String, usize>,
     occurrences: Vec<SchematicOccurrence>,
     legacy_symbol_instance_by_path: HashMap<String, (usize, usize)>,
-    project_identity_sha256: [u8; 32],
+    bundle_identity_sha256: [u8; 32],
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -173,7 +173,7 @@ impl SchematicBundleIndex {
         let project_file = portable_file_name(identity_path).to_owned();
         let source_anchor = portable_parent(identity_path).to_owned();
         let project_settings = project_schematic_settings_with_limits(bundle.project(), limits)?;
-        let project_identity_sha256 = bundle.project_identity_sha256();
+        let bundle_identity_sha256 = bundle.bundle_identity_sha256();
         let assemble_indexes_ns = elapsed_ns(indexes_started);
         let index = Self {
             limits,
@@ -185,7 +185,7 @@ impl SchematicBundleIndex {
             definition_by_path,
             occurrences,
             legacy_symbol_instance_by_path,
-            project_identity_sha256,
+            bundle_identity_sha256,
         };
         Ok((
             index,
@@ -227,8 +227,8 @@ impl SchematicBundleIndex {
         &self.project_name
     }
 
-    pub(crate) fn project_belongs_to(&self, bundle: &SourceBundle) -> bool {
-        self.project_identity_sha256 == bundle.project_identity_sha256()
+    pub(crate) fn bundle_belongs_to(&self, bundle: &SourceBundle) -> bool {
+        self.bundle_identity_sha256 == bundle.bundle_identity_sha256()
     }
 
     /// Portable filename used by the compiled-graph identity scope.

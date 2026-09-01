@@ -2,11 +2,11 @@ use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
 use kicad_monkey_core::{
     BoardDimensionOperation, BoardFootprintOperation, BoardPlotLimits, BoardPlotRecord,
     BoardTableOperation, BoardTextBoxOperation, BoardTextRenderCacheCoordinateSpace,
-    BoardTextRenderCacheSource, BoardTextVariables, ErrorKind, PlotterTextCacheLimits,
+    BoardTextRenderCacheSource, BoardTextVariables, ErrorKind, PcbLimits, PlotterTextCacheLimits,
     PlotterTextCacheResources, PlotterTextFont, TextBlockLayoutRequest, TextHorizontalAlignment,
-    TextRenderCache, TextVerticalAlignment, board_plot_document_with_sidecars,
-    board_plot_document_with_text_cache_sidecar, generate_text_render_cache_block_hinted_a0,
-    linebreak_text_block_hinted_a0,
+    TextRenderCache, TextVerticalAlignment, board_plot_artifact_with_text_cache_sidecar,
+    board_plot_document_with_sidecars, board_plot_document_with_text_cache_sidecar,
+    generate_text_render_cache_block_hinted_a0, linebreak_text_block_hinted_a0,
 };
 use serde::Deserialize;
 
@@ -69,6 +69,48 @@ fn embedded_footprint_faced_text_generates_a_local_native_cache() {
     )
     .expect_err("operation and native cache retain two copies of the text");
     assert_eq!(error.kind, ErrorKind::ResourceLimit);
+}
+
+#[test]
+fn atomic_board_artifact_retains_generated_text_cache_and_layer_facts() {
+    let source = r#"(kicad_pcb
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (36 "B.SilkS" user "b.silkscreen"))
+      (footprint "Demo:Native" (layer "F.Cu") (uuid "native-footprint")
+        (property "Reference" "U1" (at 1 2 45) (layer "B.SilkS")
+          (effects (font (face "Native Fixture") (size 1 1)))
+          (uuid "native-reference"))))"#;
+    let fonts = [font()];
+    let resources = PlotterTextCacheResources {
+        fonts: &fonts,
+        limits: PlotterTextCacheLimits::default(),
+    };
+    let artifact = board_plot_artifact_with_text_cache_sidecar(
+        source,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &Default::default(),
+        &BoardTextVariables::default(),
+        Some(&resources),
+    )
+    .expect("atomic cached board artifact");
+    assert_eq!(
+        artifact.render_facts().enabled_layers(),
+        ["F.Cu", "B.Cu", "B.SilkS"]
+    );
+    let BoardPlotRecord::Footprint(record) = &artifact.document().records[0] else {
+        panic!("expected footprint record");
+    };
+    let BoardFootprintOperation::Text { operation, .. } = &record.operations[0] else {
+        panic!("expected footprint text");
+    };
+    assert_eq!(
+        operation
+            .render_cache
+            .as_ref()
+            .expect("native cache")
+            .source,
+        BoardTextRenderCacheSource::NativeGenerated
+    );
 }
 
 #[derive(Deserialize)]

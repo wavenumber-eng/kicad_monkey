@@ -25,6 +25,11 @@ resources.
   unchanged.
 - The default direct context with an explicit viewport is byte-identical to
   every accepted native a0 success vector.
+- Every MOD, SYM, PCB, and SCH direct-render entry point consumes the same
+  validated render context. Color remaps, semantic/layer/operation style
+  overrides, text policy, visibility, identity emission, and viewport/fit
+  policy take effect consistently wherever represented; no family silently
+  ignores a supported override.
 - Existing WASM and native requests retain identities, diagnostics, limits,
   output accounting, and deterministic behavior.
 - The reviewed source corpus, Yoshi source, and authoritative default fixture
@@ -89,7 +94,8 @@ exact Git revision and prove that its runtime tree excludes WASM/native.
 ## Acceptance evidence
 
 Acceptance requires four-family projector tests, direct-render byte parity,
-context validation, bounds/fit, Yoshi pad/via/drill assertions, repeated-child
+four-family non-default context/override tests, context validation, bounds/fit,
+Yoshi pad/via/drill assertions, repeated-child
 schematic occurrence selection, real Node WASM and native transport parity, a
 pinned-Git consumer, relevant Rack/corpus/Cruncher gates, locked workspace
 tests, formatting, warning-denied Clippy, dev-std audits, and independent
