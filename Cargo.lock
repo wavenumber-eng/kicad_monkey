@@ -427,7 +427,10 @@ name = "kicad-monkey-svg"
 version = "2026.8.31"
 dependencies = [
  "kicad-monkey-contracts",
+ "kicad-monkey-core",
+ "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

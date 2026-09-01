@@ -27,17 +27,18 @@
   Metadata and projection limits are explicit. Every result is semantically
   validated before return. The schematic JSON helper becomes a compatibility
   serialize-after-project wrapper. Footprint and symbol assembly moves out of
-  WASM. Family operation unions are consumed by an exhaustive borrowed typed
-  adapter generated or compile-checked from the same arm list; the direct path
-  never reconciles unions through a JSON value.</p>
+  WASM. Family operation unions are consumed by exhaustive typed adapters
+  compile-checked against every generated arm. The direct path never reconciles
+  unions through a JSON value, and it preflights the original generated
+  containers before bounded normalized point/cache materialization.</p>
   <p>The owned conversion is one <code>macro_rules!</code> arm inventory in
   <code>core::plotter_contract</code>, instantiated once for each generated
   family module. Each generated union is matched exhaustively, so regeneration
-  that adds an arm fails compilation. A second single arm inventory in
-  <code>contracts::plotter_view</code> exposes sealed borrowed
-  <code>PlotRecordRef</code>/<code>PlotterOperationRef</code> values to SVG;
-  it is likewise instantiated for all four modules and compile-fails on a new
-  arm. Neither mechanism uses Serde or JSON to reconcile family types.</p>
+  that adds an arm fails compilation. SVG owns exhaustive family adapters and
+  matching raw preflight inventories. Both compile-fail when generation adds
+  an unhandled union arm. Preflight enforces record, operation, point, text,
+  image, work, and bounds ceilings before adapter-owned vectors are built.
+  Neither mechanism uses Serde or JSON to reconcile family types.</p>
   <pre>PlotDocumentMetadata { document_id: String, source_path: Option&lt;String&gt; }
 PlotDocumentProjectionLimits {
   max_records, max_operations, max_points, max_string_bytes,
@@ -124,7 +125,9 @@ render_{footprint,symbol,board,schematic}_svg(
   role enum and layer keys are validated patterns. A style has optional
   stroke/fill colors, stroke width, line style, fill mode, opacity, and
   visibility. Visibility contains only truthful retained controls for pin
-  names/numbers, hidden pins/fields, and identities. Limits cap each map,
+  names/numbers and identities. Hidden pins and fields are an inclusion choice
+  made by the schematic projector because frozen a0 does not retain a reliable
+  hidden discriminator for the renderer. Limits cap each map,
   patterns, total entries, and aggregate UTF-8 bytes.</p>
   <p>All four family entry points use this same resolved context pipeline.
   Supported color, semantic, layer, operation, text, visibility, identity, and

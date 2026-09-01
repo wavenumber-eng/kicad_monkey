@@ -27,9 +27,11 @@ not a sufficient selector when one child source occurs more than once.
 `kicad-monkey-svg` owns a validated `SvgRenderContextA1`, explicit and fitted
 viewport policies, one effective-operation visibility stream, bounds, and four
 family-specific typed render functions. The typed path traverses generated
-contracts through one exhaustive borrowed adapter; it does not materialize
-`serde_json::Value`. The frozen native a0 function remains an adapter and the
-WASM/native crates remain dependency leaves.
+contracts through exhaustive typed adapters; it does not materialize
+`serde_json::Value`. Each original generated operation container is preflighted
+against caller ceilings before bounded normalized geometry is materialized.
+The frozen native a0 function remains an adapter and the WASM/native crates
+remain dependency leaves.
 
 The first profile remains `plotter-base-a0`. Viewer controls are explicit and
 bounded. They do not claim the established Python `oracle` or `enriched`
@@ -49,9 +51,10 @@ future revision.
   dependencies.
 - Frozen a0 wire schemas and default SVG vectors do not change.
 - New context, fit, and visibility behavior is additive and fail-closed.
-- Generated family operation unions are reconciled by one exhaustive typed
-  adapter, so adding a union arm becomes a compile/test failure rather than a
-  silently drifting manual mapping.
+- Generated family operation unions are reconciled by exhaustive typed
+  adapters, so adding a union arm becomes a compile/test failure rather than a
+  silently drifting manual mapping; preflight runs on the generated containers
+  before any adapter-owned point/cache vectors are allocated.
 - Alexandria owns product themes, UI state, cache policy, and GUI interaction;
   Monkey owns truthful source identity, basic presentation controls, and
   deterministic SVG.

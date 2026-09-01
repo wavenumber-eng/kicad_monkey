@@ -37,6 +37,11 @@ resources.
 
 ## Visibility and fit
 
+Render-time schematic visibility can suppress retained pin names and numbers.
+Hidden-pin and hidden-field inclusion remains a projector input: frozen a0 does
+not retain a truthful hidden discriminator, so the SVG context must not pretend
+it can recover or distinguish those items after projection.
+
 One bounded effective-operation predicate feeds both bounds and SVG emission.
 Exact layer names and the documented bounded wildcard dialect are supported.
 Unknown or invalid selectors fail unless permissive behavior is explicitly

@@ -1,4 +1,4 @@
-use crate::SvgError;
+use crate::{SvgError, SvgErrorKind};
 use std::collections::HashSet;
 
 pub(crate) struct SvgSink {
@@ -25,22 +25,29 @@ impl SvgSink {
     }
 
     pub(crate) fn raw(&mut self, value: &str) -> Result<(), SvgError> {
-        self.work = self
-            .work
-            .checked_add(value.len())
-            .ok_or_else(|| SvgError("SVG render work overflowed".to_owned()))?;
+        self.work = self.work.checked_add(value.len()).ok_or_else(|| {
+            SvgError::new(
+                SvgErrorKind::ArithmeticOverflow,
+                "SVG render work overflowed",
+            )
+        })?;
         if self.work > self.max_work {
-            return Err(SvgError(
-                "SVG render work exceeds the configured limit".to_owned(),
+            return Err(SvgError::new(
+                SvgErrorKind::ResourceLimit,
+                "SVG render work exceeds the configured limit",
             ));
         }
-        let length = self
-            .output
-            .len()
-            .checked_add(value.len())
-            .ok_or_else(|| SvgError("SVG byte count overflowed".to_owned()))?;
+        let length = self.output.len().checked_add(value.len()).ok_or_else(|| {
+            SvgError::new(
+                SvgErrorKind::ArithmeticOverflow,
+                "SVG byte count overflowed",
+            )
+        })?;
         if length > self.max_bytes {
-            return Err(SvgError("SVG bytes exceed the configured limit".to_owned()));
+            return Err(SvgError::new(
+                SvgErrorKind::ResourceLimit,
+                "SVG bytes exceed the configured limit",
+            ));
         }
         self.output.push_str(value);
         Ok(())
@@ -83,19 +90,25 @@ impl SvgSink {
             return Ok(());
         }
         if !self.ids.insert(value.to_owned()) {
-            return Err(SvgError(format!("duplicate nonempty SVG id {value}")));
+            return Err(SvgError::new(
+                SvgErrorKind::Serialization,
+                format!("duplicate nonempty SVG id {value}"),
+            ));
         }
         self.attribute("id", value)
     }
 
     pub(crate) fn element(&mut self) -> Result<(), SvgError> {
-        self.elements = self
-            .elements
-            .checked_add(1)
-            .ok_or_else(|| SvgError("SVG element count overflowed".to_owned()))?;
+        self.elements = self.elements.checked_add(1).ok_or_else(|| {
+            SvgError::new(
+                SvgErrorKind::ArithmeticOverflow,
+                "SVG element count overflowed",
+            )
+        })?;
         if self.elements > self.max_elements {
-            Err(SvgError(
-                "SVG elements exceed the configured limit".to_owned(),
+            Err(SvgError::new(
+                SvgErrorKind::ResourceLimit,
+                "SVG elements exceed the configured limit",
             ))
         } else {
             Ok(())
@@ -104,7 +117,10 @@ impl SvgSink {
 
     pub(crate) fn finish(self) -> Result<(String, usize, usize), SvgError> {
         if self.output.is_empty() {
-            Err(SvgError("SVG serializer produced no output".to_owned()))
+            Err(SvgError::new(
+                SvgErrorKind::Serialization,
+                "SVG serializer produced no output",
+            ))
         } else {
             Ok((self.output, self.elements, self.work))
         }
@@ -116,8 +132,9 @@ fn reject_xml_controls(value: &str) -> Result<(), SvgError> {
         let code = character as u32;
         (code < 0x20 && !matches!(character, '\t' | '\n' | '\r')) || matches!(code, 0xFFFE | 0xFFFF)
     }) {
-        Err(SvgError(
-            "text contains an XML 1.0 control character".to_owned(),
+        Err(SvgError::new(
+            SvgErrorKind::Serialization,
+            "text contains an XML 1.0 control character",
         ))
     } else {
         Ok(())
