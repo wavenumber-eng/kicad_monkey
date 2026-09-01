@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2026.8.31
+
 - Accelerate the native Rust S-expression lexer with byte-oriented scanning
   while preserving Unicode-scalar positions, borrowed lexemes, diagnostics,
   limits, and the public parser API. Sparse projection now borrows unquoted
