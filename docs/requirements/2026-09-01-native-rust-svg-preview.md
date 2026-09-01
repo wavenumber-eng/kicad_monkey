@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for implementation on 2026-09-01; release acceptance is pending.
+Accepted and independently approved for release on 2026-09-01.
 
 ## Public outcome
 

@@ -25,11 +25,11 @@ def _project_root() -> Path:
 
 PACKAGE_ROOT = _project_root()
 REPOSITORY_ROOT = PACKAGE_ROOT.parents[1]
-EXPECTED_VERSION = "2026.8.31"
-EXPECTED_RELEASE_DATE = date(2026, 8, 31)
-EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-08-31.md"
+EXPECTED_VERSION = "2026.9.1"
+EXPECTED_RELEASE_DATE = date(2026, 9, 1)
+EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-09-01.md"
 CONTROLLED_DEPENDENCIES = {
-    "kicad-monkey": "2026.8.31",
+    "kicad-monkey": "2026.9.1",
     "wn-geometer": "2026.8.21",
 }
 CONTROLLED_DEPENDENCY_SPECIFIERS = {
@@ -64,8 +64,8 @@ def test_version_contract_matches_date_based_release() -> None:
     assert version.string == EXPECTED_VERSION
     assert (version.major, version.minor, version.patch, version.build) == (
         2026,
-        8,
-        31,
+        9,
+        1,
         None,
     )
     assert version.release_date == EXPECTED_RELEASE_DATE
