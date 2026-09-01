@@ -1,6 +1,7 @@
 //! TypeSpec projection for native board plotter documents.
 
 use kicad_monkey_contracts::JavaScriptSafeInteger;
+use kicad_monkey_contracts::generated::board_plot_document as board_contract;
 use kicad_monkey_contracts::generated::board_plot_document::{
     BoardDimensionType, BoardFootprintOperation as ContractBoardFootprintOperation,
     BoardFootprintPlacement as ContractBoardFootprintPlacement, BoardFootprintPlotRecord,
@@ -14,7 +15,7 @@ use kicad_monkey_contracts::generated::board_plot_document::{
 };
 use kicad_monkey_contracts::validate_board_plot_document;
 
-use crate::project_plotter_operation_a0 as contract_plotter_operation;
+use crate::plotter_contract::contract_board_plotter_operation as contract_plotter_operation;
 use crate::{
     BoardDimensionOperation, BoardDimensionRecord, BoardFootprintChildMetadata,
     BoardFootprintOperation as CoreBoardFootprintOperation, BoardFootprintRecord,
@@ -25,6 +26,26 @@ use crate::{
     BoardTextRenderCacheSource, BoardTextVAlign, BoardViaOperation, BoardViaOperationKind,
     BoardViaRecord,
 };
+use crate::{
+    BoardPlotSourceArtifact, BoardRenderFacts, PlotDocumentMetadata, PlotDocumentProjectionLimits,
+    PlotProjectionError, PlotProjectionErrorKind,
+};
+
+#[derive(Clone, Debug)]
+pub struct ProjectedBoardPlotArtifact {
+    document: BoardPlotDocumentA0,
+    render_facts: BoardRenderFacts,
+}
+
+impl ProjectedBoardPlotArtifact {
+    pub fn document(&self) -> &BoardPlotDocumentA0 {
+        &self.document
+    }
+
+    pub fn render_facts(&self) -> &BoardRenderFacts {
+        &self.render_facts
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BoardPlotContractLimits {
@@ -57,6 +78,46 @@ pub fn project_board_plot_document_a0(
     document_id: String,
     limits: BoardPlotContractLimits,
 ) -> Result<BoardPlotDocumentA0, String> {
+    project_board_plot_document_with_limits_a0(
+        document,
+        PlotDocumentMetadata {
+            document_id,
+            source_path,
+        },
+        limits,
+    )
+    .map_err(|error| error.to_string())
+}
+
+/// Project one board document through a fully typed, bounded direct-Rust API.
+pub fn project_board_plot_document_with_metadata_a0(
+    document: crate::BoardPlotDocument,
+    metadata: PlotDocumentMetadata,
+    limits: PlotDocumentProjectionLimits,
+) -> Result<BoardPlotDocumentA0, PlotProjectionError> {
+    project_board_plot_document_with_limits_a0(
+        document,
+        metadata,
+        BoardPlotContractLimits {
+            max_records: limits.max_records,
+            max_operations: limits.max_operations,
+            max_points: limits.max_points,
+            max_text_bytes: limits.max_string_bytes,
+            max_nested_items: limits.max_nested_items,
+            max_materialized_bytes: limits.max_materialized_bytes,
+        },
+    )
+}
+
+fn project_board_plot_document_with_limits_a0(
+    document: crate::BoardPlotDocument,
+    metadata: PlotDocumentMetadata,
+    limits: BoardPlotContractLimits,
+) -> Result<BoardPlotDocumentA0, PlotProjectionError> {
+    let PlotDocumentMetadata {
+        source_path,
+        document_id,
+    } = metadata;
     let usage = projection_usage(&document, source_path.as_deref(), &document_id)?;
     usage.enforce(limits)?;
     let total_operations = usage.operations;
@@ -78,12 +139,32 @@ pub fn project_board_plot_document_a0(
         source_kind: "PCB".to_owned(),
         source_path,
         thickness_mm: document.thickness_mm,
-        total_operations: u32::try_from(total_operations).unwrap_or(u32::MAX),
-        version: JavaScriptSafeInteger::try_from(document.version)
-            .map_err(|error| error.to_string())?,
+        total_operations: contract_count(total_operations)?,
+        version: safe_integer(document.version)?,
     };
-    validate_board_plot_document(&contract).map_err(|error| error.to_string())?;
+    validate_board_plot_document(&contract).map_err(|error| {
+        PlotProjectionError::new(
+            PlotProjectionErrorKind::ContractValidation,
+            error.to_string(),
+        )
+    })?;
     Ok(contract)
+}
+
+/// Project an atomically bound board document/layer-facts pair. The existing
+/// document-only projector remains available for compatibility callers that do
+/// not request layer filtering.
+pub fn project_board_plot_artifact_a0(
+    source: BoardPlotSourceArtifact,
+    metadata: PlotDocumentMetadata,
+    limits: PlotDocumentProjectionLimits,
+) -> Result<ProjectedBoardPlotArtifact, PlotProjectionError> {
+    let (document, render_facts) = source.into_parts();
+    let contract = project_board_plot_document_with_metadata_a0(document, metadata, limits)?;
+    Ok(ProjectedBoardPlotArtifact {
+        document: contract,
+        render_facts,
+    })
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -97,7 +178,7 @@ struct ProjectionUsage {
 }
 
 impl ProjectionUsage {
-    fn enforce(self, limits: BoardPlotContractLimits) -> Result<(), String> {
+    fn enforce(self, limits: BoardPlotContractLimits) -> Result<(), PlotProjectionError> {
         for (actual, maximum, label) in [
             (self.records, limits.max_records, "record count"),
             (self.operations, limits.max_operations, "operation count"),
@@ -115,7 +196,9 @@ impl ProjectionUsage {
             ),
         ] {
             if actual > maximum {
-                return Err(format!("board plot projection {label} exceeds its limit"));
+                return Err(resource_error(format!(
+                    "board plot projection {label} exceeds its limit"
+                )));
             }
         }
         Ok(())
@@ -132,23 +215,26 @@ impl ProjectionCounter {
         &mut self,
         target: fn(&mut ProjectionUsage) -> &mut usize,
         value: usize,
-    ) -> Result<(), String> {
+    ) -> Result<(), PlotProjectionError> {
         let slot = target(&mut self.usage);
         *slot = slot
             .checked_add(value)
-            .ok_or_else(|| "board plot projection preflight overflowed".to_owned())?;
+            .ok_or_else(|| resource_error("board plot projection preflight overflowed"))?;
         Ok(())
     }
 
-    fn text(&mut self, value: &str) -> Result<(), String> {
+    fn text(&mut self, value: &str) -> Result<(), PlotProjectionError> {
         self.add(|usage| &mut usage.text_bytes, value.len())
     }
 
-    fn optional_text(&mut self, value: Option<&str>) -> Result<(), String> {
+    fn optional_text(&mut self, value: Option<&str>) -> Result<(), PlotProjectionError> {
         value.map_or(Ok(()), |value| self.text(value))
     }
 
-    fn strings<'a>(&mut self, values: impl IntoIterator<Item = &'a String>) -> Result<(), String> {
+    fn strings<'a>(
+        &mut self,
+        values: impl IntoIterator<Item = &'a String>,
+    ) -> Result<(), PlotProjectionError> {
         for value in values {
             self.text(value)?;
             self.add(|usage| &mut usage.nested_items, 1)?;
@@ -156,16 +242,16 @@ impl ProjectionCounter {
         Ok(())
     }
 
-    fn points(&mut self, count: usize) -> Result<(), String> {
+    fn points(&mut self, count: usize) -> Result<(), PlotProjectionError> {
         self.add(|usage| &mut usage.points, count)?;
         self.add(|usage| &mut usage.nested_items, count)
     }
 
-    fn items(&mut self, count: usize) -> Result<(), String> {
+    fn items(&mut self, count: usize) -> Result<(), PlotProjectionError> {
         self.add(|usage| &mut usage.nested_items, count)
     }
 
-    fn finish(mut self) -> Result<ProjectionUsage, String> {
+    fn finish(mut self) -> Result<ProjectionUsage, PlotProjectionError> {
         // Every retained source string can coexist with JSON/contract copies.
         // Each nested item receives ample Value/map/vector allocation headroom.
         self.usage.materialized_bytes = 64_usize
@@ -173,7 +259,7 @@ impl ProjectionCounter {
             .and_then(|value| value.checked_add(self.usage.text_bytes.checked_mul(4)?))
             .and_then(|value| value.checked_add(self.usage.nested_items.checked_mul(4096)?))
             .ok_or_else(|| {
-                "board plot projection materialized byte estimate overflowed".to_owned()
+                resource_error("board plot projection materialized byte estimate overflowed")
             })?;
         Ok(self.usage)
     }
@@ -183,7 +269,7 @@ fn projection_usage(
     document: &crate::BoardPlotDocument,
     source_path: Option<&str>,
     document_id: &str,
-) -> Result<ProjectionUsage, String> {
+) -> Result<ProjectionUsage, PlotProjectionError> {
     let mut counter = ProjectionCounter::default();
     counter.usage.records = document.records.len();
     counter.usage.operations = document
@@ -191,12 +277,13 @@ fn projection_usage(
         .iter()
         .map(crate::BoardPlotRecord::operation_count)
         .try_fold(0_usize, |total, count| total.checked_add(count))
-        .ok_or_else(|| "board plot projection operation count overflowed".to_owned())?;
+        .ok_or_else(|| resource_error("board plot projection operation count overflowed"))?;
     counter.items(
         document
             .records
             .len()
-            .saturating_add(counter.usage.operations),
+            .checked_add(counter.usage.operations)
+            .ok_or_else(|| resource_error("board plot projection nested item count overflowed"))?,
     )?;
     for value in [
         &document.generator,
@@ -216,7 +303,7 @@ fn projection_usage(
 fn preflight_record(
     record: &CoreBoardPlotRecord,
     counter: &mut ProjectionCounter,
-) -> Result<(), String> {
+) -> Result<(), PlotProjectionError> {
     match record {
         CoreBoardPlotRecord::Graphic(value) => {
             counter.text(&value.uuid)?;
@@ -318,7 +405,7 @@ fn preflight_net_facts(
     name: Option<&str>,
     classes: &crate::BoardNetClassExtras,
     counter: &mut ProjectionCounter,
-) -> Result<(), String> {
+) -> Result<(), PlotProjectionError> {
     counter.optional_text(name)?;
     counter.optional_text(classes.net_class.as_deref())?;
     counter.strings(&classes.net_classes)
@@ -327,7 +414,7 @@ fn preflight_net_facts(
 fn preflight_footprint(
     value: &BoardFootprintRecord,
     counter: &mut ProjectionCounter,
-) -> Result<(), String> {
+) -> Result<(), PlotProjectionError> {
     for text in [
         &value.uuid,
         &value.library_link,
@@ -403,7 +490,7 @@ fn preflight_footprint(
 fn preflight_child_metadata(
     value: &BoardFootprintChildMetadata,
     counter: &mut ProjectionCounter,
-) -> Result<(), String> {
+) -> Result<(), PlotProjectionError> {
     let attrs = &value.extra_attrs;
     for text in [
         &value.label,
@@ -435,7 +522,7 @@ fn preflight_child_metadata(
 fn preflight_operations(
     operations: &[crate::PlotterOperation],
     counter: &mut ProjectionCounter,
-) -> Result<(), String> {
+) -> Result<(), PlotProjectionError> {
     for operation in operations {
         preflight_operation(operation, counter)?;
     }
@@ -445,7 +532,7 @@ fn preflight_operations(
 fn preflight_operation(
     operation: &crate::PlotterOperation,
     counter: &mut ProjectionCounter,
-) -> Result<(), String> {
+) -> Result<(), PlotProjectionError> {
     use crate::PlotterOperation as Operation;
     let strings =
         |counter: &mut ProjectionCounter, layer: Option<&str>, colors: &[Option<&str>]| {
@@ -453,7 +540,7 @@ fn preflight_operation(
             for color in colors {
                 counter.optional_text(*color)?;
             }
-            Ok::<(), String>(())
+            Ok::<(), PlotProjectionError>(())
         };
     match operation {
         Operation::ThickSegment(value) => {
@@ -528,7 +615,7 @@ fn preflight_operation(
 fn preflight_text_operation(
     operation: &BoardTextOperation,
     counter: &mut ProjectionCounter,
-) -> Result<(), String> {
+) -> Result<(), PlotProjectionError> {
     for text in [&operation.text, &operation.color, &operation.font_face] {
         counter.text(text)?;
     }
@@ -550,13 +637,13 @@ fn preflight_text_operation(
     Ok(())
 }
 
-fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, String> {
+fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, PlotProjectionError> {
     Ok(match record {
         CoreBoardPlotRecord::Graphic(record) => BoardGraphicPlotRecord {
             kind: contract_record_kind(record.kind),
             layer: Some(record.layer),
             object_id: record.kind.as_str().to_owned(),
-            operation_count: contract_count(record.operations.len()),
+            operation_count: contract_count(record.operations.len())?,
             operations: shared_operations(record.operations)?,
             uuid: record.uuid,
         }
@@ -570,7 +657,7 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             net_id: optional_safe_integer(record.net_id)?,
             net_name: record.net_name,
             object_id: "segment".to_owned(),
-            operation_count: contract_count(record.operations.len()),
+            operation_count: contract_count(record.operations.len())?,
             operations: shared_operations(record.operations)?,
             uuid: record.uuid,
         }
@@ -583,7 +670,7 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             net_id: optional_safe_integer(record.net_id)?,
             net_name: record.net_name,
             object_id: "track_arc".to_owned(),
-            operation_count: contract_count(record.operations.len()),
+            operation_count: contract_count(record.operations.len())?,
             operations: shared_operations(record.operations)?,
             uuid: record.uuid,
         }
@@ -604,7 +691,7 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             net_id: optional_safe_integer(record.net_id)?,
             net_name: record.net_name,
             object_id: "zone".to_owned(),
-            operation_count: contract_count(record.operations.len()),
+            operation_count: contract_count(record.operations.len())?,
             operations: shared_operations(record.operations)?,
             uuid: record.uuid,
         }
@@ -614,8 +701,8 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
 
 fn contract_footprint_record(
     record: BoardFootprintRecord,
-) -> Result<BoardFootprintPlotRecord, String> {
-    let operation_count = contract_count(record.operations.len());
+) -> Result<BoardFootprintPlotRecord, PlotProjectionError> {
+    let operation_count = contract_count(record.operations.len())?;
     let operations = record
         .operations
         .into_iter()
@@ -647,144 +734,446 @@ fn contract_footprint_record(
 fn contract_footprint_operation(
     index: usize,
     operation: CoreBoardFootprintOperation,
-) -> Result<ContractBoardFootprintOperation, String> {
-    let mut value = match operation {
+) -> Result<ContractBoardFootprintOperation, PlotProjectionError> {
+    match operation {
         CoreBoardFootprintOperation::Geometry {
             operation,
             metadata,
         } => {
             let shared = contract_plotter_operation(index, operation)?;
-            operation_with_footprint_metadata(shared, metadata)?
+            contract_enriched_footprint_operation(shared, Some(metadata))
         }
         CoreBoardFootprintOperation::Text {
             operation,
             metadata,
         } => {
             let text = contract_text_operation(index, operation)?;
-            operation_with_footprint_metadata(text, metadata)?
+            contract_enriched_footprint_operation(text.into(), Some(metadata))
         }
         CoreBoardFootprintOperation::Pad(operation) => {
             let shared = contract_plotter_operation(index, operation)?;
-            serde_json::to_value(shared).map_err(|error| error.to_string())?
+            contract_enriched_footprint_operation(shared, None)
         }
-        CoreBoardFootprintOperation::StartBlock(block) => serde_json::json!({
-            "kind": "StartBlock",
-            "index": contract_count(index),
-            "label": block.label,
-            "data_uuid": block.data_uuid,
-            "data_ref": block.data_ref,
-            "object_id": block.object_id,
-            "layers": block.layers,
-            "extra_attrs": {
-                "primitive": block.extra_attrs.primitive,
-                "component": block.extra_attrs.component,
-                "component_uid": block.extra_attrs.component_uid,
-                "component_uuid": block.extra_attrs.component_uuid,
-                "footprint": block.extra_attrs.footprint,
-                "pad_number": block.extra_attrs.pad_number,
-                "pad_designator": block.extra_attrs.pad_designator,
-                "pad_type": block.extra_attrs.pad_type,
-                "pad_shape": block.extra_attrs.pad_shape,
-                "layer_names": block.extra_attrs.layer_names,
-                "net_index": block.extra_attrs.net_index,
-                "net_id": block.extra_attrs.net_id,
-                "net": block.extra_attrs.net,
-                "net_class": block.extra_attrs.net_class,
-                "net_classes": block.extra_attrs.net_classes,
-                "hole_owner": block.extra_attrs.hole_owner,
-                "hole_kind": block.extra_attrs.hole_kind,
-                "hole_plating": block.extra_attrs.hole_plating,
-                "hole_render": block.extra_attrs.hole_render,
-                "hole_diameter_mm": block.extra_attrs.hole_diameter_mm,
-                "hole_width_mm": block.extra_attrs.hole_width_mm,
-                "hole_height_mm": block.extra_attrs.hole_height_mm,
-            },
-        }),
-        CoreBoardFootprintOperation::EndBlock => serde_json::json!({
-            "kind": "EndBlock",
-            "index": contract_count(index),
-        }),
-    };
-    omit_null_object_fields(&mut value);
-    serde_json::from_value(value).map_err(|error| error.to_string())
-}
-
-fn omit_null_object_fields(value: &mut serde_json::Value) {
-    match value {
-        serde_json::Value::Object(object) => {
-            object.retain(|_, child| !child.is_null());
-            object.values_mut().for_each(omit_null_object_fields);
+        CoreBoardFootprintOperation::StartBlock(block) => {
+            let attrs = block.extra_attrs;
+            Ok(board_contract::BoardFootprintStartBlockOperation {
+                data_ref: enum_value(block.data_ref)?,
+                data_uuid: block.data_uuid,
+                extra_attrs: board_contract::BoardFootprintPadBlockAttrs {
+                    component: attrs.component,
+                    component_uid: attrs.component_uid,
+                    component_uuid: attrs.component_uuid,
+                    footprint: attrs.footprint,
+                    hole_diameter_mm: attrs.hole_diameter_mm,
+                    hole_height_mm: attrs.hole_height_mm,
+                    hole_kind: optional_enum_value(attrs.hole_kind)?,
+                    hole_owner: attrs.hole_owner,
+                    hole_plating: optional_enum_value(attrs.hole_plating)?,
+                    hole_render: attrs.hole_render,
+                    hole_width_mm: attrs.hole_width_mm,
+                    layer_names: attrs.layer_names,
+                    net: attrs.net,
+                    net_class: attrs.net_class,
+                    net_classes: attrs.net_classes,
+                    net_id: attrs.net_id,
+                    net_index: attrs.net_index,
+                    pad_designator: attrs.pad_designator,
+                    pad_number: attrs.pad_number,
+                    pad_shape: attrs.pad_shape,
+                    pad_type: attrs.pad_type,
+                    primitive: enum_value(attrs.primitive)?,
+                },
+                index: contract_count(index)?,
+                kind: "StartBlock".to_owned(),
+                label: block.label,
+                layers: block.layers,
+                object_id: block.object_id,
+            }
+            .into())
         }
-        serde_json::Value::Array(values) => {
-            values.iter_mut().for_each(omit_null_object_fields);
+        CoreBoardFootprintOperation::EndBlock => {
+            Ok(board_contract::BoardFootprintEndBlockOperation {
+                index: contract_count(index)?,
+                kind: "EndBlock".to_owned(),
+            }
+            .into())
         }
-        _ => {}
     }
 }
 
-fn operation_with_footprint_metadata<T: serde::Serialize>(
-    operation: T,
-    metadata: BoardFootprintChildMetadata,
-) -> Result<serde_json::Value, String> {
-    let mut value = serde_json::to_value(operation).map_err(|error| error.to_string())?;
-    let object = value
-        .as_object_mut()
-        .ok_or_else(|| "projected plotter operation is not an object".to_owned())?;
-    object.insert(
-        "label".to_owned(),
-        serde_json::Value::String(metadata.label),
-    );
-    object.insert(
-        "data_uuid".to_owned(),
-        serde_json::Value::String(metadata.data_uuid),
-    );
-    object.insert(
-        "data_ref".to_owned(),
-        serde_json::Value::String(metadata.data_ref),
-    );
-    object.insert(
-        "object_id".to_owned(),
-        serde_json::Value::String(metadata.object_id),
-    );
-    let attrs = metadata.extra_attrs;
-    object.insert(
-        "extra_attrs".to_owned(),
-        serde_json::json!({
-            "component": attrs.component,
-            "component_uid": attrs.component_uid,
-            "component_uuid": attrs.component_uuid,
-            "footprint": attrs.footprint,
-            "layer_name": attrs.layer_name,
-            "layer_role": attrs.layer_role,
-            "primitive": attrs.primitive,
-            "footprint_primitive": attrs.footprint_primitive,
-            "footprint_object_index": contract_count(attrs.footprint_object_index),
-            "footprint_subop_index": attrs.footprint_subop_index.map(contract_count),
-            "footprint_text_role": attrs.footprint_text_role,
-            "property_name": attrs.property_name,
-            "fp_text_type": attrs.fp_text_type,
-            "footprint_graphic_kind": attrs.footprint_graphic_kind,
-        }),
-    );
-    Ok(value)
+struct ContractFootprintChildMetadata {
+    data_ref: Option<board_contract::BoardFootprintChildRef>,
+    data_uuid: Option<String>,
+    extra_attrs: Option<board_contract::BoardFootprintChildAttrs>,
+    label: Option<String>,
+    object_id: Option<String>,
 }
 
-fn contract_dimension_record(record: BoardDimensionRecord) -> Result<DimensionPlotRecord, String> {
+fn contract_footprint_child_metadata(
+    metadata: Option<BoardFootprintChildMetadata>,
+) -> Result<ContractFootprintChildMetadata, PlotProjectionError> {
+    let Some(metadata) = metadata else {
+        return Ok(ContractFootprintChildMetadata {
+            data_ref: None,
+            data_uuid: None,
+            extra_attrs: None,
+            label: None,
+            object_id: None,
+        });
+    };
+    let attrs = metadata.extra_attrs;
+    Ok(ContractFootprintChildMetadata {
+        data_ref: Some(enum_value(metadata.data_ref)?),
+        data_uuid: Some(metadata.data_uuid),
+        extra_attrs: Some(board_contract::BoardFootprintChildAttrs {
+            component: attrs.component,
+            component_uid: attrs.component_uid,
+            component_uuid: attrs.component_uuid,
+            footprint: attrs.footprint,
+            footprint_graphic_kind: optional_enum_value(attrs.footprint_graphic_kind)?,
+            footprint_object_index: contract_count(attrs.footprint_object_index)?,
+            footprint_primitive: enum_value(attrs.footprint_primitive)?,
+            footprint_subop_index: attrs
+                .footprint_subop_index
+                .map(contract_count)
+                .transpose()?,
+            footprint_text_role: optional_enum_value(attrs.footprint_text_role)?,
+            fp_text_type: attrs.fp_text_type,
+            layer_name: attrs.layer_name,
+            layer_role: optional_enum_value(attrs.layer_role)?,
+            primitive: enum_value(attrs.primitive)?,
+            property_name: attrs.property_name,
+        }),
+        label: Some(metadata.label),
+        object_id: Some(metadata.object_id),
+    })
+}
+
+macro_rules! enriched_operation {
+    ($value:ident, $metadata:ident, $target:ident, $variant:ident, [$($field:ident),+ $(,)?]) => {
+        ContractBoardFootprintOperation::$variant(board_contract::$target {
+            $($field: $value.$field,)+
+            data_ref: $metadata.data_ref,
+            data_uuid: $metadata.data_uuid,
+            extra_attrs: $metadata.extra_attrs,
+            label: $metadata.label,
+            object_id: $metadata.object_id,
+        })
+    };
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "exhaustive frozen-contract union adapter"
+)]
+fn contract_enriched_footprint_operation(
+    operation: PlotterOperation,
+    metadata: Option<BoardFootprintChildMetadata>,
+) -> Result<ContractBoardFootprintOperation, PlotProjectionError> {
+    let metadata = contract_footprint_child_metadata(metadata)?;
+    Ok(match operation {
+        PlotterOperation::PlotImageOperation(_) => {
+            return Err(invalid_model_error(
+                "board embedded-footprint operations cannot contain PlotImage",
+            ));
+        }
+        PlotterOperation::ThickSegmentOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintThickSegmentOperation,
+            ThickSegmentOperation,
+            [
+                end_x,
+                end_y,
+                index,
+                kind,
+                layer,
+                layers,
+                mask_margin_nm,
+                pad_size_x_nm,
+                pad_size_y_nm,
+                role,
+                start_x,
+                start_y,
+                stroke_color,
+                width_nm
+            ]
+        ),
+        PlotterOperation::ArcThreePointOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintArcThreePointOperation,
+            ArcThreePointOperation,
+            [
+                end_x,
+                end_y,
+                fill,
+                fill_color,
+                index,
+                kind,
+                layer,
+                line_style,
+                mid_x,
+                mid_y,
+                start_x,
+                start_y,
+                stroke_color,
+                width_nm
+            ]
+        ),
+        PlotterOperation::CircleOperation(value) => {
+            let layers = value.layers.unwrap_or_default();
+            ContractBoardFootprintOperation::CircleOperation(
+                board_contract::BoardFootprintCircleOperation {
+                    cx: value.cx,
+                    cy: value.cy,
+                    diameter_nm: value.diameter_nm,
+                    fill: value.fill,
+                    fill_color: value.fill_color,
+                    index: value.index,
+                    kind: value.kind,
+                    layer: value.layer,
+                    layers,
+                    line_style: value.line_style,
+                    mask_margin_nm: value.mask_margin_nm,
+                    pad_size_x_nm: value.pad_size_x_nm,
+                    pad_size_y_nm: value.pad_size_y_nm,
+                    role: value.role,
+                    stroke_color: value.stroke_color,
+                    width_nm: value.width_nm,
+                    data_ref: metadata.data_ref,
+                    data_uuid: metadata.data_uuid,
+                    extra_attrs: metadata.extra_attrs,
+                    label: metadata.label,
+                    object_id: metadata.object_id,
+                },
+            )
+        }
+        PlotterOperation::RectOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintRectOperation,
+            RectOperation,
+            [
+                corner_radius_nm,
+                fill,
+                fill_color,
+                index,
+                kind,
+                layer,
+                line_style,
+                stroke_color,
+                width_nm,
+                x1,
+                x2,
+                y1,
+                y2
+            ]
+        ),
+        PlotterOperation::PlotPolyOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintPlotPolyOperation,
+            PlotPolyOperation,
+            [
+                fill,
+                fill_color,
+                index,
+                kind,
+                layer,
+                line_style,
+                points,
+                stroke_color,
+                width_nm
+            ]
+        ),
+        PlotterOperation::BezierCurveOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintBezierCurveOperation,
+            BezierCurveOperation,
+            [
+                ctrl1_x,
+                ctrl1_y,
+                ctrl2_x,
+                ctrl2_y,
+                end_x,
+                end_y,
+                index,
+                kind,
+                layer,
+                line_style,
+                start_x,
+                start_y,
+                stroke_color,
+                tolerance_nm,
+                width_nm
+            ]
+        ),
+        PlotterOperation::TextOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintTextOperation,
+            TextOperation,
+            [
+                bold,
+                color,
+                context,
+                font_face,
+                h_align,
+                index,
+                italic,
+                kind,
+                knockout,
+                layer,
+                mirror,
+                multiline,
+                orient_deg,
+                pen_width_nm,
+                polyline_per_segment,
+                render_cache,
+                render_cache_exact,
+                render_cache_polygons,
+                render_cache_source,
+                size_x_nm,
+                size_y_nm,
+                text,
+                text_as_polygons,
+                v_align,
+                x,
+                y
+            ]
+        ),
+        PlotterOperation::FlashPadCircleOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintFlashPadCircleOperation,
+            FlashPadCircleOperation,
+            [diameter_nm, index, kind, layers, mask_margin_nm, role, x, y]
+        ),
+        PlotterOperation::FlashPadOvalOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintFlashPadOvalOperation,
+            FlashPadOvalOperation,
+            [
+                index,
+                kind,
+                layers,
+                mask_margin_nm,
+                orient_deg,
+                size_x_nm,
+                size_y_nm,
+                x,
+                y
+            ]
+        ),
+        PlotterOperation::FlashPadRectOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintFlashPadRectOperation,
+            FlashPadRectOperation,
+            [
+                index,
+                kind,
+                layers,
+                mask_margin_nm,
+                orient_deg,
+                size_x_nm,
+                size_y_nm,
+                x,
+                y
+            ]
+        ),
+        PlotterOperation::FlashPadRoundRectOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintFlashPadRoundRectOperation,
+            FlashPadRoundRectOperation,
+            [
+                corner_radius_nm,
+                index,
+                kind,
+                layers,
+                mask_margin_nm,
+                orient_deg,
+                size_x_nm,
+                size_y_nm,
+                x,
+                y
+            ]
+        ),
+        PlotterOperation::FlashPadCustomOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintFlashPadCustomOperation,
+            FlashPadCustomOperation,
+            [
+                anchor_shape,
+                index,
+                kind,
+                layers,
+                mask_margin_nm,
+                orient_deg,
+                polygon_widths_nm,
+                polygons,
+                size_x_nm,
+                size_y_nm,
+                x,
+                y
+            ]
+        ),
+        PlotterOperation::FlashPadTrapezOperation(value) => enriched_operation!(
+            value,
+            metadata,
+            BoardFootprintFlashPadTrapezOperation,
+            FlashPadTrapezOperation,
+            [
+                corners,
+                index,
+                kind,
+                layers,
+                mask_margin_nm,
+                orient_deg,
+                x,
+                y
+            ]
+        ),
+    })
+}
+
+fn enum_value<T>(value: String) -> Result<T, PlotProjectionError>
+where
+    T: TryFrom<String>,
+    T::Error: std::fmt::Display,
+{
+    T::try_from(value).map_err(|error| invalid_model_error(error.to_string()))
+}
+
+fn optional_enum_value<T>(value: Option<String>) -> Result<Option<T>, PlotProjectionError>
+where
+    T: TryFrom<String>,
+    T::Error: std::fmt::Display,
+{
+    value.map(enum_value).transpose()
+}
+
+fn contract_dimension_record(
+    record: BoardDimensionRecord,
+) -> Result<DimensionPlotRecord, PlotProjectionError> {
     let operations = record
         .operations
         .into_iter()
         .enumerate()
         .map(|(index, operation)| match operation {
             BoardDimensionOperation::Geometry(operation) => {
-                let shared = contract_plotter_operation(index, operation)?;
-                let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
-                serde_json::from_value(value).map_err(|error| error.to_string())
+                contract_plotter_operation(index, operation)
             }
             BoardDimensionOperation::Text(operation) => {
                 contract_text_operation(index, operation).map(PlotterOperation::from)
             }
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Result<Vec<_>, PlotProjectionError>>()?;
     Ok(DimensionPlotRecord {
         dimension_type: match record.dimension_type.as_str() {
             "aligned" => BoardDimensionType::Aligned,
@@ -792,46 +1181,42 @@ fn contract_dimension_record(record: BoardDimensionRecord) -> Result<DimensionPl
             "radial" => BoardDimensionType::Radial,
             "leader" => BoardDimensionType::Leader,
             "center" => BoardDimensionType::Center,
-            _ => return Err("unsupported board dimension type".to_owned()),
+            _ => return Err(invalid_model_error("unsupported board dimension type")),
         },
         kind: "dimension".to_owned(),
         layers: record.layers,
         object_id: "dimension".to_owned(),
-        operation_count: contract_count(operations.len()),
+        operation_count: contract_count(operations.len())?,
         operations,
         text: record.text,
         uuid: record.uuid,
     })
 }
 
-fn contract_table_record(record: BoardTableRecord) -> Result<TablePlotRecord, String> {
+fn contract_table_record(record: BoardTableRecord) -> Result<TablePlotRecord, PlotProjectionError> {
     let operations = record
         .operations
         .into_iter()
         .enumerate()
         .map(|(index, operation)| match operation {
-            BoardTableOperation::Segment(operation) => {
-                let shared = contract_plotter_operation(index, operation)?;
-                let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
-                serde_json::from_value(value).map_err(|error| error.to_string())
-            }
+            BoardTableOperation::Segment(operation) => contract_plotter_operation(index, operation),
             BoardTableOperation::Text(operation) => {
                 contract_text_operation(index, operation).map(PlotterOperation::from)
             }
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Result<Vec<_>, PlotProjectionError>>()?;
     Ok(TablePlotRecord {
-        cell_count: contract_count(record.cell_count),
+        cell_count: contract_count(record.cell_count)?,
         kind: "table".to_owned(),
         layers: record.layers,
         object_id: "table".to_owned(),
-        operation_count: contract_count(operations.len()),
+        operation_count: contract_count(operations.len())?,
         operations,
         uuid: record.uuid,
     })
 }
 
-fn contract_text_record(record: BoardTextRecord) -> Result<BoardPlotRecord, String> {
+fn contract_text_record(record: BoardTextRecord) -> Result<BoardPlotRecord, PlotProjectionError> {
     let operations = record
         .operations
         .into_iter()
@@ -839,7 +1224,7 @@ fn contract_text_record(record: BoardTextRecord) -> Result<BoardPlotRecord, Stri
         .map(|(index, operation)| {
             contract_text_operation(index, operation).map(PlotterOperation::from)
         })
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Result<Vec<_>, PlotProjectionError>>()?;
     Ok(BoardTextPlotRecord {
         // Board gr_text carriers have no hide attribute upstream, so the
         // established serializer's getattr default is always false.
@@ -847,7 +1232,7 @@ fn contract_text_record(record: BoardTextRecord) -> Result<BoardPlotRecord, Stri
         kind: "gr_text".to_owned(),
         layer: record.layer,
         object_id: "gr_text".to_owned(),
-        operation_count: contract_count(operations.len()),
+        operation_count: contract_count(operations.len())?,
         operations,
         text: record.text,
         uuid: record.uuid,
@@ -855,19 +1240,21 @@ fn contract_text_record(record: BoardTextRecord) -> Result<BoardPlotRecord, Stri
     .into())
 }
 
-fn contract_text_box_record(record: BoardTextBoxRecord) -> Result<BoardPlotRecord, String> {
+fn contract_text_box_record(
+    record: BoardTextBoxRecord,
+) -> Result<BoardPlotRecord, PlotProjectionError> {
     let operations = record
         .operations
         .into_iter()
         .enumerate()
         .map(|(index, operation)| contract_text_box_operation(index, operation))
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Result<Vec<_>, PlotProjectionError>>()?;
     Ok(BoardTextBoxPlotRecord {
         border: record.border,
         kind: "gr_text_box".to_owned(),
         layer: record.layer,
         object_id: "gr_text_box".to_owned(),
-        operation_count: contract_count(operations.len()),
+        operation_count: contract_count(operations.len())?,
         operations,
         text: record.text,
         uuid: record.uuid,
@@ -878,20 +1265,16 @@ fn contract_text_box_record(record: BoardTextBoxRecord) -> Result<BoardPlotRecor
 fn contract_text_box_operation(
     index: usize,
     operation: BoardTextBoxOperation,
-) -> Result<PlotterOperation, String> {
+) -> Result<PlotterOperation, PlotProjectionError> {
     match operation {
-        BoardTextBoxOperation::Border(operation) => {
-            let shared = contract_plotter_operation(index, operation)?;
-            let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
-            serde_json::from_value(value).map_err(|error| error.to_string())
-        }
+        BoardTextBoxOperation::Border(operation) => contract_plotter_operation(index, operation),
         BoardTextBoxOperation::Text(operation) => {
             contract_text_operation(index, operation).map(PlotterOperation::from)
         }
     }
 }
 
-fn contract_points(points: Vec<[i64; 2]>) -> Result<Vec<PlotterPoint>, String> {
+fn contract_points(points: Vec<[i64; 2]>) -> Result<Vec<PlotterPoint>, PlotProjectionError> {
     points
         .into_iter()
         .map(|[x, y]| Ok(PlotterPoint([safe_integer(x)?, safe_integer(y)?])))
@@ -901,12 +1284,12 @@ fn contract_points(points: Vec<[i64; 2]>) -> Result<Vec<PlotterPoint>, String> {
 fn contract_text_operation(
     index: usize,
     operation: BoardTextOperation,
-) -> Result<TextOperation, String> {
+) -> Result<TextOperation, PlotProjectionError> {
     // The established emitter serializes marker keys only when true.
     let marker = |value: bool| value.then_some(true);
     let render_cache = operation
         .render_cache
-        .map(|cache| -> Result<TextRenderCache, String> {
+        .map(|cache| -> Result<TextRenderCache, PlotProjectionError> {
             let source = match cache.source {
                 BoardTextRenderCacheSource::ExistingFile => {
                     PlotterTextRenderCacheSource::ExistingFileCache
@@ -934,12 +1317,12 @@ fn contract_text_operation(
                         Ok(TextRenderCachePolygon {
                             contours: contours.into_iter().map(contract_points).collect::<Result<
                                 Vec<_>,
-                                String,
+                                PlotProjectionError,
                             >>(
                             )?,
                         })
                     })
-                    .collect::<Result<Vec<_>, String>>()?,
+                    .collect::<Result<Vec<_>, PlotProjectionError>>()?,
                 schema: "kicad.render_cache.v1".to_owned(),
                 source,
                 text: cache.text,
@@ -959,7 +1342,7 @@ fn contract_text_operation(
             BoardTextHAlign::Center => PlotterTextHAlign::GrTextHAlignCenter,
             BoardTextHAlign::Right => PlotterTextHAlign::GrTextHAlignRight,
         },
-        index: contract_count(index),
+        index: contract_count(index)?,
         italic: operation.italic,
         kind: "Text".to_owned(),
         layer: operation.layer,
@@ -975,7 +1358,7 @@ fn contract_text_operation(
             .render_cache_polygons
             .into_iter()
             .map(contract_points)
-            .collect::<Result<Vec<_>, String>>()?,
+            .collect::<Result<Vec<_>, PlotProjectionError>>()?,
         render_cache_source,
         size_x_nm: safe_integer(operation.size_x_nm)?,
         size_y_nm: safe_integer(operation.size_y_nm)?,
@@ -991,7 +1374,7 @@ fn contract_text_operation(
     })
 }
 
-fn contract_via_record(record: BoardViaRecord) -> Result<ViaPlotRecord, String> {
+fn contract_via_record(record: BoardViaRecord) -> Result<ViaPlotRecord, PlotProjectionError> {
     let string_bool = |value: Option<bool>| {
         value.map(|value| {
             if value {
@@ -1007,7 +1390,7 @@ fn contract_via_record(record: BoardViaRecord) -> Result<ViaPlotRecord, String> 
         .into_iter()
         .enumerate()
         .map(|(index, operation)| contract_via_operation(index, operation))
-        .collect::<Result<Vec<_>, String>>()?;
+        .collect::<Result<Vec<_>, PlotProjectionError>>()?;
     Ok(ViaPlotRecord {
         drill: record.drill,
         hole_kind: "round".to_owned(),
@@ -1029,7 +1412,7 @@ fn contract_via_record(record: BoardViaRecord) -> Result<ViaPlotRecord, String> 
         net_id: optional_safe_integer(record.net_id)?,
         net_name: record.net_name,
         object_id: "via".to_owned(),
-        operation_count: contract_count(operations.len()),
+        operation_count: contract_count(operations.len())?,
         operations,
         size: record.size,
         uuid: record.uuid,
@@ -1045,8 +1428,8 @@ fn contract_via_record(record: BoardViaRecord) -> Result<ViaPlotRecord, String> 
 fn contract_via_operation(
     index: usize,
     operation: BoardViaOperation,
-) -> Result<PlotterOperation, String> {
-    let index = u32::try_from(index).unwrap_or(u32::MAX);
+) -> Result<PlotterOperation, PlotProjectionError> {
+    let index = contract_count(index)?;
     let x = safe_integer(operation.x)?;
     let y = safe_integer(operation.y)?;
     let diameter_nm = safe_integer(operation.diameter_nm)?;
@@ -1088,7 +1471,7 @@ fn contract_via_operation(
                 _ => PlotterDrillRole::ViaMaskDrill,
             }),
             stroke_color: None,
-            width_nm: JavaScriptSafeInteger::try_from(0).map_err(|error| error.to_string())?,
+            width_nm: safe_integer(0)?,
         }
         .into(),
     })
@@ -1096,29 +1479,42 @@ fn contract_via_operation(
 
 fn shared_operations(
     operations: Vec<crate::PlotterOperation>,
-) -> Result<Vec<PlotterOperation>, String> {
+) -> Result<Vec<PlotterOperation>, PlotProjectionError> {
     // The established Python serializer numbers operations per record.
     operations
         .into_iter()
         .enumerate()
-        .map(|(index, operation)| {
-            let shared = contract_plotter_operation(index, operation)?;
-            let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
-            serde_json::from_value::<PlotterOperation>(value).map_err(|error| error.to_string())
-        })
+        .map(|(index, operation)| contract_plotter_operation(index, operation))
         .collect()
 }
 
-fn contract_count(count: usize) -> u32 {
-    u32::try_from(count).unwrap_or(u32::MAX)
+fn contract_count(count: usize) -> Result<u32, PlotProjectionError> {
+    u32::try_from(count).map_err(|_| {
+        PlotProjectionError::new(
+            PlotProjectionErrorKind::NumericRange,
+            "board plot count or index exceeds uint32",
+        )
+    })
 }
 
-fn safe_integer(value: i64) -> Result<JavaScriptSafeInteger, String> {
-    JavaScriptSafeInteger::try_from(value).map_err(|error| error.to_string())
+fn safe_integer(value: i64) -> Result<JavaScriptSafeInteger, PlotProjectionError> {
+    JavaScriptSafeInteger::try_from(value).map_err(|error| {
+        PlotProjectionError::new(PlotProjectionErrorKind::NumericRange, error.to_string())
+    })
 }
 
-fn optional_safe_integer(value: Option<i64>) -> Result<Option<JavaScriptSafeInteger>, String> {
+fn optional_safe_integer(
+    value: Option<i64>,
+) -> Result<Option<JavaScriptSafeInteger>, PlotProjectionError> {
     value.map(safe_integer).transpose()
+}
+
+fn resource_error(message: impl Into<String>) -> PlotProjectionError {
+    PlotProjectionError::new(PlotProjectionErrorKind::ResourceLimit, message)
+}
+
+fn invalid_model_error(message: impl Into<String>) -> PlotProjectionError {
+    PlotProjectionError::new(PlotProjectionErrorKind::InvalidModel, message)
 }
 
 fn contract_record_kind(kind: CoreGraphicRecordKind) -> BoardGraphicRecordKind {

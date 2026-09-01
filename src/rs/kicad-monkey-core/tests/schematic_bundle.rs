@@ -3,8 +3,11 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
 use kicad_monkey_core::{
-    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicLabelScope,
-    SchematicPinShape, SchematicPoint, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
+    PlotDocumentProjectionLimits, SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition,
+    SchematicLabelScope, SchematicPageContextOverrides, SchematicPagePlotErrorKind,
+    SchematicPagePlotRequest, SchematicPinShape, SchematicPlotOperation, SchematicPlotRecord,
+    SchematicPoint, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
+    project_schematic_page_plot_artifact_a0, schematic_page_plot_document,
 };
 use std::sync::Arc;
 
@@ -29,6 +32,10 @@ fn descriptor(path: &str, kind: SourceKind, slot: u32, bytes: &[u8]) -> SourceBu
 }
 
 fn hierarchy_bundle() -> SourceBundle {
+    hierarchy_bundle_with_child_suffix(b"")
+}
+
+fn hierarchy_bundle_with_child_suffix(child_suffix: &[u8]) -> SourceBundle {
     let project = b"{}".to_vec();
     let root = br#"(kicad_sch
       (version 20250114)
@@ -40,13 +47,18 @@ fn hierarchy_bundle() -> SourceBundle {
         (property "Sheetname" "First")
         (property "Sheetfile" "sub/child.kicad_sch")
         (on_board no)
-        (dnp yes))
+        (dnp yes)
+        (instances (project "root"
+          (path "/root-uuid/sheet-a" (page "7")))))
       (sheet
         (uuid sheet-b)
         (property "Sheet name" "Second")
-        (property "Sheet file" "sub/child.kicad_sch")))"#
+        (property "Sheet file" "sub/child.kicad_sch")
+        (instances (project "root"
+          (path "/root-uuid/sheet-b" (page "9")))))
+      (sheet_instances (path "/" (page "11"))))"#
         .to_vec();
-    let child = br#"(kicad_sch
+    let mut child = br#"(kicad_sch
       (version 20250114)
       (uuid child-source)
       (sheet
@@ -56,6 +68,7 @@ fn hierarchy_bundle() -> SourceBundle {
         (in_bom no)
         (exclude_from_sim yes)))"#
         .to_vec();
+    child.extend_from_slice(child_suffix);
     let leaf = b"(kicad_sch (version 20250114) (uuid leaf-source))".to_vec();
     let sources = vec![
         descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
@@ -74,6 +87,22 @@ fn hierarchy_bundle() -> SourceBundle {
         SourceBundleLimits::default(),
     )
     .expect("hierarchy bundle")
+}
+
+fn projectless_bundle(root: &[u8]) -> SourceBundle {
+    SourceBundle::from_manifest(
+        SourceBundleManifestA0 {
+            project_path: None,
+            root_schematic_path: "root.kicad_sch".to_owned(),
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources: vec![descriptor("root.kicad_sch", SourceKind::Schematic, 0, root)],
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        },
+        vec![root.to_vec()],
+        SourceBundleLimits::default(),
+    )
+    .expect("project-less bundle")
 }
 
 #[test]
@@ -310,6 +339,136 @@ fn schematics_are_scanned_once_and_repeated_pages_realize_distinct_occurrences()
     assert_eq!(occurrences[4].parent_index, Some(4));
     assert_eq!(occurrences[1].occurrence_address, "/root-uuid/sheet-a");
     assert_eq!(occurrences[3].occurrence_address, "/root-uuid/sheet-b");
+}
+
+#[test]
+fn occurrence_aware_plot_artifacts_keep_repeated_child_pages_distinct() {
+    let bundle = hierarchy_bundle();
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("schematic index");
+    let addresses = index
+        .occurrences()
+        .filter(|occurrence| occurrence.source_path == "design/sub/child.kicad_sch")
+        .map(|occurrence| occurrence.occurrence_address.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(addresses.len(), 2);
+
+    let first = schematic_page_plot_document(
+        &bundle,
+        &index,
+        SchematicPagePlotRequest::new(format!("{}/", addresses[0])),
+    )
+    .expect("first repeated child");
+    let second = schematic_page_plot_document(
+        &bundle,
+        &index,
+        SchematicPagePlotRequest::new(&addresses[1]),
+    )
+    .expect("second repeated child");
+    assert_eq!(first.document().document_id, "child-source");
+    assert_eq!(second.document().document_id, "child-source");
+    assert_ne!(first.occurrence_address(), second.occurrence_address());
+    assert_eq!(first.source_path(), "design/sub/child.kicad_sch");
+
+    let first =
+        project_schematic_page_plot_artifact_a0(first, PlotDocumentProjectionLimits::default())
+            .expect("projected repeated child");
+    let second =
+        project_schematic_page_plot_artifact_a0(second, PlotDocumentProjectionLimits::default())
+            .expect("second projected repeated child");
+    assert_eq!(first.occurrence_address(), addresses[0]);
+    assert_eq!(second.occurrence_address(), addresses[1]);
+    assert_eq!(first.document().document_id, "child-source");
+    assert_eq!(second.document().document_id, "child-source");
+
+    let mut overridden_request = SchematicPagePlotRequest::new(&addresses[0]);
+    overridden_request.context_overrides = SchematicPageContextOverrides {
+        source_path: Some("preview/child.kicad_sch".to_owned()),
+        document_id: Some("preview-child".to_owned()),
+        sheet_name: Some("Preview Child".to_owned()),
+    };
+    let overridden = schematic_page_plot_document(&bundle, &index, overridden_request)
+        .expect("overridden child context");
+    assert_eq!(overridden.source_path(), "preview/child.kicad_sch");
+    assert_eq!(overridden.document().document_id, "preview-child");
+    let rendered_text = schematic_texts(overridden.document()).collect::<Vec<_>>();
+    assert!(rendered_text.contains(&"Id: 7/5"));
+
+    let missing =
+        schematic_page_plot_document(&bundle, &index, SchematicPagePlotRequest::new("/absent"))
+            .unwrap_err();
+    assert_eq!(missing.kind, SchematicPagePlotErrorKind::MissingOccurrence);
+
+    let malformed = schematic_page_plot_document(
+        &bundle,
+        &index,
+        SchematicPagePlotRequest::new("relative/path"),
+    )
+    .unwrap_err();
+    assert_eq!(
+        malformed.kind,
+        SchematicPagePlotErrorKind::MalformedSelector
+    );
+}
+
+#[test]
+fn occurrence_plot_rejects_stale_indexes_for_complete_and_projectless_bundles() {
+    let bundle = hierarchy_bundle();
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("schematic index");
+    let same_project_different_schematic = hierarchy_bundle_with_child_suffix(b"\n ");
+    let error = schematic_page_plot_document(
+        &same_project_different_schematic,
+        &index,
+        SchematicPagePlotRequest::new("/root-uuid"),
+    )
+    .unwrap_err();
+    assert_eq!(error.kind, SchematicPagePlotErrorKind::BundleMismatch);
+
+    let first = projectless_bundle(b"(kicad_sch (uuid first))");
+    let second = projectless_bundle(b"(kicad_sch (uuid second))");
+    let index = SchematicBundleIndex::build(&first, SchematicBundleLimits::default())
+        .expect("project-less index");
+    let address = index
+        .occurrences()
+        .next()
+        .expect("project-less root occurrence")
+        .occurrence_address
+        .clone();
+    let root =
+        schematic_page_plot_document(&first, &index, SchematicPagePlotRequest::new(&address))
+            .expect("root occurrence plot");
+    assert_eq!(root.occurrence_address(), address);
+    let error =
+        schematic_page_plot_document(&second, &index, SchematicPagePlotRequest::new(address))
+            .unwrap_err();
+    assert_eq!(error.kind, SchematicPagePlotErrorKind::BundleMismatch);
+}
+
+fn schematic_texts(
+    document: &kicad_monkey_core::SchematicPlotDocument,
+) -> impl Iterator<Item = &str> {
+    document.records.iter().flat_map(|record| {
+        let operations = match record {
+            SchematicPlotRecord::SheetHeader(value) => &value.operations,
+            SchematicPlotRecord::Connectivity(value) => &value.operations,
+            SchematicPlotRecord::Annotation(value) => &value.operations,
+            SchematicPlotRecord::Graphic(value) => &value.operations,
+            SchematicPlotRecord::RuleArea(value) => &value.operations,
+            SchematicPlotRecord::Image(value) => &value.operations,
+            SchematicPlotRecord::Table(value) => &value.operations,
+            SchematicPlotRecord::SymbolInstance(value) => &value.operations,
+            SchematicPlotRecord::SymbolOverplot(value) => &value.operations,
+            SchematicPlotRecord::Sheet(value) => &value.operations,
+        };
+        operations.iter().filter_map(|operation| match operation {
+            SchematicPlotOperation::Plotter(kicad_monkey_core::PlotterOperation::Text(value)) => {
+                Some(value.text.as_str())
+            }
+            SchematicPlotOperation::Text(value) => Some(value.text.text.as_str()),
+            _ => None,
+        })
+    })
 }
 
 #[test]

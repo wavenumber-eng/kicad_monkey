@@ -2,8 +2,22 @@
 
 #![forbid(unsafe_code)]
 
+mod context;
+mod direct;
 mod operation;
 mod sink;
+
+pub use context::{
+    LayerPattern, LayerSelection, PlotterOperationKind, SvgBackground, SvgColor, SvgContextLimits,
+    SvgFillMode, SvgIdentityMode, SvgLineStyle, SvgProfile, SvgRenderContextA1,
+    SvgRenderContextBuilder, SvgSemanticRole, SvgStyleOverride, SvgVisibility,
+    ValidatedSvgRenderContextA1,
+};
+pub use direct::{
+    SvgBounds, SvgFitOptions, SvgRenderLimits, SvgViewport, SvgWarning, ViewportPolicy,
+    render_board_document_svg, render_board_svg, render_footprint_svg, render_schematic_page_svg,
+    render_schematic_svg, render_symbol_svg,
+};
 
 use kicad_monkey_contracts::generated::native_svg_render_request::{
     NativeSvgPlotDocument, NativeSvgRenderLimits, NativeSvgRenderRequestA0, NativeSvgViewport,
@@ -25,21 +39,155 @@ const MAX_SVG_BYTES: usize = 512 * 1024 * 1024;
 const MAX_RESULT_BYTES: usize = 768 * 1024 * 1024;
 
 #[derive(Debug)]
-pub struct SvgError(pub String);
+pub struct SvgError {
+    kind: SvgErrorKind,
+    message: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SvgErrorKind {
+    InvalidContext,
+    InvalidDocument,
+    InvalidViewport,
+    UnsupportedSelector,
+    ResourceLimit,
+    UnsupportedFitText,
+    EmptyBounds,
+    ArithmeticOverflow,
+    UnbalancedBlock,
+    Serialization,
+    Other,
+}
+
+impl SvgError {
+    pub fn new(kind: SvgErrorKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+        }
+    }
+
+    pub const fn kind(&self) -> SvgErrorKind {
+        self.kind
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
 
 impl std::fmt::Display for SvgError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(&self.0)
+        formatter.write_str(&self.message)
     }
 }
 
 impl std::error::Error for SvgError {}
+
+// Internal compatibility constructor while the frozen renderer is migrated to
+// the typed error constructors above. New public-boundary code must use
+// `SvgError::new` with an explicit kind.
+#[allow(
+    non_snake_case,
+    reason = "temporary compatibility constructor for the frozen renderer internals"
+)]
+pub(crate) fn SvgError(message: String) -> SvgError {
+    SvgError::new(SvgErrorKind::Other, message)
+}
+
+#[cfg(test)]
+mod error_tests {
+    use super::{SvgError, SvgErrorKind, render_svg, render_svg_legacy};
+    use kicad_monkey_contracts::decode_native_svg_render_request_a0;
+    use serde_json::{Value, json};
+    use std::{fs, path::PathBuf};
+
+    #[test]
+    fn every_public_error_kind_is_stored_explicitly() {
+        for kind in [
+            SvgErrorKind::InvalidContext,
+            SvgErrorKind::InvalidDocument,
+            SvgErrorKind::InvalidViewport,
+            SvgErrorKind::UnsupportedSelector,
+            SvgErrorKind::ResourceLimit,
+            SvgErrorKind::UnsupportedFitText,
+            SvgErrorKind::EmptyBounds,
+            SvgErrorKind::ArithmeticOverflow,
+            SvgErrorKind::UnbalancedBlock,
+            SvgErrorKind::Serialization,
+            SvgErrorKind::Other,
+        ] {
+            let error = SvgError::new(kind, "message deliberately has no classification words");
+            assert_eq!(error.kind(), kind);
+        }
+    }
+
+    #[test]
+    fn delegated_adapter_preserves_legacy_multi_fault_error_winners() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let vectors: Value = serde_json::from_slice(
+            &fs::read(root.join("tests/parity/footprint_plotter_a0_vectors.json"))
+                .expect("read footprint vectors"),
+        )
+        .expect("decode footprint vectors");
+        let document = vectors["vectors"][0]["expected"].clone();
+        let base = json!({
+            "type": "kicad_monkey.native.svg.request",
+            "version": "a0",
+            "profile": "plotter-base-a0",
+            "document": {"kind": "footprint", "value": document},
+            "viewport": {
+                "min_x_nm": 0,
+                "min_y_nm": 0,
+                "width_nm": 20_000_000,
+                "height_nm": 20_000_000
+            },
+            "limits": {
+                "max_records": 1_000_000,
+                "max_operations": 4_000_000,
+                "max_points": "16000000",
+                "max_text_bytes": "268435456",
+                "max_image_encoded_bytes": "268435456",
+                "max_block_depth": 4096,
+                "max_svg_elements": "8000000",
+                "max_render_work": "64000000",
+                "max_svg_bytes": "536870912",
+                "max_result_bytes": "805306368"
+            }
+        });
+        let mut cases = Vec::new();
+        let mut record_and_operation_limits = base.clone();
+        record_and_operation_limits["limits"]["max_records"] = json!(0);
+        record_and_operation_limits["limits"]["max_operations"] = json!(0);
+        cases.push(record_and_operation_limits);
+        let mut operation_and_point_limits = base.clone();
+        operation_and_point_limits["limits"]["max_operations"] = json!(0);
+        operation_and_point_limits["limits"]["max_points"] = json!("0");
+        cases.push(operation_and_point_limits);
+        let mut point_and_output_limits = base;
+        point_and_output_limits["limits"]["max_points"] = json!("0");
+        point_and_output_limits["limits"]["max_svg_bytes"] = json!("0");
+        cases.push(point_and_output_limits);
+
+        for value in cases {
+            let request = decode_native_svg_render_request_a0(&serde_json::to_vec(&value).unwrap())
+                .expect("typed compatibility request");
+            let legacy = render_svg_legacy(&request).unwrap_err();
+            let delegated = render_svg(&request).unwrap_err();
+            assert_eq!(delegated.message(), legacy.message());
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct SvgArtifact {
     pub source_kind: &'static str,
     pub document_id: String,
     pub svg: String,
+    pub occurrence_address: Option<String>,
+    pub viewport: SvgViewport,
+    pub visible_bounds: Option<SvgBounds>,
+    pub warnings: Vec<SvgWarning>,
     pub max_result_bytes: usize,
     pub metrics: SvgMetrics,
 }
@@ -55,6 +203,8 @@ pub struct SvgMetrics {
     pub svg_elements: usize,
     pub render_work: usize,
     pub svg_bytes: usize,
+    pub result_bytes: usize,
+    pub bounds_work: usize,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -81,6 +231,89 @@ struct Limits {
 }
 
 pub fn render_svg(request: &NativeSvgRenderRequestA0) -> Result<SvgArtifact, SvgError> {
+    validate_native_svg_render_request_contract(request).map_err(|error| {
+        SvgError::new(
+            SvgErrorKind::InvalidDocument,
+            format!("invalid SVG request: {error}"),
+        )
+    })?;
+    let limits = Limits::from_wire(&request.limits)?;
+    // Preserve the frozen adapter's document-id/records validation order before
+    // decoding the opaque compatibility payload into its typed family.
+    let (_, _, compatibility_document) = document_value(&request.document)?;
+    compatibility_document
+        .get("records")
+        .and_then(Value::as_array)
+        .ok_or_else(|| SvgError("plot document records are missing".to_owned()))?;
+    let viewport = ViewportPolicy::Explicit(SvgViewport {
+        min_x_nm: request.viewport.min_x_nm.get(),
+        min_y_nm: request.viewport.min_y_nm.get(),
+        width_nm: request.viewport.width_nm.get(),
+        height_nm: request.viewport.height_nm.get(),
+    });
+    let typed_limits = SvgRenderLimits {
+        max_records: limits.records,
+        max_operations: limits.operations,
+        max_points: limits.points,
+        max_text_bytes: limits.text_bytes,
+        max_image_encoded_bytes: limits.image_bytes,
+        max_block_depth: limits.block_depth,
+        max_svg_elements: limits.elements,
+        max_render_work: limits.work,
+        max_svg_bytes: limits.svg_bytes,
+        // The frozen native adapter enforces this after it serializes the
+        // envelope so its historical error ordering/message remain exact.
+        max_result_bytes: MAX_RESULT_BYTES,
+        max_bounds_work: limits.work,
+    };
+    let context = ValidatedSvgRenderContextA1::defaults();
+    let mut artifact = match &request.document {
+        NativeSvgPlotDocument::FootprintSvgDocument(wrapper) => render_footprint_svg(
+            &decode_compatibility_document(wrapper.value.clone(), "footprint")?,
+            viewport,
+            &context,
+            typed_limits,
+        ),
+        NativeSvgPlotDocument::SymbolSvgDocument(wrapper) => render_symbol_svg(
+            &decode_compatibility_document(wrapper.value.clone(), "symbol")?,
+            viewport,
+            &context,
+            typed_limits,
+        ),
+        NativeSvgPlotDocument::BoardSvgDocument(wrapper) => render_board_document_svg(
+            &decode_compatibility_document(wrapper.value.clone(), "board")?,
+            viewport,
+            &context,
+            typed_limits,
+        ),
+        NativeSvgPlotDocument::SchematicSvgDocument(wrapper) => render_schematic_svg(
+            &decode_compatibility_document(wrapper.value.clone(), "schematic")?,
+            viewport,
+            &context,
+            typed_limits,
+        ),
+    }?;
+    artifact.max_result_bytes = limits.result_bytes;
+    Ok(artifact)
+}
+
+fn decode_compatibility_document<T: serde::de::DeserializeOwned>(
+    value: Value,
+    family: &str,
+) -> Result<T, SvgError> {
+    serde_json::from_value(value).map_err(|error| {
+        SvgError::new(
+            SvgErrorKind::InvalidDocument,
+            format!("invalid {family} plot document: {error}"),
+        )
+    })
+}
+
+#[allow(
+    dead_code,
+    reason = "retained temporarily as an internal parity oracle"
+)]
+fn render_svg_legacy(request: &NativeSvgRenderRequestA0) -> Result<SvgArtifact, SvgError> {
     validate_native_svg_render_request_contract(request)
         .map_err(|error| SvgError(format!("invalid SVG request: {error}")))?;
     let limits = Limits::from_wire(&request.limits)?;
@@ -98,6 +331,15 @@ pub fn render_svg(request: &NativeSvgRenderRequestA0) -> Result<SvgArtifact, Svg
         source_kind,
         document_id,
         svg,
+        occurrence_address: None,
+        viewport: SvgViewport {
+            min_x_nm: request.viewport.min_x_nm.get(),
+            min_y_nm: request.viewport.min_y_nm.get(),
+            width_nm: request.viewport.width_nm.get(),
+            height_nm: request.viewport.height_nm.get(),
+        },
+        visible_bounds: None,
+        warnings: Vec::new(),
         max_result_bytes: limits.result_bytes,
         metrics: SvgMetrics {
             records: records.len(),
@@ -109,6 +351,8 @@ pub fn render_svg(request: &NativeSvgRenderRequestA0) -> Result<SvgArtifact, Svg
             svg_elements,
             render_work,
             svg_bytes,
+            result_bytes: 0,
+            bounds_work: 0,
         },
     })
 }

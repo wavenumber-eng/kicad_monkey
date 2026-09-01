@@ -103,7 +103,7 @@ fn build_kicad_design_facts_internal<'index>(
     netlist_limits: KiCadNetlistLimits,
     profile: bool,
 ) -> Result<(KiCadDesignFacts<'index>, KiCadDesignFactsBuildProfile), SourceBundleError> {
-    if !index.project_belongs_to(bundle) {
+    if !index.bundle_belongs_to(bundle) {
         return Err(SourceBundleError::new(
             SourceBundleErrorKind::Contract,
             None,

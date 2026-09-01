@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.9.1
+
+- Require `kicad-monkey>=2026.9.1` and verify Cruncher can consume Monkey's
+  direct typed Rust SVG renderers for footprints, symbols, boards, and
+  schematic pages with one validated context. The public dependency remains a
+  normal package requirement with no embedded workspace path; the standalone
+  Rust CLI continues to build from the coordinated Monkey workspace revision.
+
 ## 2026.8.31
 
 - Require `kicad-monkey>=2026.8.31`, ensuring installed Cruncher workflows use

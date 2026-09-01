@@ -144,15 +144,21 @@ impl SourceBundle {
             .and_then(|path| self.sources.get(path))
     }
 
-    pub(crate) fn project_identity_sha256(&self) -> [u8; 32] {
+    pub(crate) fn bundle_identity_sha256(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        match self.project() {
-            Some(project) => {
+        hash_identity_field(&mut hasher, self.root_schematic_path.as_bytes());
+        match &self.project_path {
+            Some(path) => {
                 hasher.update([1]);
-                hash_identity_field(&mut hasher, project.path().as_bytes());
-                hash_identity_field(&mut hasher, project.bytes());
+                hash_identity_field(&mut hasher, path.as_bytes());
             }
             None => hasher.update([0]),
+        }
+        hash_identity_field(&mut hasher, &self.sources.len().to_le_bytes());
+        for source in self.sources.values() {
+            hash_identity_field(&mut hasher, source.path().as_bytes());
+            hash_identity_field(&mut hasher, source_kind_identity(source.kind()));
+            hash_identity_field(&mut hasher, source.bytes());
         }
         hasher.finalize().into()
     }
@@ -179,6 +185,17 @@ impl SourceBundle {
             ));
         }
         Ok(source)
+    }
+}
+
+fn source_kind_identity(kind: SourceKind) -> &'static [u8] {
+    match kind {
+        SourceKind::Project => b"project",
+        SourceKind::Schematic => b"schematic",
+        SourceKind::SymbolLibrary => b"symbol_library",
+        SourceKind::SymbolTable => b"symbol_table",
+        SourceKind::Worksheet => b"worksheet",
+        SourceKind::Other => b"other",
     }
 }
 

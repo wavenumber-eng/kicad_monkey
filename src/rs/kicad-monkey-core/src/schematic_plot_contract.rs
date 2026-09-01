@@ -6,8 +6,6 @@ use crate::{
     SchematicConnectivityRecordKind, SchematicPlotDocument, SchematicPlotOperation,
     SchematicPlotRecord, ThickSegment,
 };
-use kicad_monkey_contracts::generated::schematic_plot_document::SchematicPlotDocumentA0;
-use kicad_monkey_contracts::validate_schematic_plot_document;
 use serde_json::{Map, Value, json};
 use std::fmt;
 use std::io::{self, Write};
@@ -66,15 +64,20 @@ pub fn schematic_plot_document_json(
 ) -> Result<Value, SchematicPlotContractError> {
     let budget = schematic_plot_document_budget(document)?;
     validate_budget(budget, limits)?;
-    let value = document_json(document);
-    let contract: SchematicPlotDocumentA0 =
-        serde_json::from_value(value.clone()).map_err(|error| {
-            SchematicPlotContractError(format!("schematic plot contract decode failed: {error}"))
-        })?;
-    validate_schematic_plot_document(&contract).map_err(|error| {
-        SchematicPlotContractError(format!(
-            "schematic plot contract validation failed: {error}"
-        ))
+    let contract = crate::project_schematic_plot_document_a0(
+        document,
+        crate::PlotDocumentProjectionLimits {
+            max_records: limits.max_derived_items,
+            max_operations: limits.max_derived_items,
+            max_points: limits.max_derived_items,
+            max_string_bytes: limits.max_materialized_bytes,
+            max_nested_items: limits.max_derived_items,
+            max_materialized_bytes: limits.max_materialized_bytes,
+        },
+    )
+    .map_err(|error| SchematicPlotContractError(error.to_string()))?;
+    let value = serde_json::to_value(contract).map_err(|error| {
+        SchematicPlotContractError(format!("schematic plot contract encode failed: {error}"))
     })?;
     let mut writer = LimitedWriter::new(limits.max_output_bytes);
     serde_json::to_writer(&mut writer, &value).map_err(|error| {
@@ -455,390 +458,399 @@ fn operation_point_count(operation: &SchematicPlotOperation) -> usize {
     }
 }
 
-fn insert_optional(object: &mut Map<String, Value>, name: &str, value: Option<Value>) {
-    if let Some(value) = value {
-        object.insert(name.to_owned(), value);
-    }
-}
-
-const fn fill_name(fill: PlotterFill) -> &'static str {
-    match fill {
-        PlotterFill::NoFill => "NO_FILL",
-        PlotterFill::FilledShape => "FILLED_SHAPE",
-        PlotterFill::FilledWithBackgroundBodyColor => "FILLED_WITH_BG_BODYCOLOR",
-        PlotterFill::FilledWithColor => "FILLED_WITH_COLOR",
-        PlotterFill::Hatch => "HATCH",
-        PlotterFill::ReverseHatch => "REVERSE_HATCH",
-        PlotterFill::CrossHatch => "CROSS_HATCH",
-    }
-}
-
-const fn line_style_name(style: PlotterLineStyle) -> &'static str {
-    match style {
-        PlotterLineStyle::Default => "DEFAULT",
-        PlotterLineStyle::Solid => "SOLID",
-        PlotterLineStyle::Dash => "DASH",
-        PlotterLineStyle::Dot => "DOT",
-        PlotterLineStyle::DashDot => "DASH_DOT",
-        PlotterLineStyle::DashDotDot => "DASH_DOT_DOT",
-    }
-}
-
-const fn h_align_name(align: PlotterTextHAlign) -> &'static str {
-    match align {
-        PlotterTextHAlign::Left => "GR_TEXT_H_ALIGN_LEFT",
-        PlotterTextHAlign::Center => "GR_TEXT_H_ALIGN_CENTER",
-        PlotterTextHAlign::Right => "GR_TEXT_H_ALIGN_RIGHT",
-    }
-}
-
-const fn v_align_name(align: PlotterTextVAlign) -> &'static str {
-    match align {
-        PlotterTextVAlign::Top => "GR_TEXT_V_ALIGN_TOP",
-        PlotterTextVAlign::Center => "GR_TEXT_V_ALIGN_CENTER",
-        PlotterTextVAlign::Bottom => "GR_TEXT_V_ALIGN_BOTTOM",
-    }
-}
-
-fn text_json(value: &PlotterText, index: usize, hyperlink: Option<&str>) -> Value {
-    let mut object = json!({
-        "kind": "Text", "index": index, "x": value.x, "y": value.y,
-        "text": value.text, "color": value.color, "orient_deg": value.orient_deg,
-        "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm,
-        "h_align": h_align_name(value.h_align), "v_align": v_align_name(value.v_align),
-        "pen_width_nm": value.pen_width_nm, "italic": value.italic, "bold": value.bold,
-        "multiline": value.multiline, "font_face": value.font_face,
-    })
-    .as_object()
-    .expect("text JSON object")
-    .clone();
-    insert_optional(
-        &mut object,
-        "layer",
-        value.layer.as_ref().map(|value| json!(value)),
-    );
-    insert_optional(
-        &mut object,
-        "context",
-        hyperlink.map(|href| json!({"hyperlink": {"href": href}})),
-    );
-    Value::Object(object)
-}
-
 #[allow(
-    clippy::too_many_lines,
-    reason = "the exhaustive contract mapping is a compile-time ratchet"
+    dead_code,
+    reason = "retained temporarily as a parity oracle during typed migration"
 )]
-fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
-    match operation {
-        SchematicPlotOperation::Text(value) => {
-            text_json(&value.text, index, value.hyperlink_href.as_deref())
+mod legacy_json_mapping {
+    use super::*;
+
+    fn insert_optional(object: &mut Map<String, Value>, name: &str, value: Option<Value>) {
+        if let Some(value) = value {
+            object.insert(name.to_owned(), value);
         }
-        SchematicPlotOperation::StyledThickSegment(value) => {
-            let segment = &value.segment;
-            json!({"kind": "ThickSegment", "index": index,
+    }
+
+    const fn fill_name(fill: PlotterFill) -> &'static str {
+        match fill {
+            PlotterFill::NoFill => "NO_FILL",
+            PlotterFill::FilledShape => "FILLED_SHAPE",
+            PlotterFill::FilledWithBackgroundBodyColor => "FILLED_WITH_BG_BODYCOLOR",
+            PlotterFill::FilledWithColor => "FILLED_WITH_COLOR",
+            PlotterFill::Hatch => "HATCH",
+            PlotterFill::ReverseHatch => "REVERSE_HATCH",
+            PlotterFill::CrossHatch => "CROSS_HATCH",
+        }
+    }
+
+    const fn line_style_name(style: PlotterLineStyle) -> &'static str {
+        match style {
+            PlotterLineStyle::Default => "DEFAULT",
+            PlotterLineStyle::Solid => "SOLID",
+            PlotterLineStyle::Dash => "DASH",
+            PlotterLineStyle::Dot => "DOT",
+            PlotterLineStyle::DashDot => "DASH_DOT",
+            PlotterLineStyle::DashDotDot => "DASH_DOT_DOT",
+        }
+    }
+
+    const fn h_align_name(align: PlotterTextHAlign) -> &'static str {
+        match align {
+            PlotterTextHAlign::Left => "GR_TEXT_H_ALIGN_LEFT",
+            PlotterTextHAlign::Center => "GR_TEXT_H_ALIGN_CENTER",
+            PlotterTextHAlign::Right => "GR_TEXT_H_ALIGN_RIGHT",
+        }
+    }
+
+    const fn v_align_name(align: PlotterTextVAlign) -> &'static str {
+        match align {
+            PlotterTextVAlign::Top => "GR_TEXT_V_ALIGN_TOP",
+            PlotterTextVAlign::Center => "GR_TEXT_V_ALIGN_CENTER",
+            PlotterTextVAlign::Bottom => "GR_TEXT_V_ALIGN_BOTTOM",
+        }
+    }
+
+    fn text_json(value: &PlotterText, index: usize, hyperlink: Option<&str>) -> Value {
+        let mut object = json!({
+            "kind": "Text", "index": index, "x": value.x, "y": value.y,
+            "text": value.text, "color": value.color, "orient_deg": value.orient_deg,
+            "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm,
+            "h_align": h_align_name(value.h_align), "v_align": v_align_name(value.v_align),
+            "pen_width_nm": value.pen_width_nm, "italic": value.italic, "bold": value.bold,
+            "multiline": value.multiline, "font_face": value.font_face,
+        })
+        .as_object()
+        .expect("text JSON object")
+        .clone();
+        insert_optional(
+            &mut object,
+            "layer",
+            value.layer.as_ref().map(|value| json!(value)),
+        );
+        insert_optional(
+            &mut object,
+            "context",
+            hyperlink.map(|href| json!({"hyperlink": {"href": href}})),
+        );
+        Value::Object(object)
+    }
+
+    #[allow(
+        clippy::too_many_lines,
+        reason = "the exhaustive contract mapping is a compile-time ratchet"
+    )]
+    fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
+        match operation {
+            SchematicPlotOperation::Text(value) => {
+                text_json(&value.text, index, value.hyperlink_href.as_deref())
+            }
+            SchematicPlotOperation::StyledThickSegment(value) => {
+                let segment = &value.segment;
+                json!({"kind": "ThickSegment", "index": index,
                 "start_x": segment.start_x, "start_y": segment.start_y,
                 "end_x": segment.end_x, "end_y": segment.end_y,
                 "width_nm": segment.width_nm, "stroke_color": value.stroke_color})
-        }
-        SchematicPlotOperation::PlotImage(value) => {
-            let mut object = json!({"kind": "PlotImage", "index": index,
+            }
+            SchematicPlotOperation::PlotImage(value) => {
+                let mut object = json!({"kind": "PlotImage", "index": index,
                 "x": value.x, "y": value.y, "width_nm": value.width_nm,
                 "height_nm": value.height_nm, "scale": value.scale,
                 "image_data_b64": value.image_data_b64, "image_format": value.image_format})
-            .as_object()
-            .expect("image JSON object")
-            .clone();
-            insert_optional(
-                &mut object,
-                "stroke_color",
-                value.stroke_color.as_ref().map(|value| json!(value)),
-            );
-            Value::Object(object)
-        }
-        SchematicPlotOperation::StartSymbolPinBlock(value) => {
-            let attrs = [
-                ("primitive", value.extra_attrs.primitive.as_str()),
-                ("object-type", value.extra_attrs.object_type.as_str()),
-                ("pin", value.extra_attrs.pin.as_str()),
-                ("symbol-uuid", value.extra_attrs.symbol_uuid.as_str()),
-                ("designator", value.extra_attrs.designator.as_str()),
-                ("lib-pin-uuid", value.extra_attrs.lib_pin_uuid.as_str()),
-            ]
-            .into_iter()
-            .filter(|(_, value)| !value.is_empty())
-            .map(|(name, value)| (name.to_owned(), json!(value)))
-            .collect::<Map<_, _>>();
-            json!({"kind": "StartBlock", "index": index, "label": value.label,
+                .as_object()
+                .expect("image JSON object")
+                .clone();
+                insert_optional(
+                    &mut object,
+                    "stroke_color",
+                    value.stroke_color.as_ref().map(|value| json!(value)),
+                );
+                Value::Object(object)
+            }
+            SchematicPlotOperation::StartSymbolPinBlock(value) => {
+                let attrs = [
+                    ("primitive", value.extra_attrs.primitive.as_str()),
+                    ("object-type", value.extra_attrs.object_type.as_str()),
+                    ("pin", value.extra_attrs.pin.as_str()),
+                    ("symbol-uuid", value.extra_attrs.symbol_uuid.as_str()),
+                    ("designator", value.extra_attrs.designator.as_str()),
+                    ("lib-pin-uuid", value.extra_attrs.lib_pin_uuid.as_str()),
+                ]
+                .into_iter()
+                .filter(|(_, value)| !value.is_empty())
+                .map(|(name, value)| (name.to_owned(), json!(value)))
+                .collect::<Map<_, _>>();
+                json!({"kind": "StartBlock", "index": index, "label": value.label,
                 "data_uuid": value.data_uuid, "data_ref": "symbol_pin",
                 "object_id": value.object_id, "extra_attrs": attrs})
-        }
-        SchematicPlotOperation::StartSheetPinBlock(value) => {
-            let attrs = [
-                ("primitive", value.extra_attrs.primitive.as_str()),
-                ("object-type", value.extra_attrs.object_type.as_str()),
-                ("sheet-uuid", value.extra_attrs.sheet_uuid.as_str()),
-                ("sheet-name", value.extra_attrs.sheet_name.as_str()),
-                ("sheet-file", value.extra_attrs.sheet_file.as_str()),
-                ("pin", value.extra_attrs.pin.as_str()),
-                ("pin-name", value.extra_attrs.pin_name.as_str()),
-                ("shape", value.extra_attrs.shape.as_str()),
-            ]
-            .into_iter()
-            .filter(|(_, value)| !value.is_empty())
-            .map(|(name, value)| (name.to_owned(), json!(value)))
-            .collect::<Map<_, _>>();
-            json!({"kind": "StartBlock", "index": index, "label": value.label,
+            }
+            SchematicPlotOperation::StartSheetPinBlock(value) => {
+                let attrs = [
+                    ("primitive", value.extra_attrs.primitive.as_str()),
+                    ("object-type", value.extra_attrs.object_type.as_str()),
+                    ("sheet-uuid", value.extra_attrs.sheet_uuid.as_str()),
+                    ("sheet-name", value.extra_attrs.sheet_name.as_str()),
+                    ("sheet-file", value.extra_attrs.sheet_file.as_str()),
+                    ("pin", value.extra_attrs.pin.as_str()),
+                    ("pin-name", value.extra_attrs.pin_name.as_str()),
+                    ("shape", value.extra_attrs.shape.as_str()),
+                ]
+                .into_iter()
+                .filter(|(_, value)| !value.is_empty())
+                .map(|(name, value)| (name.to_owned(), json!(value)))
+                .collect::<Map<_, _>>();
+                json!({"kind": "StartBlock", "index": index, "label": value.label,
                 "data_uuid": value.data_uuid, "data_ref": "sheet_pin",
                 "object_id": value.object_id, "extra_attrs": attrs})
+            }
+            SchematicPlotOperation::EndBlock => json!({"kind": "EndBlock", "index": index}),
+            SchematicPlotOperation::Plotter(operation) => plotter_operation_json(operation, index),
         }
-        SchematicPlotOperation::EndBlock => json!({"kind": "EndBlock", "index": index}),
-        SchematicPlotOperation::Plotter(operation) => plotter_operation_json(operation, index),
     }
-}
 
-fn plotter_operation_json(operation: &PlotterOperation, index: usize) -> Value {
-    match operation {
-        PlotterOperation::Rect(value) => styled_shape_json(
-            json!({"kind": "Rect", "index": index, "x1": value.x1, "y1": value.y1,
+    fn plotter_operation_json(operation: &PlotterOperation, index: usize) -> Value {
+        match operation {
+            PlotterOperation::Rect(value) => styled_shape_json(
+                json!({"kind": "Rect", "index": index, "x1": value.x1, "y1": value.y1,
                 "x2": value.x2, "y2": value.y2, "fill": fill_name(value.fill),
                 "width_nm": value.width_nm, "corner_radius_nm": value.corner_radius_nm}),
-            value.layer.as_deref(),
-            value.stroke_color.as_deref(),
-            value.fill_color.as_deref(),
-            value.line_style,
-        ),
-        PlotterOperation::PlotPoly(value) => styled_shape_json(
-            json!({"kind": "PlotPoly", "index": index, "points": value.points,
+                value.layer.as_deref(),
+                value.stroke_color.as_deref(),
+                value.fill_color.as_deref(),
+                value.line_style,
+            ),
+            PlotterOperation::PlotPoly(value) => styled_shape_json(
+                json!({"kind": "PlotPoly", "index": index, "points": value.points,
                 "fill": fill_name(value.fill), "width_nm": value.width_nm}),
-            value.layer.as_deref(),
-            value.stroke_color.as_deref(),
-            value.fill_color.as_deref(),
-            value.line_style,
-        ),
-        PlotterOperation::Circle(value) => circle_json(value, index),
-        PlotterOperation::Text(value) => text_json(value, index, None),
-        PlotterOperation::ArcThreePoint(value) => styled_shape_json(
-            json!({"kind": "ArcThreePoint", "index": index,
+                value.layer.as_deref(),
+                value.stroke_color.as_deref(),
+                value.fill_color.as_deref(),
+                value.line_style,
+            ),
+            PlotterOperation::Circle(value) => circle_json(value, index),
+            PlotterOperation::Text(value) => text_json(value, index, None),
+            PlotterOperation::ArcThreePoint(value) => styled_shape_json(
+                json!({"kind": "ArcThreePoint", "index": index,
                 "start_x": value.start_x, "start_y": value.start_y,
                 "mid_x": value.mid_x, "mid_y": value.mid_y,
                 "end_x": value.end_x, "end_y": value.end_y,
                 "fill": fill_name(value.fill), "width_nm": value.width_nm}),
-            value.layer.as_deref(),
-            value.stroke_color.as_deref(),
-            value.fill_color.as_deref(),
-            value.line_style,
-        ),
-        PlotterOperation::BezierCurve(value) => styled_shape_json(
-            json!({"kind": "BezierCurve", "index": index,
+                value.layer.as_deref(),
+                value.stroke_color.as_deref(),
+                value.fill_color.as_deref(),
+                value.line_style,
+            ),
+            PlotterOperation::BezierCurve(value) => styled_shape_json(
+                json!({"kind": "BezierCurve", "index": index,
                 "start_x": value.start_x, "start_y": value.start_y,
                 "ctrl1_x": value.ctrl1_x, "ctrl1_y": value.ctrl1_y,
                 "ctrl2_x": value.ctrl2_x, "ctrl2_y": value.ctrl2_y,
                 "end_x": value.end_x, "end_y": value.end_y,
                 "width_nm": value.width_nm, "tolerance_nm": value.tolerance_nm}),
-            value.layer.as_deref(),
-            value.stroke_color.as_deref(),
-            None,
-            value.line_style,
-        ),
-        PlotterOperation::ThickSegment(value) => thick_segment_json(value, index),
-        PlotterOperation::FlashPadCircle(_)
-        | PlotterOperation::FlashPadOval(_)
-        | PlotterOperation::FlashPadRect(_)
-        | PlotterOperation::FlashPadRoundRect(_)
-        | PlotterOperation::FlashPadCustom(_)
-        | PlotterOperation::FlashPadTrapez(_) => {
-            unreachable!("operations outside the schematic vocabulary are rejected by the producer")
+                value.layer.as_deref(),
+                value.stroke_color.as_deref(),
+                None,
+                value.line_style,
+            ),
+            PlotterOperation::ThickSegment(value) => thick_segment_json(value, index),
+            PlotterOperation::FlashPadCircle(_)
+            | PlotterOperation::FlashPadOval(_)
+            | PlotterOperation::FlashPadRect(_)
+            | PlotterOperation::FlashPadRoundRect(_)
+            | PlotterOperation::FlashPadCustom(_)
+            | PlotterOperation::FlashPadTrapez(_) => {
+                unreachable!(
+                    "operations outside the schematic vocabulary are rejected by the producer"
+                )
+            }
         }
     }
-}
 
-fn styled_shape_json(
-    base: Value,
-    layer: Option<&str>,
-    stroke_color: Option<&str>,
-    fill_color: Option<&str>,
-    line_style: Option<PlotterLineStyle>,
-) -> Value {
-    let mut object = base.as_object().expect("shape JSON object").clone();
-    insert_optional(&mut object, "layer", layer.map(|value| json!(value)));
-    insert_optional(
-        &mut object,
-        "stroke_color",
-        stroke_color.map(|value| json!(value)),
-    );
-    insert_optional(
-        &mut object,
-        "fill_color",
-        fill_color.map(|value| json!(value)),
-    );
-    insert_optional(
-        &mut object,
-        "line_style",
-        line_style.map(|value| json!(line_style_name(value))),
-    );
-    Value::Object(object)
-}
+    fn styled_shape_json(
+        base: Value,
+        layer: Option<&str>,
+        stroke_color: Option<&str>,
+        fill_color: Option<&str>,
+        line_style: Option<PlotterLineStyle>,
+    ) -> Value {
+        let mut object = base.as_object().expect("shape JSON object").clone();
+        insert_optional(&mut object, "layer", layer.map(|value| json!(value)));
+        insert_optional(
+            &mut object,
+            "stroke_color",
+            stroke_color.map(|value| json!(value)),
+        );
+        insert_optional(
+            &mut object,
+            "fill_color",
+            fill_color.map(|value| json!(value)),
+        );
+        insert_optional(
+            &mut object,
+            "line_style",
+            line_style.map(|value| json!(line_style_name(value))),
+        );
+        Value::Object(object)
+    }
 
-fn circle_json(value: &PlotterCircle, index: usize) -> Value {
-    let styled = styled_shape_json(
-        json!({"kind": "Circle", "index": index, "cx": value.cx, "cy": value.cy,
+    fn circle_json(value: &PlotterCircle, index: usize) -> Value {
+        let styled = styled_shape_json(
+            json!({"kind": "Circle", "index": index, "cx": value.cx, "cy": value.cy,
             "diameter_nm": value.diameter_nm, "fill": fill_name(value.fill),
             "width_nm": value.width_nm}),
-        value.layer.as_deref(),
-        value.stroke_color.as_deref(),
-        value.fill_color.as_deref(),
-        value.line_style,
-    );
-    let mut object = styled.as_object().expect("circle JSON object").clone();
-    insert_pad_fields(
-        &mut object,
-        value.role.as_deref(),
-        &value.layers,
-        value.mask_margin_nm,
-        value.pad_size_x_nm,
-        value.pad_size_y_nm,
-    );
-    Value::Object(object)
-}
+            value.layer.as_deref(),
+            value.stroke_color.as_deref(),
+            value.fill_color.as_deref(),
+            value.line_style,
+        );
+        let mut object = styled.as_object().expect("circle JSON object").clone();
+        insert_pad_fields(
+            &mut object,
+            value.role.as_deref(),
+            &value.layers,
+            value.mask_margin_nm,
+            value.pad_size_x_nm,
+            value.pad_size_y_nm,
+        );
+        Value::Object(object)
+    }
 
-fn thick_segment_json(value: &ThickSegment, index: usize) -> Value {
-    let mut object = json!({"kind": "ThickSegment", "index": index,
+    fn thick_segment_json(value: &ThickSegment, index: usize) -> Value {
+        let mut object = json!({"kind": "ThickSegment", "index": index,
         "start_x": value.start_x, "start_y": value.start_y,
         "end_x": value.end_x, "end_y": value.end_y, "width_nm": value.width_nm})
-    .as_object()
-    .expect("segment JSON object")
-    .clone();
-    insert_optional(
-        &mut object,
-        "layer",
-        value.layer.as_deref().map(|value| json!(value)),
-    );
-    insert_pad_fields(
-        &mut object,
-        value.role.as_deref(),
-        &value.layers,
-        value.mask_margin_nm,
-        value.pad_size_x_nm,
-        value.pad_size_y_nm,
-    );
-    Value::Object(object)
-}
-
-fn insert_pad_fields(
-    object: &mut Map<String, Value>,
-    role: Option<&str>,
-    layers: &[String],
-    mask_margin_nm: Option<i64>,
-    pad_size_x_nm: Option<i64>,
-    pad_size_y_nm: Option<i64>,
-) {
-    insert_optional(object, "role", role.map(|value| json!(value)));
-    if !layers.is_empty() {
-        object.insert("layers".to_owned(), json!(layers));
+        .as_object()
+        .expect("segment JSON object")
+        .clone();
+        insert_optional(
+            &mut object,
+            "layer",
+            value.layer.as_deref().map(|value| json!(value)),
+        );
+        insert_pad_fields(
+            &mut object,
+            value.role.as_deref(),
+            &value.layers,
+            value.mask_margin_nm,
+            value.pad_size_x_nm,
+            value.pad_size_y_nm,
+        );
+        Value::Object(object)
     }
-    insert_optional(
-        object,
-        "mask_margin_nm",
-        mask_margin_nm.map(|value| json!(value)),
-    );
-    insert_optional(
-        object,
-        "pad_size_x_nm",
-        pad_size_x_nm.map(|value| json!(value)),
-    );
-    insert_optional(
-        object,
-        "pad_size_y_nm",
-        pad_size_y_nm.map(|value| json!(value)),
-    );
-}
 
-fn document_json(document: &SchematicPlotDocument) -> Value {
-    let records = document.records.iter().map(record_json).collect::<Vec<_>>();
-    let mut object = json!({
+    fn insert_pad_fields(
+        object: &mut Map<String, Value>,
+        role: Option<&str>,
+        layers: &[String],
+        mask_margin_nm: Option<i64>,
+        pad_size_x_nm: Option<i64>,
+        pad_size_y_nm: Option<i64>,
+    ) {
+        insert_optional(object, "role", role.map(|value| json!(value)));
+        if !layers.is_empty() {
+            object.insert("layers".to_owned(), json!(layers));
+        }
+        insert_optional(
+            object,
+            "mask_margin_nm",
+            mask_margin_nm.map(|value| json!(value)),
+        );
+        insert_optional(
+            object,
+            "pad_size_x_nm",
+            pad_size_x_nm.map(|value| json!(value)),
+        );
+        insert_optional(
+            object,
+            "pad_size_y_nm",
+            pad_size_y_nm.map(|value| json!(value)),
+        );
+    }
+
+    fn document_json(document: &SchematicPlotDocument) -> Value {
+        let records = document.records.iter().map(record_json).collect::<Vec<_>>();
+        let mut object = json!({
         "schema": "kicad.plotter_ir.a0", "source_kind": "SCH",
         "total_operations": document.records.iter().map(SchematicPlotRecord::operation_count).sum::<usize>(),
         "records": records, "document_id": document.document_id,
         "canvas": {"width_nm": document.canvas.width_nm, "height_nm": document.canvas.height_nm},
         "coordinate_space": {"unit": "nm", "y_axis": "down"},
     }).as_object().expect("document JSON object").clone();
-    insert_optional(
-        &mut object,
-        "source_path",
-        document.source_path.as_ref().map(|value| json!(value)),
-    );
-    Value::Object(object)
-}
-
-#[allow(
-    clippy::too_many_lines,
-    reason = "the exhaustive record mapping is a compile-time ratchet"
-)]
-fn record_json(record: &SchematicPlotRecord) -> Value {
-    match record {
-        SchematicPlotRecord::SheetHeader(value) => header_record_json(value),
-        SchematicPlotRecord::Connectivity(value) => connectivity_record_json(value),
-        SchematicPlotRecord::Annotation(value) => annotation_record_json(value),
-        SchematicPlotRecord::Graphic(value) => json!({
-            "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
-            "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
-        }),
-        SchematicPlotRecord::RuleArea(value) => json!({
-            "uuid": value.uuid, "kind": "rule_area", "object_id": value.uuid,
-            "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
-            "shape": value.shape.as_str(), "locked": value.locked,
-            "exclude_from_sim": value.exclude_from_sim, "in_bom": value.in_bom,
-            "on_board": value.on_board, "dnp": value.dnp,
-        }),
-        SchematicPlotRecord::Image(value) => json!({
-            "uuid": value.uuid, "kind": "image", "object_id": value.uuid,
-            "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
-            "scale": value.scale, "image_format": value.image_format,
-            "width_nm": value.width_nm, "height_nm": value.height_nm,
-        }),
-        SchematicPlotRecord::Table(value) => json!({
-            "uuid": value.uuid, "kind": "table", "object_id": value.uuid,
-            "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
-            "cell_count": value.cell_count,
-        }),
-        SchematicPlotRecord::SymbolInstance(value) => json!({
-            "uuid": value.uuid, "kind": "symbol_instance",
-            "object_id": if value.lib_id.is_empty() { &value.uuid } else { &value.lib_id },
-            "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
-            "lib_id": value.lib_id, "lib_name": value.lib_name, "reference": value.reference,
-            "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
-            "at_angle_deg": value.at_angle_deg, "mirror": value.mirror,
-            "unit": value.unit, "convert": value.convert, "in_bom": value.in_bom,
-            "on_board": value.on_board, "dnp": value.dnp,
-            "exclude_from_sim": value.exclude_from_sim, "in_pos_files": value.in_pos_files,
-        }),
-        SchematicPlotRecord::SymbolOverplot(value) => json!({
-            "uuid": value.uuid, "kind": "symbol_overplot",
-            "object_id": if value.lib_id.is_empty() { &value.source_symbol_uuid } else { &value.lib_id },
-            "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
-            "source_symbol_uuid": value.source_symbol_uuid, "lib_id": value.lib_id,
-        }),
-        SchematicPlotRecord::Sheet(value) => json!({
-            "uuid": value.uuid, "kind": "sheet", "object_id": value.sheet_name,
-            "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
-            "sheet_name": value.sheet_name, "sheet_file": value.sheet_file,
-            "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
-            "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm, "dnp": value.dnp,
-        }),
+        insert_optional(
+            &mut object,
+            "source_path",
+            document.source_path.as_ref().map(|value| json!(value)),
+        );
+        Value::Object(object)
     }
-}
 
-fn operations_json(operations: &[SchematicPlotOperation]) -> Vec<Value> {
-    operations
-        .iter()
-        .enumerate()
-        .map(|(index, value)| operation_json(value, index))
-        .collect()
-}
+    #[allow(
+        clippy::too_many_lines,
+        reason = "the exhaustive record mapping is a compile-time ratchet"
+    )]
+    fn record_json(record: &SchematicPlotRecord) -> Value {
+        match record {
+            SchematicPlotRecord::SheetHeader(value) => header_record_json(value),
+            SchematicPlotRecord::Connectivity(value) => connectivity_record_json(value),
+            SchematicPlotRecord::Annotation(value) => annotation_record_json(value),
+            SchematicPlotRecord::Graphic(value) => json!({
+                "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
+                "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
+            }),
+            SchematicPlotRecord::RuleArea(value) => json!({
+                "uuid": value.uuid, "kind": "rule_area", "object_id": value.uuid,
+                "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
+                "shape": value.shape.as_str(), "locked": value.locked,
+                "exclude_from_sim": value.exclude_from_sim, "in_bom": value.in_bom,
+                "on_board": value.on_board, "dnp": value.dnp,
+            }),
+            SchematicPlotRecord::Image(value) => json!({
+                "uuid": value.uuid, "kind": "image", "object_id": value.uuid,
+                "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
+                "scale": value.scale, "image_format": value.image_format,
+                "width_nm": value.width_nm, "height_nm": value.height_nm,
+            }),
+            SchematicPlotRecord::Table(value) => json!({
+                "uuid": value.uuid, "kind": "table", "object_id": value.uuid,
+                "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
+                "cell_count": value.cell_count,
+            }),
+            SchematicPlotRecord::SymbolInstance(value) => json!({
+                "uuid": value.uuid, "kind": "symbol_instance",
+                "object_id": if value.lib_id.is_empty() { &value.uuid } else { &value.lib_id },
+                "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
+                "lib_id": value.lib_id, "lib_name": value.lib_name, "reference": value.reference,
+                "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
+                "at_angle_deg": value.at_angle_deg, "mirror": value.mirror,
+                "unit": value.unit, "convert": value.convert, "in_bom": value.in_bom,
+                "on_board": value.on_board, "dnp": value.dnp,
+                "exclude_from_sim": value.exclude_from_sim, "in_pos_files": value.in_pos_files,
+            }),
+            SchematicPlotRecord::SymbolOverplot(value) => json!({
+                "uuid": value.uuid, "kind": "symbol_overplot",
+                "object_id": if value.lib_id.is_empty() { &value.source_symbol_uuid } else { &value.lib_id },
+                "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
+                "source_symbol_uuid": value.source_symbol_uuid, "lib_id": value.lib_id,
+            }),
+            SchematicPlotRecord::Sheet(value) => json!({
+                "uuid": value.uuid, "kind": "sheet", "object_id": value.sheet_name,
+                "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
+                "sheet_name": value.sheet_name, "sheet_file": value.sheet_file,
+                "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
+                "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm, "dnp": value.dnp,
+            }),
+        }
+    }
 
-fn header_record_json(value: &crate::SchematicSheetHeaderRecord) -> Value {
-    let mut object = json!({
+    fn operations_json(operations: &[SchematicPlotOperation]) -> Vec<Value> {
+        operations
+            .iter()
+            .enumerate()
+            .map(|(index, value)| operation_json(value, index))
+            .collect()
+    }
+
+    fn header_record_json(value: &crate::SchematicSheetHeaderRecord) -> Value {
+        let mut object = json!({
         "uuid": value.uuid, "kind": "sheet_header", "object_id": value.uuid,
         "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
         "paper_size": value.paper_size, "paper_width_mm": value.paper_width_mm,
@@ -850,73 +862,75 @@ fn header_record_json(value: &crate::SchematicSheetHeaderRecord) -> Value {
     .as_object()
     .expect("header JSON object")
     .clone();
-    insert_optional(
-        &mut object,
-        "title_block",
-        value.title_block.as_ref().map(|title| {
-            json!({
-                "title": title.title, "date": title.date, "rev": title.revision,
-                "company": title.company, "comments": title.comments,
-            })
-        }),
-    );
-    Value::Object(object)
-}
+        insert_optional(
+            &mut object,
+            "title_block",
+            value.title_block.as_ref().map(|title| {
+                json!({
+                    "title": title.title, "date": title.date, "rev": title.revision,
+                    "company": title.company, "comments": title.comments,
+                })
+            }),
+        );
+        Value::Object(object)
+    }
 
-fn connectivity_record_json(value: &SchematicConnectivityRecord) -> Value {
-    let mut object = json!({
+    fn connectivity_record_json(value: &SchematicConnectivityRecord) -> Value {
+        let mut object = json!({
         "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
         "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
     })
     .as_object()
     .expect("connectivity JSON object")
     .clone();
-    if value.kind == SchematicConnectivityRecordKind::Junction && value.junction_color_authored {
-        object.insert(
-            "color".to_owned(),
-            value
-                .junction_color
-                .as_ref()
-                .map_or(Value::Null, |value| json!(value)),
-        );
+        if value.kind == SchematicConnectivityRecordKind::Junction && value.junction_color_authored
+        {
+            object.insert(
+                "color".to_owned(),
+                value
+                    .junction_color
+                    .as_ref()
+                    .map_or(Value::Null, |value| json!(value)),
+            );
+        }
+        Value::Object(object)
     }
-    Value::Object(object)
-}
 
-fn annotation_record_json(value: &SchematicAnnotationRecord) -> Value {
-    let mut object = json!({
+    fn annotation_record_json(value: &SchematicAnnotationRecord) -> Value {
+        let mut object = json!({
         "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.object_id,
         "operation_count": value.operations.len(), "operations": operations_json(&value.operations),
     })
     .as_object()
     .expect("annotation JSON object")
     .clone();
-    insert_optional(
-        &mut object,
-        "text",
-        value.text.as_ref().map(|value| json!(value)),
-    );
-    insert_optional(
-        &mut object,
-        "shape",
-        value.shape.as_ref().map(|value| json!(value)),
-    );
-    insert_optional(
-        &mut object,
-        "at_x_nm",
-        value.at_x_nm.map(|value| json!(value)),
-    );
-    insert_optional(
-        &mut object,
-        "at_y_nm",
-        value.at_y_nm.map(|value| json!(value)),
-    );
-    insert_optional(
-        &mut object,
-        "length_nm",
-        value.length_nm.map(|value| json!(value)),
-    );
-    Value::Object(object)
+        insert_optional(
+            &mut object,
+            "text",
+            value.text.as_ref().map(|value| json!(value)),
+        );
+        insert_optional(
+            &mut object,
+            "shape",
+            value.shape.as_ref().map(|value| json!(value)),
+        );
+        insert_optional(
+            &mut object,
+            "at_x_nm",
+            value.at_x_nm.map(|value| json!(value)),
+        );
+        insert_optional(
+            &mut object,
+            "at_y_nm",
+            value.at_y_nm.map(|value| json!(value)),
+        );
+        insert_optional(
+            &mut object,
+            "length_nm",
+            value.length_nm.map(|value| json!(value)),
+        );
+        Value::Object(object)
+    }
 }
 
 struct LimitedWriter {

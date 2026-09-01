@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Direct native Rust SVG previews</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Direct native Rust SVG previews</h1>
+  <p>Status: accepted for implementation. This is the additive successor to
+  the frozen Phase-6 native SVG transport. It exposes a linked-library path for
+  Alexandria and other Rust consumers without weakening the a0 wire contract.</p>
+
+  <h2>Dependency and data flow</h2>
+  <pre>KiCad source / SourceBundle
+  -&gt; kicad-monkey-core producer
+  -&gt; typed a0 projector
+  -&gt; generated validated document
+  -&gt; kicad-monkey-svg context + viewport policy
+  -&gt; SVG artifact, exact viewport, optional bounds, and metrics</pre>
+  <p><code>kicad-monkey-svg</code> depends on core and contracts. Core depends
+  on contracts. Native transport and WASM are leaf adapters. Core and SVG do
+  not depend on those adapters, Cruncher, Alexandria, or a GUI framework.</p>
+
+  <h2>Typed projection</h2>
+  <p>Core exports symmetric MOD, selected-SYM, PCB, and SCH a0 projectors.
+  Metadata and projection limits are explicit. Every result is semantically
+  validated before return. The schematic JSON helper becomes a compatibility
+  serialize-after-project wrapper. Footprint and symbol assembly moves out of
+  WASM. Family operation unions are consumed by exhaustive typed adapters
+  compile-checked against every generated arm. The direct path never reconciles
+  unions through a JSON value, and it preflights the original generated
+  containers before bounded normalized point/cache materialization.</p>
+  <p>The owned conversion is one <code>macro_rules!</code> arm inventory in
+  <code>core::plotter_contract</code>, instantiated once for each generated
+  family module. Each generated union is matched exhaustively, so regeneration
+  that adds an arm fails compilation. SVG owns exhaustive family adapters and
+  matching raw preflight inventories. Both compile-fail when generation adds
+  an unhandled union arm. Preflight enforces record, operation, point, text,
+  image, work, and bounds ceilings before adapter-owned vectors are built.
+  Neither mechanism uses Serde or JSON to reconcile family types.</p>
+  <pre>PlotDocumentMetadata { document_id: String, source_path: Option&lt;String&gt; }
+PlotDocumentProjectionLimits {
+  max_records, max_operations, max_points, max_string_bytes,
+  max_nested_items, max_materialized_bytes
+}
+project_footprint_plot_document_a0(FootprintPlotDocument, metadata, limits)
+  -&gt; Result&lt;FootprintPlotDocumentA0, PlotProjectionError&gt;
+project_symbol_plot_document_a0(SymbolPlotDocument, metadata, limits)
+  -&gt; Result&lt;SymbolPlotDocumentA0, PlotProjectionError&gt;
+project_board_plot_document_with_metadata_a0(BoardPlotDocument, metadata, limits)
+  -&gt; Result&lt;BoardPlotDocumentA0, PlotProjectionError&gt;
+project_schematic_plot_document_a0(&amp;SchematicPlotDocument, limits)
+  -&gt; Result&lt;SchematicPlotDocumentA0, PlotProjectionError&gt;</pre>
+  <p>The existing board signature and schematic JSON function remain wrappers.
+  <code>PlotProjectionErrorKind</code> is closed over resource limit, numeric
+  range, invalid model, and contract validation; the error retains a bounded
+  message and never publishes a partial document.</p>
+
+  <h2>Schematic page composition</h2>
+  <p>The core page helper accepts a <code>SourceBundle</code>, a concrete
+  occurrence identity, drawing settings, worksheet bytes/resources, plot text
+  variables, optional font resources, and independent limits. It resolves root
+  and repeated shared-child pages by complete instance path. Missing optional
+  sidecars use documented producer defaults; ambiguous or absent occurrences
+  fail closed. The maintained SCH example proves that private Cruncher
+  orchestration is unnecessary.</p>
+  <pre>SchematicOccurrenceSelector::Address(String) // exact normalized occurrence_address
+SchematicPagePlotRequest { selector, context overrides, drawing_settings,
+  worksheet_source, variables, text resources, plot limits }
+SchematicPagePlotSourceArtifact { document: SchematicPlotDocument,
+  occurrence_address, source_path }
+schematic_page_plot_document(&amp;SourceBundle, &amp;SchematicBundleIndex, request)
+  -&gt; Result&lt;SchematicPagePlotSourceArtifact, SchematicPagePlotError&gt;
+ProjectedSchematicPagePlotArtifact { document: SchematicPlotDocumentA0,
+  occurrence_address, source_path }
+project_schematic_page_plot_artifact_a0(source_artifact, projection_limits)
+  -&gt; Result&lt;ProjectedSchematicPagePlotArtifact, PlotProjectionError&gt;</pre>
+  <p>The supplied index must have been built from the supplied bundle and its
+  project identity must match. Selection is byte-exact after removing one
+  trailing slash except for root <code>/</code>. Missing, duplicate, malformed,
+  and bundle-mismatch cases are distinct error kinds. Frozen
+  <code>document_id</code> remains source-document identity; the artifact's
+  <code>occurrence_address</code> is the realized page identity returned again
+  by the final SVG artifact. Callers reuse one index across pages.</p>
+
+  <h2>Render context and viewport</h2>
+  <p><code>SvgRenderContextA1</code> validates profile, background, bounded
+  semantic/raw color overrides, bounded layer selection, style overrides,
+  identity emission, and supported visibility controls. Its default exactly
+  reproduces <code>plotter-base-a0</code>. The four family functions accept a
+  validated context, render limits, and either a positive explicit viewport or
+  bounded fit options.</p>
+  <pre>SvgRenderContextA1::validate(context_limits)
+  -&gt; Result&lt;ValidatedSvgRenderContextA1, SvgError&gt;
+ViewportPolicy::Explicit(SvgViewport)
+ViewportPolicy::Fit(SvgFitOptions { padding_nm, min_extent_nm,
+  fallback: Option&lt;SvgViewport&gt; })
+render_{footprint,symbol,board,schematic}_svg(
+  &amp;DocumentA0, ViewportPolicy, &amp;ValidatedSvgRenderContextA1,
+  SvgRenderLimits)
+  -&gt; Result&lt;SvgArtifact, SvgError&gt;</pre>
+  <p><code>SvgArtifact</code> contains source kind, document id, optional
+  occurrence address, SVG, exact used viewport, optional visible bounds,
+  metrics, and bounded warnings. <code>SvgErrorKind</code> distinguishes invalid
+  context, invalid document, resource limit, unsupported fit text, empty
+  bounds, arithmetic overflow, unbalanced block, and serialization. Limits are
+  public typed host-size fields mirroring the current fixed ceilings.</p>
+  <pre>SvgRenderContextA1 { // private fields; Default is plotter-base-a0
+  profile: SvgProfile,
+  background: SvgBackground,
+  fallback_style: SvgStyleOverride,
+  semantic_styles: BTreeMap&lt;SvgSemanticRole, SvgStyleOverride&gt;,
+  layer_styles: Vec&lt;(LayerPattern, SvgStyleOverride)&gt;,
+  operation_styles: BTreeMap&lt;PlotterOperationKind, SvgStyleOverride&gt;,
+  raw_color_remap: BTreeMap&lt;SvgColor, SvgColor&gt;,
+  layer_selection: LayerSelection,
+  visibility: SvgVisibility,
+  identity_mode: SvgIdentityMode,
+  font_face_override: Option&lt;String&gt;
+}</pre>
+  <p><code>SvgRenderContextBuilder</code> has methods named for these fields;
+  no public struct literal bypasses validation. Operation keys are the closed
+  Plotter-IR kind enum, not an index or source id. Semantic keys are a closed
+  role enum and layer keys are validated patterns. A style has optional
+  stroke/fill colors, stroke width, line style, fill mode, opacity, and
+  visibility. Visibility contains only truthful retained controls for pin
+  names/numbers and identities. Hidden pins and fields are an inclusion choice
+  made by the schematic projector because frozen a0 does not retain a reliable
+  hidden discriminator for the renderer. Limits cap each map,
+  patterns, total entries, and aggregate UTF-8 bytes.</p>
+  <p>All four family entry points use this same resolved context pipeline.
+  Supported color, semantic, layer, operation, text, visibility, identity, and
+  viewport overrides are applied before both bounds and emission; a family may
+  reject an inapplicable selector, but it must not silently discard a supported
+  override. Four-family non-default-context tests enforce this contract.</p>
+  <p>Fit uses the padded visible-content rectangle directly. It invents no
+  target aspect ratio or pixel size. A GUI that needs an aspect-ratio frame can
+  derive an explicit viewport from the returned bounds in its layout space.</p>
+  <p>Fit and rendering traverse the same effective-operation stream. Bounds
+  include visible geometry, effective stroke widths, text/cache geometry,
+  images, block transforms, and footprint placement. Checked arithmetic and
+  work limits apply. Empty content is an error unless a caller supplied an
+  explicit fallback; no page-size guess is made.</p>
+  <p>Fit rejects a visible semantic <code>Text</code> operation that lacks
+  deterministic retained cache contours. Explicit viewport rendering continues
+  to emit the existing semantic text. A caller may therefore request explicit
+  source/page framing or arrange deterministic text resources during
+  projection; fit never guesses browser-font glyph bounds.</p>
+
+  <h2>Layer truth</h2>
+  <p>Layer selection is exact with a bounded documented wildcard matcher.
+  Pads use exact copper membership, including exterior-only
+  <code>F&amp;B.Cu</code>. Via apertures use resolved explicit flash layers.
+  Via drills alone expand between endpoints over the copper stack. Plated pad
+  drills and NPTH holes remain physical evidence independent of removed inner
+  copper flashes. Balanced block delimiters and their transforms are retained
+  whenever a visible child survives. Yoshi-based tests lock these cases.</p>
+  <p>Board production and projection use atomic, non-publicly-constructible
+  artifacts:</p>
+  <pre>BoardRenderFacts { enabled_layers: Vec&lt;String&gt;,
+  copper_stack: Vec&lt;String&gt; }
+BoardPlotSourceArtifact { document: BoardPlotDocument, render_facts }
+board_plot_document_with_render_facts(source, producer inputs...)
+  -&gt; Result&lt;BoardPlotSourceArtifact, Error&gt;
+ProjectedBoardPlotArtifact { document: BoardPlotDocumentA0, render_facts }
+project_board_plot_artifact_a0(BoardPlotSourceArtifact, metadata, limits)
+  -&gt; Result&lt;ProjectedBoardPlotArtifact, PlotProjectionError&gt;
+render_board_svg(&amp;ProjectedBoardPlotArtifact, policy, context, limits)
+  -&gt; Result&lt;SvgArtifact, SvgError&gt;</pre>
+  <p>Artifact fields have borrow accessors but private constructors, preventing
+  cross-document fact pairing. The complete enabled-layer catalog is canonical
+  source order, unique, and bounded; the copper stack is its ordered copper
+  subset. Frozen a0 is not widened. Existing producer/projector functions
+  remain wrappers that discard facts. A typed-document-only board renderer is
+  allowed only with default all-layer visibility; selecting layers without the
+  artifact produces a missing-facts error.</p>
+  <p>A footprint artifact derives its bounded known-layer set from represented
+  record/operation layers, since a standalone MOD owns no board stack. Symbol
+  and schematic profiles reject PCB layer filters.</p>
+  <p>Selectors are ASCII case-sensitive and byte-exact. Supported patterns are
+  exact names, global <code>*</code>, and one leading-star suffix pattern such
+  as <code>*.Cu</code>; embedded/multiple stars, empty patterns, whitespace, and
+  duplicates are invalid. No case or whitespace normalization occurs. Strict
+  mode rejects exact names absent from the family facts; permissive mode lets
+  future exact non-copper operation names match. Scope is resolved by typed
+  record family before filtering: homogeneous graphic/text/track carriers lend
+  their layer only to layerless children; embedded-footprint child and block
+  layers govern while the footprint record layer remains placement metadata;
+  via roles and resolved aperture/drill scopes govern vias; and each zone fill
+  ring keeps its corresponding <code>fill_layers</code> association rather than
+  using an undifferentiated record gate. Truly unlayered operations are visible
+  under all-layer/default selection and under an explicit unlayered selector,
+  never by guessing a copper layer. Physical drill/NPTH roles use their
+  physical scope rules rather than inheriting copper-aperture visibility.
+  Start/end blocks are first grouped and validated; a group is retained with
+  both delimiters and its transform iff any child is visible.</p>
+  <p>Override precedence is operation-specific override, then semantic-role
+  override, then exact layer override, then raw source-color remap, then source
+  color, then profile fallback. Visibility is applied before styling. Opacity
+  multiplies profile/context opacity and must remain finite in [0,1].</p>
+
+  <h2>Compatibility and ownership</h2>
+  <p>The native a0 renderer decodes its frozen JSON request then delegates to
+  the same rendering engine with the default context and explicit viewport.
+  WASM projectors delegate to core. Existing exact SVG vectors remain the
+  default-output oracle. Product themes, UI selection state, application cache
+  policy, and post-render workflows belong to Alexandria; Monkey exposes only
+  bounded truthful source identities and basic 2D presentation controls.</p>
+  <p>The frozen adapter always performs wire-size preflight, generated request
+  decoding, identity validation, semantic document validation, and wire-limit
+  parsing in the historical order before family typed delegation. Adapter
+  errors map back to the existing bounded strings; existing malformed vectors
+  pin winner and message. Direct typed calls use the richer error enum.</p>
+  <p>Complete schematic rendering uses
+  <code>render_schematic_page_svg(&amp;ProjectedSchematicPagePlotArtifact, ...)</code> and
+  returns its occurrence address. The lower-level
+  <code>render_schematic_svg(&amp;SchematicPlotDocumentA0, ...)</code> carries no
+  occurrence identity rather than guessing one.</p>
+
+  <h2>Baseline inventory</h2>
+  <p>At the issue branch point, core publicly owns the typed MOD/SYM/PCB/SCH
+  producers and only the PCB contract projector; SCH projection is JSON-first,
+  and MOD/SYM assembly is private to WASM. SVG accepts only the JSON-valued
+  native request. Cruncher privately owns complete schematic-page orchestration
+  and the PCB review layer predicate. The exact path inventory is retained in
+  the issue-78 plan; this document records the architectural result.</p>
+  <p><code>tests/parity/native_svg_a0_vectors.json</code> is the hash authority
+  for 30 documents: 6 MOD, 2 SYM, 13 PCB, and 9 SCH; 29 succeed and one PCB
+  geometry case fails closed. Every success pins source hash, SVG hash, and SVG
+  byte count. Baseline focused compilation plus core/SVG/WASM tests completed
+  in 86 seconds on the implementation host; the warm SVG test binary rendered
+  and checked all family vectors in 0.17 seconds. Per-family direct-call time
+  and peak working set are captured by the S06 direct-consumer benchmark below,
+  using frozen vector documents and the repository process peak-memory sampler.
+  Moving that capture from S01 to S06 is an
+  intentional plan deviation: the old transport baseline is frozen before
+  edits, while comparable linked-library timing does not exist until the
+  external direct consumer exists. These measurements are regression evidence,
+  not portable SLOs.</p>
+
+  <h3>S06 direct-render performance capture</h3>
+  <p>On 2026-09-01, the release example
+  <code>src/rs/kicad-monkey-svg/examples/direct_svg_benchmark.rs</code> was built
+  in a fresh Cargo target directory, then built again without source changes.
+  The cold build was 163.995 seconds and the warm build was 0.188 seconds with
+  Rust/Cargo 1.98.0 on Windows 11 10.0.26200, an AMD Ryzen 9 5950X (32 logical
+  processors), and 68,635,979,776 bytes of host memory. The direct-call clock
+  excludes fixture read/deserialization and the sampler attachment delay.
+  “Cold render” is the first call in the process; “warm render” is the median
+  of 25 subsequent calls. Peak working set is the whole isolated consumer
+  process, sampled every 5 ms by
+  <code>tests/support_scripts/process_peak_memory.py</code>.</p>
+  <table>
+    <thead><tr><th>Family / frozen fixture</th><th>Cold render</th><th>Warm median</th><th>Peak working set</th><th>SVG bytes</th></tr></thead>
+    <tbody>
+      <tr><td>MOD / solid-line-with-metadata</td><td>100,400 ns</td><td>3,500 ns</td><td>5,623,808</td><td>482</td></tr>
+      <tr><td>SYM / non-text-shared-body-primitives</td><td>133,600 ns</td><td>16,400 ns</td><td>5,263,360</td><td>1,354</td></tr>
+      <tr><td>PCB / board-metadata-and-category-ordered-graphics</td><td>125,400 ns</td><td>13,700 ns</td><td>5,931,008</td><td>1,623</td></tr>
+      <tr><td>SCH / custom-worksheet-connectivity-and-annotation-family-order</td><td>200,500 ns</td><td>50,200 ns</td><td>5,832,704</td><td>4,541</td></tr>
+    </tbody>
+  </table>
+  <p>The example emits the structured schema
+  <code>kicad_monkey.direct_svg_benchmark.a0</code>, so a future probe can retain
+  raw results instead of scraping console text. The measurements establish a
+  reproducible implementation-host baseline; they do not set release budgets.</p>
+
+  <h2>Consumption and tests</h2>
+  <p>Alexandria pins every direct Monkey Cargo dependency to one exact Git
+  revision and commits its lockfile. Local validation creates a temporary Git
+  repository and external Cargo consumer; origin CI uses the real PR-head SHA.
+  Tests cover all four families, exact and malformed limits, repeated hierarchy
+  occurrences, context immutability, bounds/filter parity, a0 vectors, native
+  and Node WASM adapters, reviewed corpus behavior, and applicable Cruncher
+  consumers. Test ownership and runtime are recorded before closeout.</p>
+</body>
+</html>

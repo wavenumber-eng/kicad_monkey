@@ -17,10 +17,12 @@ pub mod document_metadata;
 mod fake_style;
 pub mod font_outline;
 pub mod footprint;
+pub mod footprint_plot_contract;
 mod footprint_plotter_text;
 mod footprint_text;
 pub mod kicad_netlist;
 pub mod pcb;
+pub mod plot_document_contract;
 mod plotter_contract;
 pub mod plotter_ir;
 pub mod plotter_text_cache;
@@ -37,7 +39,9 @@ mod schematic_effective;
 #[cfg(feature = "schematic-embedded-zstd")]
 pub mod schematic_embedded;
 pub mod schematic_netlist;
+mod schematic_page_plot;
 pub mod schematic_plot_contract;
+mod schematic_plot_projector;
 pub mod schematic_plotter_ir;
 mod schematic_project;
 mod schematic_segment_index;
@@ -49,6 +53,7 @@ pub mod sexpr_projection;
 pub mod source_bundle;
 pub mod symbol_library;
 mod symbol_pin;
+pub mod symbol_plot_contract;
 pub mod symbol_plotter_ir;
 mod symbol_text;
 pub mod text_bezier;
@@ -64,21 +69,26 @@ pub mod text_topology;
 pub mod worksheet;
 mod worksheet_preflight;
 
-pub use board_plot_contract::{BoardPlotContractLimits, project_board_plot_document_a0};
+pub use board_plot_contract::{
+    BoardPlotContractLimits, ProjectedBoardPlotArtifact, project_board_plot_artifact_a0,
+    project_board_plot_document_a0, project_board_plot_document_with_metadata_a0,
+};
 pub use board_plotter_ir::{
     BoardBoundsLimits, BoardDimensionOperation, BoardDimensionRecord, BoardFootprintBlock,
     BoardFootprintBlockAttributes, BoardFootprintChildAttributes, BoardFootprintChildMetadata,
     BoardFootprintOperation, BoardFootprintPlacement, BoardFootprintRecord, BoardGraphicRecord,
     BoardGraphicRecordKind, BoardNetClassAssignments, BoardNetClassExtras, BoardPlotBuildProfile,
     BoardPlotDocument, BoardPlotFacts, BoardPlotFactsBuildProfile, BoardPlotLimits,
-    BoardPlotRecord, BoardSegmentRecord, BoardTableOperation, BoardTableRecord,
-    BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheCoordinateSpace,
-    BoardTextRenderCacheSource, BoardTextVAlign, BoardTextVariables, BoardTrackArcRecord,
-    BoardViaFabrication, BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType,
-    BoardZoneRecord, board_plot_document, board_plot_document_with_net_classes,
-    board_plot_document_with_sidecars, board_plot_document_with_text_cache_sidecar,
-    board_plot_facts_with_sidecars, board_plot_facts_with_sidecars_profiled,
+    BoardPlotRecord, BoardPlotSourceArtifact, BoardRenderFacts, BoardSegmentRecord,
+    BoardTableOperation, BoardTableRecord, BoardTextBoxOperation, BoardTextBoxRecord,
+    BoardTextHAlign, BoardTextOperation, BoardTextRecord, BoardTextRenderCache,
+    BoardTextRenderCacheCoordinateSpace, BoardTextRenderCacheSource, BoardTextVAlign,
+    BoardTextVariables, BoardTrackArcRecord, BoardViaFabrication, BoardViaOperation,
+    BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord,
+    board_plot_artifact_with_sidecars, board_plot_artifact_with_text_cache_sidecar,
+    board_plot_document, board_plot_document_with_net_classes, board_plot_document_with_sidecars,
+    board_plot_document_with_text_cache_sidecar, board_plot_facts_with_sidecars,
+    board_plot_facts_with_sidecars_profiled,
 };
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,
@@ -99,6 +109,7 @@ pub use font_outline::{
     HINTED_FONT_OUTLINE_ENGINE, HintedFontOutlineFace, extract_font_outline_a0,
 };
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
+pub use footprint_plot_contract::project_footprint_plot_document_a0;
 pub use footprint_text::{FootprintGraphicalProperty, FootprintText, FootprintTextBox};
 pub use kicad_netlist::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetClass, KiCadNetlist,
@@ -118,6 +129,10 @@ pub use pcb::{
     PcbTable, PcbTableCell, PcbTeardropParameters, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon,
     PcbZoneKeepout, PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement,
     PcbZonePlacementSource, PcbZonePolygon,
+};
+pub use plot_document_contract::{
+    PlotDocumentMetadata, PlotDocumentProjectionLimits, PlotProjectionError,
+    PlotProjectionErrorKind,
 };
 pub use plotter_contract::contract_plotter_operation as project_plotter_operation_a0;
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
@@ -162,10 +177,17 @@ pub use schematic_netlist::{
     SchematicLocalNet, SchematicLocalNetLimits, SchematicLocalNetTerminal,
     build_schematic_occurrence_nets, build_schematic_occurrence_nets_with_settings,
 };
+pub use schematic_page_plot::{
+    ProjectedSchematicPagePlotArtifact, SchematicOccurrenceSelector, SchematicPageContextOverrides,
+    SchematicPagePlotError, SchematicPagePlotErrorKind, SchematicPagePlotRequest,
+    SchematicPagePlotSourceArtifact, project_schematic_page_plot_artifact_a0,
+    schematic_page_plot_document,
+};
 pub use schematic_plot_contract::{
     SchematicPlotContractBudget, SchematicPlotContractError, SchematicPlotContractLimits,
     schematic_plot_document_budget, schematic_plot_document_json,
 };
+pub use schematic_plot_projector::project_schematic_plot_document_a0;
 pub use schematic_plotter_ir::{
     SchematicAnnotationRecord, SchematicAnnotationRecordKind, SchematicCanvas,
     SchematicConnectivityRecord, SchematicConnectivityRecordKind, SchematicDrawingSettings,
@@ -195,6 +217,7 @@ pub use source_bundle::{
 pub use symbol_library::{
     SymbolBooleanField, SymbolLibraryEdit, SymbolLibraryLimits, SymbolLibraryView, SymbolSummary,
 };
+pub use symbol_plot_contract::project_symbol_plot_document_a0;
 pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
     symbol_plot_document_with_text_variables,

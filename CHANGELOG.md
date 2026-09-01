@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 2026.9.1
+
+- Add direct typed Rust SVG projection and rendering for footprints, symbols,
+  boards, and concrete schematic-page occurrences without JSON, WASM, Python,
+  or a native sidecar between Plotter-IR and SVG. All four families consume one
+  bounded validated context for layer selection, color/style overrides,
+  visibility, identities, and explicit or fitted viewports. Existing native
+  SVG requests retain exact compatibility across all 29 successful frozen
+  vectors. Synthetic operation and hierarchy cases, the governed Yoshi board,
+  exact resource boundaries, Cruncher cross-package consumption, an exact
+  pinned-Git consumer, and independent review cover the new public surface.
+
 ## 2026.8.31
 
 - Accelerate the native Rust S-expression lexer with byte-oriented scanning

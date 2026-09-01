@@ -47,10 +47,10 @@ def _load_corpus_archive_module():
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.8.31"
-EXPECTED_RELEASE_DATE = date(2026, 8, 31)
-EXPECTED_RUST_VERSION = "2026.8.31"
-EXPECTED_RUST_RELEASE_DATE = date(2026, 8, 31)
+EXPECTED_VERSION = "2026.9.1"
+EXPECTED_RELEASE_DATE = date(2026, 9, 1)
+EXPECTED_RUST_VERSION = "2026.9.1"
+EXPECTED_RUST_RELEASE_DATE = date(2026, 9, 1)
 CORPUS_ARCHIVE_PATH = "tests/corpus/kicad.zip"
 CORPUS_ARCHIVE_MANIFEST_PATH = "tests/corpus/kicad.archive.toml"
 DEV_STD_AUDIT_SCOPES = {"repo", "ci", "docs.design", "docs.links", "docs.plans"}
@@ -132,8 +132,8 @@ def test_version_contract_matches_date_based_release() -> None:
     assert parsed.string == EXPECTED_VERSION
     assert (parsed.major, parsed.minor, parsed.patch, parsed.build, parsed.alpha) == (
         2026,
-        8,
-        31,
+        9,
+        1,
         None,
         None,
     )

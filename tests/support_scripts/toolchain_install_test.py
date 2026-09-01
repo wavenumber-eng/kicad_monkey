@@ -687,9 +687,9 @@ def validate_artifacts(
     )
     if not monkey_dependency:
         raise SystemExit("Cruncher wheel is missing its public kicad-monkey dependency")
-    if ">=2026.8.31" not in monkey_dependency.replace(" ", ""):
+    if ">=2026.9.1" not in monkey_dependency.replace(" ", ""):
         raise SystemExit(
-            "Cruncher wheel does not retain the governed kicad-monkey>=2026.8.31 "
+            "Cruncher wheel does not retain the governed kicad-monkey>=2026.9.1 "
             f"floor: {monkey_dependency}"
         )
     forbidden = (" @ ", "file:", "workspace", "\\", "../")

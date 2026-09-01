@@ -1,18 +1,17 @@
 //! Browser adapter for the source-selected symbol geometry and text producer.
 
 use crate::serialize_bounded;
-use kicad_monkey_contracts::generated::symbol_plot_document::{
-    LibSubsymbolPlotRecord, PlotterCoordinateSpace, PlotterOperation, SymbolHeaderPlotRecord,
-    SymbolPlotDocumentA0, SymbolPlotRecord,
-};
+#[cfg(test)]
+use kicad_monkey_contracts::generated::symbol_plot_document::SymbolPlotDocumentA0;
 use kicad_monkey_contracts::generated::symbol_plot_request::SymbolPlotRequestA0;
 use kicad_monkey_contracts::generated::symbol_plot_result::{
     Diagnostic, DiagnosticPhase, SourcePosition, SymbolPlotResultA0,
 };
+#[cfg(test)]
 use kicad_monkey_contracts::validate_symbol_plot_document;
-use kicad_monkey_core::project_plotter_operation_a0 as contract_plotter_operation;
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, SymbolPlotLimits, SymbolTextVariables,
+    Error, ErrorKind, ErrorPhase, PlotDocumentMetadata, PlotDocumentProjectionLimits,
+    SymbolPlotLimits, SymbolTextVariables, project_symbol_plot_document_a0,
     symbol_plot_document_with_text_variables, utf8_text,
 };
 use wasm_bindgen::prelude::*;
@@ -149,60 +148,19 @@ fn success(
         .map(|record| record.operations.len())
         .sum::<usize>();
     let total_operations = u32::try_from(total).unwrap_or(u32::MAX);
-    let mut next_index = 0usize;
-    let header = SymbolHeaderPlotRecord {
-        extends: document.extends,
-        in_bom: document.in_bom,
-        kind: "lib_symbol".to_owned(),
-        name: document.name.clone(),
-        object_id: document.name.clone(),
-        on_board: document.on_board,
-        operation_count: 0,
-        operations: Vec::new(),
-        power: document.power,
-        style: document.style,
-        unit: document.unit,
-        uuid: String::new(),
-    };
-    let mut records = vec![SymbolPlotRecord::from(header)];
-    for record in document.records {
-        let operation_count = u32::try_from(record.operations.len()).unwrap_or(u32::MAX);
-        let mut operations = Vec::with_capacity(record.operations.len());
-        for operation in record.operations {
-            let shared = contract_plotter_operation(next_index, operation)?;
-            let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
-            operations.push(
-                serde_json::from_value::<PlotterOperation>(value)
-                    .map_err(|error| error.to_string())?,
-            );
-            next_index = next_index.saturating_add(1);
-        }
-        records.push(
-            LibSubsymbolPlotRecord {
-                kind: "lib_subsymbol".to_owned(),
-                object_id: record.name.clone(),
-                operation_count,
-                operations,
-                style: record.style,
-                unit: record.unit,
-                uuid: String::new(),
-            }
-            .into(),
-        );
-    }
-    let contract = SymbolPlotDocumentA0 {
-        coordinate_space: PlotterCoordinateSpace {
-            unit: "nm".to_owned(),
-            y_axis: "down".to_owned(),
+    let document_id = request
+        .document_id
+        .clone()
+        .unwrap_or_else(|| document.name.clone());
+    let contract = project_symbol_plot_document_a0(
+        document,
+        PlotDocumentMetadata {
+            document_id,
+            source_path: request.source_path,
         },
-        document_id: request.document_id.unwrap_or(document.name),
-        records,
-        schema: "kicad.plotter_ir.a0".to_owned(),
-        source_kind: "SYM".to_owned(),
-        source_path: request.source_path,
-        total_operations,
-    };
-    validate_symbol_plot_document(&contract).map_err(|error| error.to_string())?;
+        PlotDocumentProjectionLimits::default(),
+    )
+    .map_err(|error| error.to_string())?;
     let Some(output) = serialize_bounded(&contract, max_output_bytes)? else {
         return Ok(failure(limit_diagnostic()));
     };
