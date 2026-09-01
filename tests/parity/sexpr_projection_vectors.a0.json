@@ -1,0 +1,27 @@
+{
+  "schema": "kicad_monkey.sexpr_projection_vectors.a0",
+  "source": "# lead\r\n(root\r\n  ()\r\n  ((inner 1))\r\n  (plain 2)\r\n  (\"quoted\\x2dhead\" 3)\r\n  (\"\u00b5\" 4)\r\n  (prune (hidden 5))\r\n  (target (leaf 6)))\r\n(teardrops (enabled yes))",
+  "spans": [
+    {"head": "root", "path": ["root"], "depth": 0, "start_python": 8, "end_python": 126, "start_byte": 8, "end_byte": 127, "line": 2, "column": 1, "end_line": 9, "end_column": 21},
+    {"head": null, "path": ["root"], "depth": 1, "start_python": 17, "end_python": 19, "start_byte": 17, "end_byte": 19, "line": 3, "column": 3, "end_line": 3, "end_column": 5},
+    {"head": null, "path": ["root"], "depth": 1, "start_python": 23, "end_python": 34, "start_byte": 23, "end_byte": 34, "line": 4, "column": 3, "end_line": 4, "end_column": 14},
+    {"head": "inner", "path": ["root", "inner"], "depth": 2, "start_python": 24, "end_python": 33, "start_byte": 24, "end_byte": 33, "line": 4, "column": 4, "end_line": 4, "end_column": 13},
+    {"head": "plain", "path": ["root", "plain"], "depth": 1, "start_python": 38, "end_python": 47, "start_byte": 38, "end_byte": 47, "line": 5, "column": 3, "end_line": 5, "end_column": 12},
+    {"head": "quoted-head", "path": ["root", "quoted-head"], "depth": 1, "start_python": 51, "end_python": 71, "start_byte": 51, "end_byte": 71, "line": 6, "column": 3, "end_line": 6, "end_column": 23},
+    {"head": "\u00b5", "path": ["root", "\u00b5"], "depth": 1, "start_python": 75, "end_python": 82, "start_byte": 75, "end_byte": 83, "line": 7, "column": 3, "end_line": 7, "end_column": 10},
+    {"head": "prune", "path": ["root", "prune"], "depth": 1, "start_python": 86, "end_python": 104, "start_byte": 87, "end_byte": 105, "line": 8, "column": 3, "end_line": 8, "end_column": 21},
+    {"head": "hidden", "path": ["root", "prune", "hidden"], "depth": 2, "start_python": 93, "end_python": 103, "start_byte": 94, "end_byte": 104, "line": 8, "column": 10, "end_line": 8, "end_column": 20},
+    {"head": "target", "path": ["root", "target"], "depth": 1, "start_python": 108, "end_python": 125, "start_byte": 109, "end_byte": 126, "line": 9, "column": 3, "end_line": 9, "end_column": 20},
+    {"head": "leaf", "path": ["root", "target", "leaf"], "depth": 2, "start_python": 116, "end_python": 124, "start_byte": 117, "end_byte": 125, "line": 9, "column": 11, "end_line": 9, "end_column": 19},
+    {"head": "teardrops", "path": ["teardrops"], "depth": 0, "start_python": 128, "end_python": 153, "start_byte": 129, "end_byte": 154, "line": 10, "column": 1, "end_line": 10, "end_column": 26},
+    {"head": "enabled", "path": ["teardrops", "enabled"], "depth": 1, "start_python": 139, "end_python": 152, "start_byte": 140, "end_byte": 153, "line": 10, "column": 12, "end_line": 10, "end_column": 25}
+  ],
+  "selections": [
+    {"id": "heads_unquoted_quoted_unicode", "selector": {"heads": ["plain", "quoted-head", "\u00b5"]}, "span_indices": [4, 5, 6]},
+    {"id": "exact_leaf_path_and_depth", "selector": {"paths": [["root", "target", "leaf"]], "min_depth": 2, "max_depth": 2}, "span_indices": [10]},
+    {"id": "pruned_subtree", "selector": {"prune_heads": ["prune"]}, "span_indices": [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12]},
+    {"id": "direct_children_including_headless", "selector": {"min_depth": 1, "max_depth": 1}, "span_indices": [1, 2, 4, 5, 6, 7, 9, 12]},
+    {"id": "path_below_pruned_head", "selector": {"paths": [["root", "prune", "hidden"]], "prune_heads": ["prune"]}, "span_indices": []},
+    {"id": "teardrop_descendant", "selector": {"heads": ["enabled"], "paths": [["teardrops", "enabled"]]}, "span_indices": [12]}
+  ]
+}

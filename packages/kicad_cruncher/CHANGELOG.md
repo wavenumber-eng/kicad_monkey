@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.8.31
+
+- Require `kicad-monkey>=2026.8.31`, ensuring installed Cruncher workflows use
+  the accepted byte-oriented Rust lexer and allocation-light sparse projection
+  implementation. The native Speedy design-review median improves from 7.618
+  seconds at the clean baseline to 5.028 seconds while retaining semantic
+  parity for all 35 report artifacts and 29 SVGs.
+
 ## 2026.8.30
 
 - Consume Monkey's KiCad 10 project-level bus aliases in the Python and native

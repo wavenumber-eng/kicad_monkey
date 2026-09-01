@@ -1,0 +1,281 @@
+"""Alternating, provenance-rich A/B probe for the Rust S-expression benchmark."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import platform
+import statistics
+import subprocess
+from typing import Any
+
+from performance_provenance import collect_performance_provenance, sha256_file
+
+
+METRICS = (
+    "lex_drain_seconds",
+    "lex_collect_seconds",
+    "scan_seconds",
+    "parse_seconds",
+    "build_seconds",
+    "sparse_memory_seconds",
+    "sparse_stream_seconds",
+)
+
+
+def _median_sign_interval(values: list[float]) -> dict[str, float | int] | None:
+    """Return the narrowest exact distribution-free interval with >=95% coverage."""
+    count = len(values)
+    rank = 0
+    coverage = 0.0
+    for candidate_rank in range(1, (count + 1) // 2 + 1):
+        tail = sum(math.comb(count, index) for index in range(candidate_rank))
+        candidate_coverage = 1.0 - (2.0 * tail / (2**count))
+        if candidate_coverage < 0.95:
+            break
+        rank = candidate_rank
+        coverage = candidate_coverage
+    if rank == 0:
+        return None
+    ordered = sorted(values)
+    return {
+        "coverage": coverage,
+        "lower_ratio": ordered[rank - 1],
+        "upper_ratio": ordered[count - rank],
+        "lower_order_statistic": rank,
+        "upper_order_statistic": count - rank + 1,
+    }
+
+
+def _run(executable: Path) -> dict[str, Any]:
+    completed = subprocess.run(
+        [str(executable)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"benchmark failed: {executable}\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    payload = json.loads(completed.stdout)
+    if payload["schema"] != "kicad_monkey.sexpr_benchmark.a1":
+        raise RuntimeError(f"unexpected benchmark schema: {payload['schema']}")
+    return payload
+
+
+def _command_output(command: list[str], root: Path) -> str:
+    return subprocess.run(
+        command,
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    ).stdout.strip()
+
+
+def _arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--baseline-executable", required=True, type=Path)
+    parser.add_argument("--candidate-executable", required=True, type=Path)
+    parser.add_argument("--baseline-sha", required=True)
+    parser.add_argument("--candidate-sha", required=True)
+    parser.add_argument("--baseline-workspace", required=True, type=Path)
+    parser.add_argument("--candidate-workspace", required=True, type=Path)
+    parser.add_argument("--archive", required=True, type=Path)
+    parser.add_argument("--rounds", type=int, default=9)
+    parser.add_argument("--workspace", type=Path, default=Path.cwd())
+    parser.add_argument("--output", required=True, type=Path)
+    return parser.parse_args()
+
+
+def _rebuild(workspace: Path, executable: Path) -> dict[str, Any]:
+    target_directory = executable.parents[2]
+    command = [
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "--package",
+        "kicad-monkey-core",
+        "--example",
+        "sexpr_l0_benchmark",
+    ]
+    environment = {**os.environ, "CARGO_TARGET_DIR": str(target_directory)}
+    completed = subprocess.run(
+        command,
+        cwd=workspace,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"exact-source rebuild failed in {workspace}\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    if not executable.is_file():
+        raise FileNotFoundError(f"rebuild did not produce {executable}")
+    return {
+        "command": command,
+        "cwd": str(workspace),
+        "cargo_target_dir": str(target_directory),
+        "executable_sha256": sha256_file(executable),
+    }
+
+
+def main() -> None:
+    args = _arguments()
+    workspace = args.workspace.resolve()
+    baseline_workspace = args.baseline_workspace.resolve()
+    candidate_workspace = args.candidate_workspace.resolve()
+    archive = args.archive.resolve()
+    baseline_executable = args.baseline_executable.resolve()
+    candidate_executable = args.candidate_executable.resolve()
+    if args.rounds < 9:
+        raise ValueError("at least nine paired rounds are required")
+    if not baseline_executable.is_file() or not candidate_executable.is_file():
+        raise FileNotFoundError("both benchmark executables must exist")
+    builds = {
+        "baseline": _rebuild(baseline_workspace, baseline_executable),
+        "candidate": _rebuild(candidate_workspace, candidate_executable),
+    }
+    provenances = {
+        "baseline": collect_performance_provenance(
+            package_root=baseline_workspace,
+            executables={"sexpr_l0_benchmark": baseline_executable},
+            feature_sets={"sexpr_l0_benchmark": []},
+            archive=archive,
+        ),
+        "candidate": collect_performance_provenance(
+            package_root=candidate_workspace,
+            executables={"sexpr_l0_benchmark": candidate_executable},
+            feature_sets={"sexpr_l0_benchmark": []},
+            archive=archive,
+        ),
+    }
+    if provenances["baseline"]["git_sha"] != args.baseline_sha:
+        raise AssertionError("baseline workspace does not match --baseline-sha")
+    if provenances["candidate"]["git_sha"] != args.candidate_sha:
+        raise AssertionError("candidate workspace does not match --candidate-sha")
+    if any(value["git_status_porcelain"] for value in provenances.values()):
+        raise AssertionError("benchmark source worktrees must be clean")
+
+    pairs: list[dict[str, Any]] = []
+    fixture_identity: dict[str, Any] | None = None
+    for index in range(args.rounds):
+        order = (
+            ("baseline", "candidate")
+            if index % 2 == 0
+            else (
+                "candidate",
+                "baseline",
+            )
+        )
+        payloads: dict[str, dict[str, Any]] = {}
+        for label in order:
+            executable = (
+                baseline_executable if label == "baseline" else candidate_executable
+            )
+            payloads[label] = _run(executable)
+        identity = {
+            key: payloads["baseline"][key]
+            for key in (
+                "fixture",
+                "input_bytes",
+                "token_count",
+                "token_checksum",
+                "selected_forms",
+                "output_bytes",
+                "sparse_input_bytes",
+                "sparse_visited_forms",
+                "sparse_selected_forms",
+            )
+        }
+        if fixture_identity is None:
+            fixture_identity = identity
+        if identity != fixture_identity or any(
+            payloads["candidate"][key] != value for key, value in identity.items()
+        ):
+            raise AssertionError("baseline and candidate fixture identities differ")
+        ratios = {
+            metric: payloads["baseline"][metric] / payloads["candidate"][metric]
+            for metric in METRICS
+        }
+        pairs.append(
+            {
+                "index": index,
+                "order": list(order),
+                "baseline": payloads["baseline"],
+                "candidate": payloads["candidate"],
+                "baseline_over_candidate": ratios,
+            }
+        )
+
+    summary = {}
+    for metric in METRICS:
+        values = [pair["baseline_over_candidate"][metric] for pair in pairs]
+        summary[metric] = {
+            "paired_ratios": values,
+            "min_ratio": min(values),
+            "median_ratio": statistics.median(values),
+            "max_ratio": max(values),
+            "median_sign_interval": _median_sign_interval(values),
+        }
+    evidence = {
+        "schema": "kicad_monkey.sexpr_ab_performance.a0",
+        "baseline_sha": args.baseline_sha,
+        "candidate_sha": args.candidate_sha,
+        "rounds": args.rounds,
+        "profile": "release",
+        "features": [],
+        "fixture_identity": fixture_identity,
+        "executables": {
+            "baseline": {
+                "path": str(baseline_executable),
+                "sha256": sha256_file(baseline_executable),
+            },
+            "candidate": {
+                "path": str(candidate_executable),
+                "sha256": sha256_file(candidate_executable),
+            },
+        },
+        "source_to_binary": {
+            "builds": builds,
+            "provenance": provenances,
+        },
+        "locks": {
+            "cargo_sha256": sha256_file(workspace / "Cargo.lock"),
+            "uv_sha256": sha256_file(workspace / "uv.lock"),
+        },
+        "host": {
+            "platform": platform.platform(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "logical_cpus": os.cpu_count(),
+        },
+        "toolchain": {
+            "rustc": _command_output(["rustc", "--version", "--verbose"], workspace),
+            "cargo": _command_output(["cargo", "--version"], workspace),
+        },
+        "pairs": pairs,
+        "summary": summary,
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(
+        json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote {args.output.resolve()}")
+
+
+if __name__ == "__main__":
+    main()

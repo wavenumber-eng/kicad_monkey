@@ -1,9 +1,10 @@
 use kicad_monkey_core::{
-    ErrorKind, ErrorPhase, FormatOptions, ProjectionLimits, Selector, Sexp, StructuralIndex,
+    Error, ErrorKind, ErrorPhase, FormatOptions, ProjectionLimits, Selector, Sexp, StructuralIndex,
     find_path, format, parse_form, read_form_bytes, remove_all_elements, remove_element,
     replace_element, scan_form_spans, scan_form_spans_with_limits, scan_reader_form_spans,
     set_value, transform_descendants, walk,
 };
+use serde::Deserialize;
 use std::collections::BTreeSet;
 use std::io::{Cursor, Read};
 
@@ -357,6 +358,164 @@ fn native_stream_scan_matches_memory_scan_across_every_small_chunk_size() {
     }
 }
 
+#[derive(Deserialize)]
+struct ProjectionVectors {
+    schema: String,
+    source: String,
+    spans: Vec<ProjectionVectorSpan>,
+    selections: Vec<ProjectionVectorSelection>,
+}
+
+#[derive(Deserialize)]
+struct ProjectionVectorSpan {
+    head: Option<String>,
+    path: Vec<String>,
+    depth: usize,
+    start_byte: usize,
+    end_byte: usize,
+    line: usize,
+    column: usize,
+    end_line: usize,
+    end_column: usize,
+}
+
+#[derive(Deserialize)]
+struct ProjectionVectorSelection {
+    id: String,
+    selector: ProjectionVectorSelector,
+    span_indices: Vec<usize>,
+}
+
+#[derive(Deserialize)]
+struct ProjectionVectorSelector {
+    heads: Option<Vec<String>>,
+    paths: Option<Vec<Vec<String>>>,
+    min_depth: Option<usize>,
+    max_depth: Option<usize>,
+    #[serde(default)]
+    prune_heads: Vec<String>,
+}
+
+impl ProjectionVectorSelector {
+    fn into_selector(self) -> Selector {
+        Selector {
+            heads: self.heads.map(BTreeSet::from_iter),
+            paths: self.paths.map(BTreeSet::from_iter),
+            min_depth: self.min_depth,
+            max_depth: self.max_depth,
+            prune_heads: BTreeSet::from_iter(self.prune_heads),
+        }
+    }
+}
+
+#[test]
+fn memory_and_stream_projection_match_language_neutral_span_vectors() {
+    let vectors: ProjectionVectors = serde_json::from_str(include_str!(
+        "../../../../tests/parity/sexpr_projection_vectors.a0.json"
+    ))
+    .expect("projection vectors should decode");
+    assert_eq!(vectors.schema, "kicad_monkey.sexpr_projection_vectors.a0");
+    let memory = scan_form_spans(&vectors.source, &Selector::default()).expect("memory scan");
+    let streaming = scan_reader_form_spans(
+        Cursor::new(vectors.source.as_bytes()),
+        &Selector::default(),
+        ProjectionLimits::default(),
+    )
+    .expect("stream scan");
+    assert_eq!(streaming, memory);
+    assert_eq!(memory.len(), vectors.spans.len());
+
+    for (actual, expected) in memory.iter().zip(&vectors.spans) {
+        assert_eq!(actual.head, expected.head);
+        assert_eq!(actual.path, expected.path);
+        assert_eq!(actual.depth, expected.depth);
+        assert_eq!(actual.range, expected.start_byte..expected.end_byte);
+        assert_eq!(actual.start.offset, expected.start_byte);
+        assert_eq!(actual.start.line, expected.line);
+        assert_eq!(actual.start.column, expected.column);
+        assert_eq!(actual.end.offset, expected.end_byte);
+        assert_eq!(actual.end.line, expected.end_line);
+        assert_eq!(actual.end.column, expected.end_column);
+    }
+}
+
+#[test]
+fn memory_and_stream_projection_match_across_selector_combinations() {
+    let vectors: ProjectionVectors = serde_json::from_str(include_str!(
+        "../../../../tests/parity/sexpr_projection_vectors.a0.json"
+    ))
+    .expect("projection vectors should decode");
+    let all = scan_form_spans(&vectors.source, &Selector::default()).expect("all spans");
+    let index = StructuralIndex::new(&vectors.source).expect("structural index");
+    for case in vectors.selections {
+        let selector = case.selector.into_selector();
+        let expected = case
+            .span_indices
+            .iter()
+            .map(|index| &all[*index])
+            .collect::<Vec<_>>();
+        let memory = scan_form_spans(&vectors.source, &selector).expect("memory scan");
+        let streaming = scan_reader_form_spans(
+            Cursor::new(vectors.source.as_bytes()),
+            &selector,
+            ProjectionLimits::default(),
+        )
+        .expect("stream scan");
+        assert_eq!(
+            memory.iter().collect::<Vec<_>>(),
+            expected,
+            "memory selector {}",
+            case.id
+        );
+        assert_eq!(
+            streaming.iter().collect::<Vec<_>>(),
+            expected,
+            "stream selector {}",
+            case.id
+        );
+        assert_eq!(
+            index.select(&selector).expect("indexed selection"),
+            expected,
+            "index selector {}",
+            case.id
+        );
+    }
+
+    let malformed = "(root (prune (hidden \"unterminated)))";
+    let selector = Selector {
+        prune_heads: BTreeSet::from(["prune".to_owned()]),
+        ..Selector::default()
+    };
+    assert_eq!(
+        scan_form_spans(malformed, &selector).expect_err("memory must still validate lexing"),
+        scan_reader_form_spans(
+            Cursor::new(malformed.as_bytes()),
+            &selector,
+            ProjectionLimits::default(),
+        )
+        .expect_err("stream must still validate lexing")
+    );
+}
+
+#[test]
+fn native_stream_scan_preserves_tokens_split_at_internal_buffer_boundary() {
+    let boundary_sources = [
+        format!("#{}µ\n(root (child 1))", "x".repeat(65_534)),
+        format!("#{}\r\n(root (child 1))", "x".repeat(65_534)),
+        format!("(root (\"{}\\x42\" 1))", "a".repeat(65_527)),
+    ];
+    for source in boundary_sources {
+        let expected = scan_form_spans(&source, &Selector::default()).expect("memory scan");
+        let actual = scan_reader_form_spans(
+            Cursor::new(source.as_bytes()),
+            &Selector::default(),
+            ProjectionLimits::default(),
+        )
+        .expect("stream scan");
+        assert_eq!(actual, expected);
+    }
+}
+
 #[test]
 fn native_stream_index_supports_seeked_partial_form_reads() {
     let selector = Selector {
@@ -427,4 +586,118 @@ fn projection_limits_and_stream_utf8_validation_fail_closed() {
     .expect_err("invalid UTF-8 must fail");
     assert_eq!(invalid.kind, ErrorKind::InvalidUtf8);
     assert_eq!(invalid.position.expect("position").offset, 7);
+}
+
+fn scan_both_with_limits(
+    source: &str,
+    limits: ProjectionLimits,
+) -> (
+    Result<Vec<kicad_monkey_core::FormSpan>, Error>,
+    Result<Vec<kicad_monkey_core::FormSpan>, Error>,
+) {
+    (
+        scan_form_spans_with_limits(source, &Selector::default(), limits),
+        scan_reader_form_spans(Cursor::new(source.as_bytes()), &Selector::default(), limits),
+    )
+}
+
+#[test]
+fn memory_and_stream_projection_enforce_exact_source_boundary() {
+    let defaults = ProjectionLimits::default();
+    let source = "(root (child 1))";
+    for max_source_bytes in [source.len(), source.len() - 1] {
+        let limits = ProjectionLimits {
+            max_source_bytes,
+            ..defaults
+        };
+        let (memory, stream) = scan_both_with_limits(source, limits);
+        if max_source_bytes == source.len() {
+            assert_eq!(
+                memory.expect("exact source limit"),
+                stream.expect("exact source limit")
+            );
+        } else {
+            assert_eq!(
+                memory.expect_err("source limit").kind,
+                ErrorKind::ResourceLimit
+            );
+            assert_eq!(
+                stream.expect_err("source limit").kind,
+                ErrorKind::ResourceLimit
+            );
+        }
+    }
+}
+
+#[test]
+fn memory_and_stream_projection_enforce_exact_depth_boundary() {
+    let defaults = ProjectionLimits::default();
+    let source = "(root (child 1))";
+    for max_depth in [1, 0] {
+        let limits = ProjectionLimits {
+            max_depth,
+            ..defaults
+        };
+        let (memory, stream) = scan_both_with_limits(source, limits);
+        if max_depth == 1 {
+            assert_eq!(
+                memory.expect("exact depth limit"),
+                stream.expect("exact depth limit")
+            );
+        } else {
+            assert_eq!(
+                memory.expect_err("depth limit"),
+                stream.expect_err("depth limit")
+            );
+        }
+    }
+}
+
+#[test]
+fn memory_and_stream_projection_enforce_exact_selection_boundary() {
+    let defaults = ProjectionLimits::default();
+    let source = "(root (child 1))";
+    for max_selected_forms in [2, 1] {
+        let limits = ProjectionLimits {
+            max_selected_forms,
+            ..defaults
+        };
+        let (memory, stream) = scan_both_with_limits(source, limits);
+        if max_selected_forms == 2 {
+            assert_eq!(
+                memory.expect("exact selection limit"),
+                stream.expect("exact selection limit")
+            );
+        } else {
+            assert_eq!(
+                memory.expect_err("selection limit"),
+                stream.expect_err("selection limit")
+            );
+        }
+    }
+}
+
+#[test]
+fn memory_and_stream_projection_enforce_exact_raw_head_boundaries() {
+    let defaults = ProjectionLimits::default();
+    for (source, raw_head_bytes) in [("(root)", 4), (r#"("a\x42")"#, 7), ("(\"µ\")", 4)] {
+        for max_head_bytes in [raw_head_bytes, raw_head_bytes - 1] {
+            let limits = ProjectionLimits {
+                max_head_bytes,
+                ..defaults
+            };
+            let (memory, stream) = scan_both_with_limits(source, limits);
+            if max_head_bytes == raw_head_bytes {
+                assert_eq!(
+                    memory.expect("exact head limit"),
+                    stream.expect("exact head limit")
+                );
+            } else {
+                assert_eq!(
+                    memory.expect_err("head limit"),
+                    stream.expect_err("head limit")
+                );
+            }
+        }
+    }
 }

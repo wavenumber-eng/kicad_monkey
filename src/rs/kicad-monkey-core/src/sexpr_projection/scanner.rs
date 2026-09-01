@@ -19,16 +19,16 @@ pub(super) fn scan_form_spans_unsorted(
     scanner.finish()
 }
 
-struct FormScanner<'a> {
-    selector: &'a Selector,
+struct FormScanner<'selector, 'source> {
+    selector: &'selector Selector,
     limits: ProjectionLimits,
-    stack: Vec<Frame>,
+    stack: Vec<Frame<Cow<'source, str>>>,
     spans: Vec<FormSpan>,
     saw_root: bool,
 }
 
-impl<'a> FormScanner<'a> {
-    fn new(selector: &'a Selector, limits: ProjectionLimits) -> Self {
+impl<'selector, 'source> FormScanner<'selector, 'source> {
+    fn new(selector: &'selector Selector, limits: ProjectionLimits) -> Self {
         Self {
             selector,
             limits,
@@ -38,7 +38,7 @@ impl<'a> FormScanner<'a> {
         }
     }
 
-    fn consume(&mut self, token: Token<'_>) -> Result<(), Error> {
+    fn consume(&mut self, token: Token<'source>) -> Result<(), Error> {
         match token.kind {
             TokenKind::Left => self.open(token.position),
             TokenKind::Right => self.close(token.position),
@@ -55,13 +55,8 @@ impl<'a> FormScanner<'a> {
         }
         self.finish_missing_parent_head();
         let visible = self.stack.last().is_none_or(|parent| parent.scan_children);
-        let path = self
-            .stack
-            .last()
-            .map_or_else(Vec::new, |parent| parent.path.clone());
         self.stack.push(Frame {
             head: None,
-            path,
             depth: self.stack.len(),
             start: position,
             visible,
@@ -74,14 +69,19 @@ impl<'a> FormScanner<'a> {
     }
 
     fn finish_missing_parent_head(&mut self) {
-        if let Some(parent) = self.stack.last_mut()
-            && parent.awaiting_head
-        {
-            parent.awaiting_head = false;
-            parent.scan_children = parent.visible
-                && self
-                    .selector
-                    .should_scan_children(None, &parent.path, parent.depth);
+        if self.stack.last().is_some_and(|parent| parent.awaiting_head) {
+            let (visible, depth) = {
+                let parent = self.stack.last_mut().expect("checked above");
+                parent.awaiting_head = false;
+                (parent.visible, parent.depth)
+            };
+            let scan_children = visible
+                && self.selector.should_scan_children(
+                    None,
+                    self.stack.iter().filter_map(|frame| frame.head.as_deref()),
+                    depth,
+                );
+            self.stack.last_mut().expect("checked above").scan_children = scan_children;
         }
     }
 
@@ -89,7 +89,7 @@ impl<'a> FormScanner<'a> {
         if self.consume_teardrop_close() {
             return Ok(());
         }
-        let frame = self.stack.pop().ok_or_else(|| {
+        let frame = self.stack.last().ok_or_else(|| {
             Error::at(
                 ErrorPhase::Tree,
                 ErrorKind::UnbalancedClosingParenthesis,
@@ -97,9 +97,26 @@ impl<'a> FormScanner<'a> {
                 position,
             )
         })?;
-        let visible = frame.visible;
-        let span = closed_span(frame, position);
-        self.retain_selected_span(visible, span, position)
+        let selected = frame.visible
+            && self.selector.matches_parts(
+                frame.head.as_deref(),
+                self.stack.iter().filter_map(|item| item.head.as_deref()),
+                frame.depth,
+            );
+        let frame = self.stack.pop().expect("checked above");
+        if !selected {
+            return Ok(());
+        }
+        let mut path = self
+            .stack
+            .iter()
+            .filter_map(|item| item.head.as_ref().map(|head| head.to_string()))
+            .collect::<Vec<_>>();
+        if let Some(head) = frame.head.as_ref() {
+            path.push(head.to_string());
+        }
+        let span = closed_span(frame, path, position);
+        self.retain_selected_span(span, position)
     }
 
     fn consume_teardrop_close(&mut self) -> bool {
@@ -115,15 +132,7 @@ impl<'a> FormScanner<'a> {
         true
     }
 
-    fn retain_selected_span(
-        &mut self,
-        visible: bool,
-        span: FormSpan,
-        position: Position,
-    ) -> Result<(), Error> {
-        if !visible || !self.selector.matches(&span) {
-            return Ok(());
-        }
+    fn retain_selected_span(&mut self, span: FormSpan, position: Position) -> Result<(), Error> {
         self.spans.push(span);
         if self.spans.len() > self.limits.max_selected_forms {
             return Err(resource_error(
@@ -134,8 +143,8 @@ impl<'a> FormScanner<'a> {
         Ok(())
     }
 
-    fn scalar(&mut self, token: Token<'_>) -> Result<(), Error> {
-        let Some(frame) = self.stack.last_mut() else {
+    fn scalar(&mut self, token: Token<'source>) -> Result<(), Error> {
+        let Some(frame) = self.stack.last() else {
             return Err(Error::at(
                 ErrorPhase::Tree,
                 ErrorKind::MissingOpeningParenthesis,
@@ -145,8 +154,9 @@ impl<'a> FormScanner<'a> {
             .with_token(token.lexeme));
         };
         if frame.awaiting_head {
-            return set_frame_head(frame, token, self.selector, self.limits);
+            return self.set_frame_head(token);
         }
+        let frame = self.stack.last_mut().expect("checked above");
         update_frame_teardrop_state(frame, token.lexeme);
         Ok(())
     }
@@ -170,12 +180,39 @@ impl<'a> FormScanner<'a> {
         }
         Ok(self.spans)
     }
+
+    fn set_frame_head(&mut self, token: Token<'source>) -> Result<(), Error> {
+        if token.lexeme.len() > self.limits.max_head_bytes {
+            return Err(resource_error(
+                "Projection form head exceeds max_head_bytes",
+                token.position,
+            ));
+        }
+        let head = token_head(&token);
+        let (visible, depth) = {
+            let frame = self.stack.last_mut().expect("head has an active frame");
+            frame.head = Some(head);
+            frame.awaiting_head = false;
+            (frame.visible, frame.depth)
+        };
+        let scan_children = visible
+            && self.selector.should_scan_children(
+                self.stack.last().and_then(|frame| frame.head.as_deref()),
+                self.stack.iter().filter_map(|frame| frame.head.as_deref()),
+                depth,
+            );
+        self.stack
+            .last_mut()
+            .expect("head has an active frame")
+            .scan_children = scan_children;
+        Ok(())
+    }
 }
 
-fn closed_span(frame: Frame, position: Position) -> FormSpan {
+fn closed_span(frame: Frame<Cow<'_, str>>, path: Vec<String>, position: Position) -> FormSpan {
     FormSpan {
-        head: frame.head,
-        path: frame.path,
+        head: frame.head.map(Cow::into_owned),
+        path,
         depth: frame.depth,
         range: frame.start.offset..position.offset + 1,
         start: frame.start,
@@ -187,28 +224,7 @@ fn closed_span(frame: Frame, position: Position) -> FormSpan {
     }
 }
 
-fn set_frame_head(
-    frame: &mut Frame,
-    token: Token<'_>,
-    selector: &Selector,
-    limits: ProjectionLimits,
-) -> Result<(), Error> {
-    if token.lexeme.len() > limits.max_head_bytes {
-        return Err(resource_error(
-            "Projection form head exceeds max_head_bytes",
-            token.position,
-        ));
-    }
-    let head = token_head(&token);
-    frame.path.push(head.clone());
-    frame.head = Some(head);
-    frame.awaiting_head = false;
-    frame.scan_children = frame.visible
-        && selector.should_scan_children(frame.head.as_deref(), &frame.path, frame.depth);
-    Ok(())
-}
-
-fn update_frame_teardrop_state(frame: &mut Frame, lexeme: &str) {
+fn update_frame_teardrop_state(frame: &mut Frame<Cow<'_, str>>, lexeme: &str) {
     if frame.head.as_deref() != Some("teardrops") {
         return;
     }

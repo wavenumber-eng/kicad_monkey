@@ -33,5 +33,10 @@ zstd = { workspace = true, optional = true }
 name = "sexpr_selection_sort_benchmark"
 required-features = ["measurement"]
 
+[[example]]
+name = "sexpr_projection_allocation_benchmark"
+required-features = ["measurement"]
+
 [dev-dependencies]
 serde.workspace = true
+stats_alloc = "0.1.10"

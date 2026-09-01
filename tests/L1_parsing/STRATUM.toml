@@ -280,7 +280,7 @@ secondary = [
     "The benchmark skips in ordinary fast/full development runs",
     "Compilation time is excluded from measurements",
     "Every measured run proves semantic equality and deterministic second output",
-    "Host and Rust toolchain identity are recorded",
+    "Git, patch, executable, locks, archive, host, feature, profile, and Rust toolchain identities are recorded",
     "Thresholds remain pending independent Windows and Linux ratification",
 ]
 
@@ -301,6 +301,7 @@ secondary = [
     "The benchmark skips in ordinary fast/full development runs",
     "Memory and streaming scanners return the same selected-form count",
     "All raw runs and best/median sort fractions are transient evidence",
+    "Git, patch, executable, locks, archive, host, feature, profile, and Rust toolchain identities are recorded",
     "Representation changes remain profiling-driven",
 ]
 

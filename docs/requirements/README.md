@@ -5,6 +5,9 @@ too detailed for an ADR and broader than a single design document.
 
 Current requirements:
 
+- `2026-08-31-rust-sexpr-performance.md`: preserved contracts, measurement
+  requirements, and acceptance evidence for the native byte lexer and
+  allocation-light sparse projection work addressing GitHub issue #75.
 - `2026-07-17-performance-optimization-requirements.html`: requirements,
   acceptance evidence, and release gates for the parser/projection performance
   optimization release addressing GitHub issues #16 and #17.

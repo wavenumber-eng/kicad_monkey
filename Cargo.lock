@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-cruncher-cli"
-version = "2026.8.30"
+version = "2026.8.31"
 dependencies = [
  "kicad-monkey-contracts",
  "kicad-monkey-core",
@@ -373,7 +373,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-codegen"
-version = "2026.8.30"
+version = "2026.8.31"
 dependencies = [
  "anyhow",
  "prettyplease",
@@ -385,7 +385,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-contracts"
-version = "2026.8.30"
+version = "2026.8.31"
 dependencies = [
  "serde",
  "serde_json",
@@ -394,7 +394,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-core"
-version = "2026.8.30"
+version = "2026.8.31"
 dependencies = [
  "harfrust",
  "kicad-monkey-contracts",
@@ -403,6 +403,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "skrifa",
+ "stats_alloc",
  "ttf-parser",
  "unicode-casefold",
  "zstd",
@@ -410,7 +411,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-native"
-version = "2026.8.30"
+version = "2026.8.31"
 dependencies = [
  "cap-std",
  "kicad-monkey-contracts",
@@ -423,7 +424,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-svg"
-version = "2026.8.30"
+version = "2026.8.31"
 dependencies = [
  "kicad-monkey-contracts",
  "serde_json",
@@ -431,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-wasm"
-version = "2026.8.30"
+version = "2026.8.31"
 dependencies = [
  "kicad-monkey-contracts",
  "kicad-monkey-core",
@@ -746,6 +747,12 @@ name = "smallvec"
 version = "1.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
+
+[[package]]
+name = "stats_alloc"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c0e04424e733e69714ca1bbb9204c1a57f09f5493439520f9f68c132ad25eec"
 
 [[package]]
 name = "syn"

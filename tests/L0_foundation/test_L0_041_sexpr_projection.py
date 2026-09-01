@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -59,6 +60,55 @@ SCHEMATIC_TEXT = """(kicad_sch
   )
 )
 """
+
+PROJECTION_VECTOR_PATH = (
+    Path(__file__).resolve().parents[1] / "parity" / "sexpr_projection_vectors.a0.json"
+)
+
+
+def test_projection_spans_match_language_neutral_vector() -> None:
+    payload = json.loads(PROJECTION_VECTOR_PATH.read_text(encoding="utf-8"))
+    assert payload["schema"] == "kicad_monkey.sexpr_projection_vectors.a0"
+
+    actual = list(iter_sexp_form_spans(payload["source"]))
+    assert len(actual) == len(payload["spans"])
+    for span, expected in zip(actual, payload["spans"], strict=True):
+        assert {
+            "head": span.head,
+            "path": list(span.path),
+            "depth": span.depth,
+            "start_python": span.start_offset,
+            "end_python": span.end_offset,
+            "line": span.line,
+            "column": span.column,
+            "end_line": span.end_line,
+            "end_column": span.end_column,
+        } == {
+            key: expected[key]
+            for key in (
+                "head",
+                "path",
+                "depth",
+                "start_python",
+                "end_python",
+                "line",
+                "column",
+                "end_line",
+                "end_column",
+            )
+        }
+
+    for case in payload["selections"]:
+        fields = case["selector"]
+        selector = SexpSelector(
+            heads=fields.get("heads"),
+            paths=fields.get("paths"),
+            min_depth=fields.get("min_depth"),
+            max_depth=fields.get("max_depth"),
+            prune_heads=fields.get("prune_heads", ()),
+        )
+        selected = list(iter_sexp_form_spans(payload["source"], selector))
+        assert selected == [actual[index] for index in case["span_indices"]], case["id"]
 
 
 def test_selector_filters_by_exact_path_and_depth() -> None:

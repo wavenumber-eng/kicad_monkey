@@ -3,8 +3,28 @@ id = "sexpr.synthetic_pcb_20000"
 status = "measurement"
 generator = "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs"
 items = 20000
-operations = ["structural_scan", "full_parse", "deterministic_build"]
+operations = ["lexer_drain", "lexer_collect", "structural_scan", "full_parse", "deterministic_build"]
 rounds = 5
+ab_probe = "tests/support_scripts/sexpr_ab_performance_probe.py"
+ab_order = "alternating baseline/candidate pairs with raw payload retention"
+ab_decision_interval = "exact distribution-free median sign interval with at least 95% coverage and at least nine pairs"
+
+[sparse_projection]
+generator = "src/rs/kicad-monkey-core/examples/sexpr_projection_allocation_benchmark.rs"
+fixture_generator = "src/rs/kicad-monkey-core/examples/support/sexpr_benchmark_fixture.rs"
+fixture = "speedy_shaped_sparse_50000"
+scanners = ["memory", "stream"]
+instrumentation = "stats_alloc 0.1.10 isolated process region plus known-allocation control"
+timing = "uninstrumented five-round warmed memory and stream medians in sexpr_l0_benchmark"
+metrics = [
+    "visited_forms",
+    "selected_forms",
+    "allocation_calls",
+    "reallocation_calls",
+    "allocated_bytes",
+    "sparse_memory_seconds",
+    "sparse_stream_seconds",
+]
 
 [promotion]
 threshold_status = "pending_corpus_and_platform_ratification"
@@ -12,6 +32,9 @@ corpus_measurement_status = "windows_complete_linux_pending"
 corpus_manifest = "tests/performance/sexpr_corpus_cases.toml"
 required_metrics = [
     "input_bytes",
+    "token_count",
+    "lex_drain_seconds",
+    "lex_collect_seconds",
     "selected_forms",
     "output_bytes",
     "scan_seconds",

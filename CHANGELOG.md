@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 2026.8.31
+
+- Accelerate the native Rust S-expression lexer with byte-oriented scanning
+  while preserving Unicode-scalar positions, borrowed lexemes, diagnostics,
+  limits, and the public parser API. Sparse projection now borrows unquoted
+  heads, represents paths through the active frame stack, and materializes
+  owned public heads and paths only for selected forms. Shared Python/Rust
+  span vectors, exact resource-boundary cases, real WASM execution, corpus
+  roundtrips, and Cruncher Speedy artifact/SVG parity protect consumers. On
+  the recorded same-host final evidence, lexer throughput improved 2.30x,
+  sparse in-memory allocation calls fell 99.96%, streaming allocation calls
+  fell 81.22%, and the native Speedy median improved 1.51x from the clean
+  baseline. These measurements are decision evidence, not portable SLOs.
+
 ## 2026.8.30
 
 - Read KiCad 10 schematic bus aliases from `.kicad_pro`, normalize names and
