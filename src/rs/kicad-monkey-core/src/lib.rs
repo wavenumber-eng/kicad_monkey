@@ -17,10 +17,12 @@ pub mod document_metadata;
 mod fake_style;
 pub mod font_outline;
 pub mod footprint;
+pub mod footprint_plot_contract;
 mod footprint_plotter_text;
 mod footprint_text;
 pub mod kicad_netlist;
 pub mod pcb;
+pub mod plot_document_contract;
 mod plotter_contract;
 pub mod plotter_ir;
 pub mod plotter_text_cache;
@@ -49,6 +51,7 @@ pub mod sexpr_projection;
 pub mod source_bundle;
 pub mod symbol_library;
 mod symbol_pin;
+pub mod symbol_plot_contract;
 pub mod symbol_plotter_ir;
 mod symbol_text;
 pub mod text_bezier;
@@ -99,6 +102,7 @@ pub use font_outline::{
     HINTED_FONT_OUTLINE_ENGINE, HintedFontOutlineFace, extract_font_outline_a0,
 };
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
+pub use footprint_plot_contract::project_footprint_plot_document_a0;
 pub use footprint_text::{FootprintGraphicalProperty, FootprintText, FootprintTextBox};
 pub use kicad_netlist::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetClass, KiCadNetlist,
@@ -118,6 +122,10 @@ pub use pcb::{
     PcbTable, PcbTableCell, PcbTeardropParameters, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon,
     PcbZoneKeepout, PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement,
     PcbZonePlacementSource, PcbZonePolygon,
+};
+pub use plot_document_contract::{
+    PlotDocumentMetadata, PlotDocumentProjectionLimits, PlotProjectionError,
+    PlotProjectionErrorKind,
 };
 pub use plotter_contract::contract_plotter_operation as project_plotter_operation_a0;
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
@@ -195,6 +203,7 @@ pub use source_bundle::{
 pub use symbol_library::{
     SymbolBooleanField, SymbolLibraryEdit, SymbolLibraryLimits, SymbolLibraryView, SymbolSummary,
 };
+pub use symbol_plot_contract::project_symbol_plot_document_a0;
 pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
     symbol_plot_document_with_text_variables,

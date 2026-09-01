@@ -19,6 +19,8 @@ sections live under `api/`, and all design HTML uses `styles.css`.
 
 Current design notes:
 
+- `rust-direct-svg-preview.html` - direct typed four-family Rust projection,
+  validated viewer context, layer truth, fit, and pinned-Git consumption.
 - `rust-standard.html` - provisional Rust workspace, safety, dependency, and
   review policy for the native/WASM port.
 - `rust-sexpr-l0-review.html` - accepted Rust S-expression foundation review,

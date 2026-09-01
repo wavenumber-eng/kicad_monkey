@@ -29,10 +29,6 @@ use kicad_monkey_contracts::generated::footprint_edit_result::{
     FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
 };
 #[cfg(feature = "footprint")]
-use kicad_monkey_contracts::generated::footprint_plot_document::{
-    FootprintPlotDocumentA0, FootprintPlotRecord, PlotterCoordinateSpace,
-};
-#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
 #[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_plot_result::{
@@ -53,18 +49,16 @@ use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::scan_result::{
     Diagnostic, DiagnosticPhase, FormSpan, SExpressionScanResultA0, SourcePosition,
 };
-#[cfg(feature = "footprint")]
-use kicad_monkey_contracts::{JavaScriptSafeInteger, validate_footprint_plot_document};
 #[cfg(feature = "sexpr")]
 use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
 use kicad_monkey_core::ErrorKind;
-#[cfg(feature = "footprint")]
-use kicad_monkey_core::project_plotter_operation_a0 as contract_plotter_operation;
 #[cfg(any(feature = "sexpr", feature = "footprint"))]
 use kicad_monkey_core::{Error, ErrorPhase};
 #[cfg(feature = "footprint")]
 use kicad_monkey_core::{
-    FootprintLimits, FootprintPlotLimits, FootprintView, footprint_plot_document, utf8_text,
+    FootprintLimits, FootprintPlotLimits, FootprintView, PlotDocumentMetadata,
+    PlotDocumentProjectionLimits, footprint_plot_document, project_footprint_plot_document_a0,
+    utf8_text,
 };
 #[cfg(feature = "sexpr")]
 use kicad_monkey_core::{
@@ -319,44 +313,19 @@ fn plot_footprint_ir_impl(
     let (result, output_bytes) = match operation {
         Ok(document) => {
             let total_operations = u32::try_from(document.operations.len()).unwrap_or(u32::MAX);
-            let document_id = request.document_id.unwrap_or_else(|| document.name.clone());
-            let operations = document
-                .operations
-                .into_iter()
-                .enumerate()
-                .map(|(index, operation)| contract_plotter_operation(index, operation))
-                .collect::<Result<Vec<_>, String>>()?;
-            let contract_document = FootprintPlotDocumentA0 {
-                coordinate_space: PlotterCoordinateSpace {
-                    unit: "nm".to_owned(),
-                    y_axis: "down".to_owned(),
+            let document_id = request
+                .document_id
+                .clone()
+                .unwrap_or_else(|| document.name.clone());
+            let contract_document = project_footprint_plot_document_a0(
+                document,
+                PlotDocumentMetadata {
+                    document_id,
+                    source_path: request.source_path,
                 },
-                document_id,
-                generator: document.generator,
-                generator_version: document.generator_version,
-                records: vec![FootprintPlotRecord {
-                    attr: document.attr,
-                    descr: document.descr,
-                    kind: "footprint".to_owned(),
-                    layer: document.layer,
-                    locked: document.locked,
-                    name: document.name.clone(),
-                    object_id: document.name,
-                    operation_count: total_operations,
-                    operations,
-                    placed: document.placed,
-                    tags: document.tags,
-                    uuid: document.uuid,
-                }],
-                schema: "kicad.plotter_ir.a0".to_owned(),
-                source_kind: "MOD".to_owned(),
-                source_path: request.source_path,
-                total_operations,
-                version: JavaScriptSafeInteger::try_from(document.version)
-                    .map_err(|error| error.to_string())?,
-            };
-            validate_footprint_plot_document(&contract_document)
-                .map_err(|error| error.to_string())?;
+                PlotDocumentProjectionLimits::default(),
+            )
+            .map_err(|error| error.to_string())?;
             match serialize_bounded(&contract_document, max_output_bytes)? {
                 Some(output) => (
                     FootprintPlotResultA0 {

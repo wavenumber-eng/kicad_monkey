@@ -5,6 +5,9 @@ too detailed for an ADR and broader than a single design document.
 
 Current requirements:
 
+- `2026-09-01-native-rust-svg-preview.md`: direct typed MOD, SYM, PCB, and SCH
+  projection/rendering, viewer context, fit, pinned-Git consumption, and issue
+  #78 acceptance requirements.
 - `2026-08-31-rust-sexpr-performance.md`: preserved contracts, measurement
   requirements, and acceptance evidence for the native byte lexer and
   allocation-light sparse projection work addressing GitHub issue #75.
