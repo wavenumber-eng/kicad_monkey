@@ -19,6 +19,13 @@ use crate::{SvgArtifact, SvgError, SvgErrorKind, SvgMetrics};
 
 type Point = (i64, i64);
 
+#[derive(Clone, Copy)]
+struct PadOvalCenterline {
+    first_twice: (i128, i128),
+    second_twice: (i128, i128),
+    width_nm: i64,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SvgViewport {
     pub min_x_nm: i64,
@@ -2521,8 +2528,26 @@ fn add_operation_bounds(
             size,
             angle_deg,
             ..
+        } => {
+            if let Some(line) = pad_oval_centerline(*center, *size)? {
+                for point_twice in [line.first_twice, line.second_twice] {
+                    let point = (point_twice.0 as f64 / 2.0, point_twice.1 as f64 / 2.0);
+                    let offset = (point.0 - center.0 as f64, point.1 - center.1 as f64);
+                    let rotated = rotate_offset(offset.0, offset.1, -*angle_deg);
+                    bounds.point(
+                        transform
+                            .point_f64((center.0 as f64 + rotated.0, center.1 as f64 + rotated.1)),
+                        stroke_radius,
+                    );
+                }
+            } else {
+                bounds.point(
+                    transform.point(*center),
+                    size.0 as f64 / 2.0 + stroke_radius,
+                );
+            }
         }
-        | OperationData::PadRect {
+        OperationData::PadRect {
             center,
             size,
             angle_deg,
@@ -2700,6 +2725,30 @@ fn operation_stroke_radius(
         | OperationData::Rect { style, .. }
         | OperationData::Poly { style, .. }
         | OperationData::Bezier { style, .. } => style.clone(),
+        OperationData::PadOval {
+            center,
+            size,
+            layers,
+            ..
+        } if size.0 != size.1 => {
+            let line = pad_oval_centerline(*center, *size)?.ok_or_else(|| {
+                direct_error(
+                    SvgErrorKind::InvalidDocument,
+                    "non-circular oval pad has no centerline",
+                )
+            })?;
+            pad_oval_style(
+                line.width_nm,
+                RenderScope {
+                    layers: if layers.is_empty() {
+                        scope.layers
+                    } else {
+                        layers
+                    },
+                    ..scope
+                },
+            )
+        }
         OperationData::PadCircle { layers, .. }
         | OperationData::PadOval { layers, .. }
         | OperationData::PadRect { layers, .. }
@@ -4476,9 +4525,7 @@ fn render_pad_oval(
     context: &ValidatedSvgRenderContextA1,
     scope: RenderScope<'_>,
 ) -> Result<(), SvgError> {
-    nonnegative(size.0, "size_x_nm")?;
-    nonnegative(size.1, "size_y_nm")?;
-    if size.0 == size.1 {
+    let Some(line) = pad_oval_centerline(center, size)? else {
         sink.element()?;
         sink.raw("<circle")?;
         sink.attribute("cx", &center.0.to_string())?;
@@ -4486,63 +4533,27 @@ fn render_pad_oval(
         sink.attribute("r", &half_number(i128::from(size.0)))?;
         emit_pad_style(sink, PlotterOperationKind::FlashPadOval, context, scope)?;
         return sink.raw("/>\n");
-    }
-    let (first, second, width) = if size.0 > size.1 {
-        let half = i128::from(size.0 - size.1);
-        (
-            (
-                half_number(i128::from(center.0) * 2 - half),
-                center.1.to_string(),
-            ),
-            (
-                half_number(i128::from(center.0) * 2 + half),
-                center.1.to_string(),
-            ),
-            size.1,
-        )
-    } else {
-        let half = i128::from(size.1 - size.0);
-        (
-            (
-                center.0.to_string(),
-                half_number(i128::from(center.1) * 2 - half),
-            ),
-            (
-                center.0.to_string(),
-                half_number(i128::from(center.1) * 2 + half),
-            ),
-            size.0,
-        )
     };
     sink.element()?;
     sink.raw("<line")?;
     for (name, value) in [
-        ("x1", first.0),
-        ("y1", first.1),
-        ("x2", second.0),
-        ("y2", second.1),
+        ("x1", line.first_twice.0),
+        ("y1", line.first_twice.1),
+        ("x2", line.second_twice.0),
+        ("y2", line.second_twice.1),
     ] {
-        sink.attribute(name, &value)?;
+        sink.attribute(name, &half_number(value))?;
     }
     rotation(sink, center, angle)?;
     if !context.has_style_overrides() {
         sink.attribute("fill", "none")?;
         sink.attribute("stroke", "#000000")?;
-        sink.attribute("stroke-width", &width.to_string())?;
+        sink.attribute("stroke-width", &line.width_nm.to_string())?;
         sink.attribute("stroke-linecap", "round")?;
         sink.attribute("stroke-linejoin", "round")?;
         return sink.raw("/>\n");
     }
-    let source = PrimitiveStyle {
-        layer: scope.layer,
-        role: None,
-        layers: scope.layers,
-        stroke: Some("#000000FF"),
-        fill: None,
-        width_nm: width,
-        line_style: None,
-        filled: false,
-    };
+    let source = pad_oval_style(line.width_nm, scope);
     emit_style(
         sink,
         &source,
@@ -4551,6 +4562,43 @@ fn render_pad_oval(
         scope,
     )?;
     sink.raw("/>\n")
+}
+
+fn pad_oval_centerline(center: Point, size: Point) -> Result<Option<PadOvalCenterline>, SvgError> {
+    nonnegative(size.0, "size_x_nm")?;
+    nonnegative(size.1, "size_y_nm")?;
+    if size.0 == size.1 {
+        return Ok(None);
+    }
+    let center_twice = (i128::from(center.0) * 2, i128::from(center.1) * 2);
+    Ok(Some(if size.0 > size.1 {
+        let difference = i128::from(size.0 - size.1);
+        PadOvalCenterline {
+            first_twice: (center_twice.0 - difference, center_twice.1),
+            second_twice: (center_twice.0 + difference, center_twice.1),
+            width_nm: size.1,
+        }
+    } else {
+        let difference = i128::from(size.1 - size.0);
+        PadOvalCenterline {
+            first_twice: (center_twice.0, center_twice.1 - difference),
+            second_twice: (center_twice.0, center_twice.1 + difference),
+            width_nm: size.0,
+        }
+    }))
+}
+
+fn pad_oval_style(width_nm: i64, scope: RenderScope<'_>) -> PrimitiveStyle<'_> {
+    PrimitiveStyle {
+        layer: scope.layer,
+        role: None,
+        layers: scope.layers,
+        stroke: Some("#000000FF"),
+        fill: None,
+        width_nm,
+        line_style: None,
+        filled: false,
+    }
 }
 
 fn render_pad_rect(
@@ -4964,10 +5012,18 @@ mod tests {
                 filled,
             },
         };
+        fitted_operation_bounds(&operation, RenderScope::default(), context)
+    }
+
+    fn fitted_operation_bounds(
+        operation: &OperationData<'_>,
+        scope: RenderScope<'_>,
+        context: &ValidatedSvgRenderContextA1,
+    ) -> (SvgViewport, SvgBounds) {
         let mut bounds = BoundsAccumulator::default();
         add_operation_bounds(
-            &operation,
-            RenderScope::default(),
+            operation,
+            scope,
             context,
             BoundsTransform::default(),
             &mut bounds,
@@ -5041,5 +5097,81 @@ mod tests {
         assert_eq!(viewport.width_nm, 1_000_000);
         assert_eq!(visible.min_x_nm, -500_000);
         assert_eq!(visible.max_x_nm, 500_000);
+    }
+
+    #[test]
+    fn fitted_oval_pad_bounds_share_emitted_centerline_style_and_layer_precedence() {
+        let inherited_layers = vec!["F.Cu".to_owned()];
+        let represented_layers = vec!["*.Cu".to_owned()];
+        let copper_stack = vec!["F.Cu".to_owned(), "In1.Cu".to_owned(), "B.Cu".to_owned()];
+        let inherited_oval = OperationData::PadOval {
+            center: (0, 0),
+            size: (2_000_000, 1_000_000),
+            angle_deg: 0.0,
+            layers: &[],
+        };
+        let represented_oval = OperationData::PadOval {
+            center: (0, 0),
+            size: (2_000_000, 1_000_000),
+            angle_deg: 0.0,
+            layers: &represented_layers,
+        };
+        let validate = |builder: crate::SvgRenderContextBuilder| {
+            builder
+                .build()
+                .validate(SvgContextLimits::default())
+                .unwrap()
+        };
+        let inherited_none = validate(SvgRenderContextA1::builder().layer_style(
+            LayerPattern::parse("F.Cu").unwrap(),
+            SvgStyleOverride::new().with_fill_mode(SvgFillMode::None),
+        ));
+        let inherited_scope = RenderScope {
+            layers: &inherited_layers,
+            ..RenderScope::default()
+        };
+        let (viewport, visible) =
+            fitted_operation_bounds(&inherited_oval, inherited_scope, &inherited_none);
+        assert_eq!(
+            (viewport.width_nm, viewport.height_nm),
+            (2_000_000, 1_000_000)
+        );
+        assert_eq!(
+            (visible.min_x_nm, visible.max_x_nm),
+            (-1_000_000, 1_000_000)
+        );
+
+        let layer_width = SvgStyleOverride::new().with_stroke_width_nm(800_000);
+        let semantic_width = SvgStyleOverride::new().with_stroke_width_nm(600_000);
+        let operation_width = SvgStyleOverride::new().with_stroke_width_nm(200_000);
+        let layer_context = validate(
+            SvgRenderContextA1::builder()
+                .fallback_style(SvgStyleOverride::new().with_stroke_width_nm(3_000_000))
+                .layer_style(LayerPattern::parse("In1.Cu").unwrap(), layer_width.clone()),
+        );
+        let semantic_context = validate(
+            SvgRenderContextA1::builder()
+                .layer_style(LayerPattern::parse("In1.Cu").unwrap(), layer_width.clone())
+                .semantic_style(SvgSemanticRole::Copper, semantic_width.clone()),
+        );
+        let operation_context = validate(
+            SvgRenderContextA1::builder()
+                .layer_style(LayerPattern::parse("In1.Cu").unwrap(), layer_width)
+                .semantic_style(SvgSemanticRole::Copper, semantic_width)
+                .operation_style(PlotterOperationKind::FlashPadOval, operation_width),
+        );
+        let represented_scope = RenderScope {
+            copper_stack: Some(&copper_stack),
+            ..RenderScope::default()
+        };
+        for (context, expected) in [
+            (&layer_context, (1_800_000, 800_000)),
+            (&semantic_context, (1_600_000, 600_000)),
+            (&operation_context, (1_200_000, 200_000)),
+        ] {
+            let (viewport, _) =
+                fitted_operation_bounds(&represented_oval, represented_scope, context);
+            assert_eq!((viewport.width_nm, viewport.height_nm), expected);
+        }
     }
 }
