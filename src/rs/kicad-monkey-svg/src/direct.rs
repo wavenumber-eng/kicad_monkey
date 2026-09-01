@@ -2692,78 +2692,50 @@ fn operation_stroke_radius(
     if let OperationData::Owned { operation, .. } = operation {
         return operation_stroke_radius(operation, scope, context);
     }
-    let (layer, layers, kind) = operation_scope(operation);
-    let layer = layer.or(scope.layer);
-    let layers = if layers.is_empty() {
-        scope.layers
-    } else {
-        layers
-    };
-    let (mut width, filled) = match operation {
+    let (_, _, kind) = operation_scope(operation);
+    let mut source = match operation {
         OperationData::Segment { style, .. }
         | OperationData::Arc { style, .. }
         | OperationData::Circle { style, .. }
         | OperationData::Rect { style, .. }
         | OperationData::Poly { style, .. }
-        | OperationData::Bezier { style, .. } => (style.width_nm, style.filled),
-        OperationData::PadCircle { .. }
-        | OperationData::PadOval { .. }
-        | OperationData::PadRect { .. }
-        | OperationData::PadCustom { .. }
-        | OperationData::PadTrapez { .. } => (0, true),
+        | OperationData::Bezier { style, .. } => style.clone(),
+        OperationData::PadCircle { layers, .. }
+        | OperationData::PadOval { layers, .. }
+        | OperationData::PadRect { layers, .. }
+        | OperationData::PadCustom { layers, .. }
+        | OperationData::PadTrapez { layers, .. } => PrimitiveStyle {
+            layer: scope.layer,
+            role: None,
+            layers: if layers.is_empty() {
+                scope.layers
+            } else {
+                layers
+            },
+            stroke: None,
+            fill: Some("#000000FF"),
+            width_nm: 0,
+            line_style: None,
+            filled: true,
+        },
         _ => return Ok(0.0),
     };
-    if width == 0
-        && let Some(value) = context.fallback_style().stroke_width_nm()
-    {
-        width = i64::try_from(value).map_err(|_| {
-            direct_error(
-                SvgErrorKind::InvalidContext,
-                "SVG context stroke width exceeds i64",
-            )
-        })?;
+    if source.layer.is_none() {
+        source.layer = scope.layer;
     }
-    let semantic = operation_semantic_role(operation, layer, layers, scope.semantic_role);
-    for (pattern, style) in context.layer_styles() {
-        if (pattern.matches(layer)
-            || pattern_matches_represented(pattern, layers, semantic, scope.copper_stack))
-            && let Some(value) = style.stroke_width_nm()
-        {
-            width = i64::try_from(value).map_err(|_| {
-                direct_error(
-                    SvgErrorKind::InvalidContext,
-                    "SVG context stroke width exceeds i64",
-                )
-            })?;
-        }
+    if source.layers.is_empty() {
+        source.layers = scope.layers;
     }
-    if let Some(value) = context
-        .semantic_style(semantic)
-        .and_then(SvgStyleOverride::stroke_width_nm)
-    {
-        width = i64::try_from(value).map_err(|_| {
-            direct_error(
-                SvgErrorKind::InvalidContext,
-                "SVG context stroke width exceeds i64",
-            )
-        })?;
-    }
-    if let Some(value) = context
-        .operation_style(kind)
-        .and_then(SvgStyleOverride::stroke_width_nm)
-    {
-        width = i64::try_from(value).map_err(|_| {
-            direct_error(
-                SvgErrorKind::InvalidContext,
-                "SVG context stroke width exceeds i64",
-            )
-        })?;
-    }
-    nonnegative(width, "width_nm")?;
-    if width == 0 && filled {
+    let style = resolve_effective_style(&source, kind, context, scope)?;
+    if style.width_nm == 0 && style.filled {
         Ok(0.0)
     } else {
-        Ok((if width == 0 { 152_400 } else { width }) as f64 / 2.0)
+        Ok((if style.width_nm == 0 {
+            152_400
+        } else {
+            style.width_nm
+        }) as f64
+            / 2.0)
     }
 }
 
@@ -3992,6 +3964,41 @@ fn emit_style(
     context: &ValidatedSvgRenderContextA1,
     scope: RenderScope<'_>,
 ) -> Result<(), SvgError> {
+    let style = resolve_effective_style(source, kind, context, scope)?;
+    if style.width_nm == 0 && style.filled {
+        sink.attribute("stroke", "none")?;
+    } else {
+        let width = if style.width_nm == 0 {
+            152_400
+        } else {
+            style.width_nm
+        };
+        let color = style.stroke.as_ref().map_or("#000000FF", SvgColor::as_str);
+        color_attribute(sink, "stroke", color, Some(style.opacity))?;
+        sink.attribute("stroke-width", &width.to_string())?;
+        sink.attribute("stroke-linecap", "round")?;
+        sink.attribute("stroke-linejoin", "round")?;
+        emit_dash(sink, style.line_style, width)?;
+    }
+    if style.filled {
+        let color = style
+            .fill
+            .as_ref()
+            .or(style.stroke.as_ref())
+            .map_or("#000000FF", SvgColor::as_str);
+        color_attribute(sink, "fill", color, Some(style.opacity))?;
+    } else {
+        sink.attribute("fill", "none")?;
+    }
+    Ok(())
+}
+
+fn resolve_effective_style(
+    source: &PrimitiveStyle<'_>,
+    kind: PlotterOperationKind,
+    context: &ValidatedSvgRenderContextA1,
+    scope: RenderScope<'_>,
+) -> Result<EffectiveStyle, SvgError> {
     let mut style = EffectiveStyle {
         stroke: source.stroke.map(SvgColor::parse).transpose()?,
         fill: source.fill.map(SvgColor::parse).transpose()?,
@@ -4024,32 +4031,7 @@ fn emit_style(
         apply_override(&mut style, value)?;
     }
     nonnegative(style.width_nm, "width_nm")?;
-    if style.width_nm == 0 && style.filled {
-        sink.attribute("stroke", "none")?;
-    } else {
-        let width = if style.width_nm == 0 {
-            152_400
-        } else {
-            style.width_nm
-        };
-        let color = style.stroke.as_ref().map_or("#000000FF", SvgColor::as_str);
-        color_attribute(sink, "stroke", color, Some(style.opacity))?;
-        sink.attribute("stroke-width", &width.to_string())?;
-        sink.attribute("stroke-linecap", "round")?;
-        sink.attribute("stroke-linejoin", "round")?;
-        emit_dash(sink, style.line_style, width)?;
-    }
-    if style.filled {
-        let color = style
-            .fill
-            .as_ref()
-            .or(style.stroke.as_ref())
-            .map_or("#000000FF", SvgColor::as_str);
-        color_attribute(sink, "fill", color, Some(style.opacity))?;
-    } else {
-        sink.attribute("fill", "none")?;
-    }
-    Ok(())
+    Ok(style)
 }
 
 fn apply_override(style: &mut EffectiveStyle, value: &SvgStyleOverride) -> Result<(), SvgError> {
@@ -4853,7 +4835,7 @@ fn ensure(actual: usize, maximum: usize, label: &str) -> Result<(), SvgError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SvgContextLimits, SvgRenderContextA1, SvgVisibility};
+    use crate::{LayerPattern, SvgContextLimits, SvgRenderContextA1, SvgVisibility};
 
     fn filled_style() -> PrimitiveStyle<'static> {
         PrimitiveStyle {
@@ -4962,5 +4944,102 @@ mod tests {
                 max_y_nm: 10,
             })
         );
+    }
+
+    fn fitted_zero_width_circle(
+        filled: bool,
+        context: &ValidatedSvgRenderContextA1,
+    ) -> (SvgViewport, SvgBounds) {
+        let operation = OperationData::Circle {
+            center: (0, 0),
+            diameter_nm: 1_000_000,
+            style: PrimitiveStyle {
+                layer: Some("F.Cu"),
+                role: None,
+                layers: &[],
+                stroke: Some("#000000FF"),
+                fill: Some("#000000FF"),
+                width_nm: 0,
+                line_style: None,
+                filled,
+            },
+        };
+        let mut bounds = BoundsAccumulator::default();
+        add_operation_bounds(
+            &operation,
+            RenderScope::default(),
+            context,
+            BoundsTransform::default(),
+            &mut bounds,
+        )
+        .unwrap();
+        let (viewport, visible, warnings) = resolve_viewport(
+            ViewportPolicy::Fit(SvgFitOptions {
+                padding_nm: 0,
+                min_extent_nm: 1,
+                fallback: None,
+            }),
+            bounds,
+        )
+        .unwrap();
+        assert!(warnings.is_empty());
+        (viewport, visible.unwrap())
+    }
+
+    #[test]
+    fn fitted_bounds_use_effective_fill_mode_and_style_precedence() {
+        let none = SvgStyleOverride::new().with_fill_mode(SvgFillMode::None);
+        let solid = SvgStyleOverride::new().with_fill_mode(SvgFillMode::Solid);
+        let validate = |builder: crate::SvgRenderContextBuilder| {
+            builder
+                .build()
+                .validate(SvgContextLimits::default())
+                .unwrap()
+        };
+        let layer = LayerPattern::parse("F.Cu").unwrap();
+
+        let source_filled = validate(SvgRenderContextA1::builder());
+        let fallback_none = validate(SvgRenderContextA1::builder().fallback_style(none.clone()));
+        let layer_solid = validate(
+            SvgRenderContextA1::builder()
+                .fallback_style(none.clone())
+                .layer_style(layer.clone(), solid.clone()),
+        );
+        let semantic_none = validate(
+            SvgRenderContextA1::builder()
+                .fallback_style(none.clone())
+                .layer_style(layer.clone(), solid.clone())
+                .semantic_style(SvgSemanticRole::Copper, none.clone()),
+        );
+        let operation_solid = validate(
+            SvgRenderContextA1::builder()
+                .fallback_style(none)
+                .layer_style(layer, solid.clone())
+                .semantic_style(
+                    SvgSemanticRole::Copper,
+                    SvgStyleOverride::new().with_fill_mode(SvgFillMode::None),
+                )
+                .operation_style(PlotterOperationKind::Circle, solid.clone()),
+        );
+        let source_unfilled_to_solid = validate(
+            SvgRenderContextA1::builder().operation_style(PlotterOperationKind::Circle, solid),
+        );
+
+        for context in [&source_filled, &layer_solid, &operation_solid] {
+            let (viewport, visible) = fitted_zero_width_circle(true, context);
+            assert_eq!(viewport.width_nm, 1_000_000);
+            assert_eq!(visible.min_x_nm, -500_000);
+            assert_eq!(visible.max_x_nm, 500_000);
+        }
+        for context in [&fallback_none, &semantic_none] {
+            let (viewport, visible) = fitted_zero_width_circle(true, context);
+            assert_eq!(viewport.width_nm, 1_152_400);
+            assert_eq!(visible.min_x_nm, -576_200);
+            assert_eq!(visible.max_x_nm, 576_200);
+        }
+        let (viewport, visible) = fitted_zero_width_circle(false, &source_unfilled_to_solid);
+        assert_eq!(viewport.width_nm, 1_000_000);
+        assert_eq!(visible.min_x_nm, -500_000);
+        assert_eq!(visible.max_x_nm, 500_000);
     }
 }

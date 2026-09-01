@@ -231,13 +231,39 @@ render_board_svg(&amp;ProjectedBoardPlotArtifact, policy, context, limits)
   byte count. Baseline focused compilation plus core/SVG/WASM tests completed
   in 86 seconds on the implementation host; the warm SVG test binary rendered
   and checked all family vectors in 0.17 seconds. Per-family direct-call time
-  and peak working set are captured by the S06 external-consumer benchmark
-  before compatibility signoff, using the same vector cases and the repository
-  process peak-memory sampler. Moving that capture from S01 to S06 is an
+  and peak working set are captured by the S06 direct-consumer benchmark below,
+  using frozen vector documents and the repository process peak-memory sampler.
+  Moving that capture from S01 to S06 is an
   intentional plan deviation: the old transport baseline is frozen before
   edits, while comparable linked-library timing does not exist until the
   external direct consumer exists. These measurements are regression evidence,
   not portable SLOs.</p>
+
+  <h3>S06 direct-render performance capture</h3>
+  <p>On 2026-09-01, the release example
+  <code>src/rs/kicad-monkey-svg/examples/direct_svg_benchmark.rs</code> was built
+  in a fresh Cargo target directory, then built again without source changes.
+  The cold build was 163.995 seconds and the warm build was 0.188 seconds with
+  Rust/Cargo 1.98.0 on Windows 11 10.0.26200, an AMD Ryzen 9 5950X (32 logical
+  processors), and 68,635,979,776 bytes of host memory. The direct-call clock
+  excludes fixture read/deserialization and the sampler attachment delay.
+  “Cold render” is the first call in the process; “warm render” is the median
+  of 25 subsequent calls. Peak working set is the whole isolated consumer
+  process, sampled every 5 ms by
+  <code>tests/support_scripts/process_peak_memory.py</code>.</p>
+  <table>
+    <thead><tr><th>Family / frozen fixture</th><th>Cold render</th><th>Warm median</th><th>Peak working set</th><th>SVG bytes</th></tr></thead>
+    <tbody>
+      <tr><td>MOD / solid-line-with-metadata</td><td>100,400 ns</td><td>3,500 ns</td><td>5,623,808</td><td>482</td></tr>
+      <tr><td>SYM / non-text-shared-body-primitives</td><td>133,600 ns</td><td>16,400 ns</td><td>5,263,360</td><td>1,354</td></tr>
+      <tr><td>PCB / board-metadata-and-category-ordered-graphics</td><td>125,400 ns</td><td>13,700 ns</td><td>5,931,008</td><td>1,623</td></tr>
+      <tr><td>SCH / custom-worksheet-connectivity-and-annotation-family-order</td><td>200,500 ns</td><td>50,200 ns</td><td>5,832,704</td><td>4,541</td></tr>
+    </tbody>
+  </table>
+  <p>The example emits the structured schema
+  <code>kicad_monkey.direct_svg_benchmark.a0</code>, so a future probe can retain
+  raw results instead of scraping console text. The measurements establish a
+  reproducible implementation-host baseline; they do not set release budgets.</p>
 
   <h2>Consumption and tests</h2>
   <p>Alexandria pins every direct Monkey Cargo dependency to one exact Git
