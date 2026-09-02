@@ -6,8 +6,10 @@
   board, and schematic SVG dimensional tokens in browser-safe millimetres while
   preserving exact nanometre API metadata and frozen native a0 bytes. Fit now
   retains geometry around uncached text using bounded estimates that honor
-  non-square font dimensions and report their heuristic status. Pinned Chromium
-  plus a WebKit advisory smoke cover MIMX, all four families, and actual
+  non-square font dimensions and report their heuristic status. Standalone
+  Rust footprint/symbol projection now also carries authored text mirroring into
+  the existing Plotter-IR field. Pinned Chromium plus a WebKit advisory smoke
+  cover MIMX, all four families, and actual
   Cruncher PCB and schematic artifacts; a pinned-Git external consumer proves
   the transport-free public path and context overrides.
 

@@ -451,6 +451,7 @@ fn text_operations(
                 pen_width_nm: pen_width,
                 italic: item.font.italic,
                 bold: item.font.bold,
+                mirror: false,
                 multiline,
                 font_face: font_face.to_owned(),
                 layer: None,

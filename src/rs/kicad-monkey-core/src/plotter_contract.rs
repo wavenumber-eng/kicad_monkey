@@ -132,7 +132,7 @@ macro_rules! project_plotter_operation {
                 kind: "Text".to_owned(),
                 knockout: None,
                 layer: operation.layer,
-                mirror: None,
+                mirror: operation.mirror.then_some(true),
                 multiline: operation.multiline,
                 orient_deg: operation.orient_deg,
                 pen_width_nm: safe_integer(operation.pen_width_nm)?,
