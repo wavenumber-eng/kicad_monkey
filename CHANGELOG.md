@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2026.9.2
+
 - Repair reopened issue #78 by serializing direct Rust footprint, symbol,
   board, and schematic SVG dimensional tokens in browser-safe millimetres while
   preserving exact nanometre API metadata and frozen native a0 bytes. Fit now
