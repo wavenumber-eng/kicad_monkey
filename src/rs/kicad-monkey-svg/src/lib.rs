@@ -97,7 +97,7 @@ pub(crate) fn SvgError(message: String) -> SvgError {
 
 #[cfg(test)]
 mod error_tests {
-    use super::{SvgError, SvgErrorKind, render_svg, render_svg_legacy};
+    use super::{SvgError, SvgErrorKind, render_native_svg_a0_compat, render_svg_legacy};
     use kicad_monkey_contracts::decode_native_svg_render_request_a0;
     use serde_json::{Value, json};
     use std::{fs, path::PathBuf};
@@ -123,7 +123,7 @@ mod error_tests {
     }
 
     #[test]
-    fn delegated_adapter_preserves_legacy_multi_fault_error_winners() {
+    fn native_compat_adapter_preserves_legacy_multi_fault_error_winners() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
         let vectors: Value = serde_json::from_slice(
             &fs::read(root.join("tests/parity/footprint_plotter_a0_vectors.json"))
@@ -173,7 +173,7 @@ mod error_tests {
             let request = decode_native_svg_render_request_a0(&serde_json::to_vec(&value).unwrap())
                 .expect("typed compatibility request");
             let legacy = render_svg_legacy(&request).unwrap_err();
-            let delegated = render_svg(&request).unwrap_err();
+            let delegated = render_native_svg_a0_compat(&request).unwrap_err();
             assert_eq!(delegated.message(), legacy.message());
         }
     }
@@ -309,10 +309,18 @@ fn decode_compatibility_document<T: serde::de::DeserializeOwned>(
     })
 }
 
-#[allow(
-    dead_code,
-    reason = "retained temporarily as an internal parity oracle"
-)]
+/// Render the frozen native a0 transport SVG representation.
+///
+/// Direct Rust consumers should use [`render_svg`] or one of the typed family
+/// entry points. This entry point exists only so `kicad-monkey-native` can
+/// preserve the released a0 wire bytes and historical error precedence.
+#[doc(hidden)]
+pub fn render_native_svg_a0_compat(
+    request: &NativeSvgRenderRequestA0,
+) -> Result<SvgArtifact, SvgError> {
+    render_svg_legacy(request)
+}
+
 fn render_svg_legacy(request: &NativeSvgRenderRequestA0) -> Result<SvgArtifact, SvgError> {
     validate_native_svg_render_request_contract(request)
         .map_err(|error| SvgError(format!("invalid SVG request: {error}")))?;

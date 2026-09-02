@@ -61,3 +61,27 @@ future revision.
 - Durable details and test ownership live in
   `docs/design/rust-direct-svg-preview.html` and
   `docs/requirements/2026-09-01-native-rust-svg-preview.md`.
+
+## 2026-09-02 browser-correctness amendment
+
+The original implementation made the typed direct renderer byte-identical to
+native a0 by writing nanometres directly into SVG user-unit tokens. That is not
+a valid browser-preview compatibility strategy: Chromium clamps very large CSS
+font sizes before later geometric transforms can compensate. Issue #78 was
+therefore reopened.
+
+Typed direct rendering now keeps all public geometry and viewport metadata in
+nanometres but serializes SVG dimensions, coordinates, paths, transforms,
+strokes, dashes, text sizes, and images in millimetres. The frozen native a0
+transport alone uses its retained compatibility serializer so its
+request/result schema, 29 successful SVG hashes, and error order do not change.
+The public Rust `render_svg` adapter continues to return typed direct-renderer
+bounds, warnings, metrics, and structured errors. WASM remains a typed
+projection leaf and does not render SVG.
+
+Uncached browser-font text honors both nominal X and Y font sizes and receives
+deterministic robust estimated fit bounds plus a structured warning instead of
+invalidating all bounds. Retained contour geometry remains exact. Cruncher PCB
+and schematic production now consume the typed browser-safe renderer and
+enrichment no longer applies a second scale. Pinned Chromium and pinned-Git
+consumer gates own the browser and downstream contracts.

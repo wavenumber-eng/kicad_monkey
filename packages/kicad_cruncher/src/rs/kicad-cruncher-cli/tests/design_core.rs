@@ -364,15 +364,28 @@ fn schematic_base_svg_preserves_canvas_and_record_identity() {
         assert!(artifact.svg.starts_with("<?xml version=\"1.0\""));
         assert!(artifact.svg.contains(&format!(
             "viewBox=\"0 0 {} {}\"",
-            document["canvas"]["width_nm"].as_u64().unwrap(),
-            document["canvas"]["height_nm"].as_u64().unwrap()
+            nm_text(document["canvas"]["width_nm"].as_u64().unwrap()),
+            nm_text(document["canvas"]["height_nm"].as_u64().unwrap())
         )));
+        assert!(!artifact.svg.contains("font-size=\"1270000\""));
         let records = document["records"].as_array().unwrap();
         assert_eq!(artifact.metrics.records, records.len());
         for record in records {
             let uuid = record["uuid"].as_str().unwrap();
             assert!(artifact.svg.contains(&format!("id=\"{uuid}\"")));
         }
+    }
+}
+
+fn nm_text(value: u64) -> String {
+    let whole = value / 1_000_000;
+    let fraction = value % 1_000_000;
+    if fraction == 0 {
+        whole.to_string()
+    } else {
+        format!("{whole}.{fraction:06}")
+            .trim_end_matches('0')
+            .to_owned()
     }
 }
 

@@ -43,6 +43,7 @@ jobs:
           uv sync --all-packages --all-extras
           npm install --global npm@11.6.2
           npm ci
+          npx playwright install chromium webkit
           cargo build --locked --jobs 4 --package kicad-monkey-native
       - name: Restore the reviewed public corpus once
         shell: pwsh
@@ -65,6 +66,21 @@ jobs:
           uv run --extra test python tests/rack.py run L3_024
           uv run --extra test python tests/rack.py run L3_025
           uv run --extra test python tests/rack.py run L3_026
+      - name: Run browser-safe direct SVG and pinned-Git consumer gates
+        shell: pwsh
+        run: |
+          $artifacts = Join-Path $env:RUNNER_TEMP 'svg-browser-artifacts'
+          New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
+          $env:KM_SVG_BROWSER_ARTIFACTS = $artifacts
+          uv run --extra test python tests/rack.py run L3_029
+          uv run --extra test python tests/rack.py run L3_030
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: svg-browser-diagnostics
+          path: ${{ runner.temp }}/svg-browser-artifacts/**
+          if-no-files-found: warn
+          retention-days: 14
       - name: Build the exact Phase 6 Python candidates
         shell: pwsh
         run: |

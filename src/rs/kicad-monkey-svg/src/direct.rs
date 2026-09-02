@@ -45,6 +45,7 @@ pub struct SvgBounds {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SvgWarning {
     BoundsUnavailableForUncachedText,
+    EstimatedBoundsForUncachedText,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -112,7 +113,9 @@ struct TextData<'a> {
     text: &'a str,
     color: &'a str,
     orient_deg: f64,
+    size_x_nm: i64,
     size_y_nm: i64,
+    mirror: bool,
     h_align: String,
     v_align: String,
     italic: bool,
@@ -233,6 +236,7 @@ struct Preflight {
     points: usize,
     text_bytes: usize,
     image_bytes: usize,
+    estimated_text_bounds_work: usize,
 }
 
 impl Preflight {
@@ -241,6 +245,11 @@ impl Preflight {
         self.points = checked_add(self.points, value.points, "points")?;
         self.text_bytes = checked_add(self.text_bytes, value.text_bytes, "text bytes")?;
         self.image_bytes = checked_add(self.image_bytes, value.image_bytes, "image bytes")?;
+        self.estimated_text_bounds_work = checked_add(
+            self.estimated_text_bounds_work,
+            value.estimated_text_bounds_work,
+            "bounds work",
+        )?;
         Ok(())
     }
 }
@@ -262,6 +271,17 @@ macro_rules! text_usage {
             .try_fold(0usize, |sum, polygon| {
                 checked_add(sum, polygon.len(), "points")
             })?;
+        let has_cache_geometry = cache_points > 0 || legacy_points > 0;
+        let estimated_text_bounds_work =
+            if has_cache_geometry || $value.size_x_nm.get() == 0 || $value.size_y_nm.get() == 0 {
+                0
+            } else {
+                $value
+                    .text
+                    .len()
+                    .checked_mul(2)
+                    .ok_or_else(|| overflow_error("estimated text bounds work overflowed"))?
+            };
         Ok::<Preflight, SvgError>(Preflight {
             operations: 1,
             points: checked_add(
@@ -271,6 +291,7 @@ macro_rules! text_usage {
             )?,
             text_bytes: $value.text.len(),
             image_bytes: 0,
+            estimated_text_bounds_work,
         })
     }};
 }
@@ -320,6 +341,7 @@ macro_rules! common_operation_usage {
                 points: 1,
                 text_bytes: 0,
                 image_bytes: value.image_data_b64.len(),
+                estimated_text_bounds_work: 0,
             }),
             m::PlotterOperation::FlashPadCustomOperation(value) => Ok(Preflight {
                 operations: 1,
@@ -506,8 +528,13 @@ fn enforce_original_preflight(
         "render work",
     )?;
     ensure(work, limits.max_render_work, "render work")?;
+    let bounds_work = checked_add(counts.operations, counts.points, "bounds work")?;
     ensure(
-        checked_add(counts.operations, counts.points, "bounds work")?,
+        checked_add(
+            bounds_work,
+            counts.estimated_text_bounds_work,
+            "bounds work",
+        )?,
         limits.max_bounds_work,
         "bounds work",
     )
@@ -629,7 +656,9 @@ macro_rules! define_operation_adapter {
                     text: &value.text,
                     color: &value.color,
                     orient_deg: value.orient_deg,
+                    size_x_nm: value.size_x_nm.get(),
                     size_y_nm: value.size_y_nm.get(),
+                    mirror: value.mirror.unwrap_or(false),
                     h_align: value.h_align.to_string(),
                     v_align: value.v_align.to_string(),
                     italic: value.italic,
@@ -831,7 +860,9 @@ macro_rules! schematic_common_operation {
             text: &$value.text,
             color: &$value.color,
             orient_deg: $value.orient_deg,
+            size_x_nm: $value.size_x_nm.get(),
             size_y_nm: $value.size_y_nm.get(),
+            mirror: $value.mirror.unwrap_or(false),
             h_align: $value.h_align.to_string(),
             v_align: $value.v_align.to_string(),
             italic: $value.italic,
@@ -1206,7 +1237,9 @@ fn board_footprint_operation(operation: &board::BoardFootprintOperation) -> Oper
             text: &value.text,
             color: &value.color,
             orient_deg: value.orient_deg,
+            size_x_nm: value.size_x_nm.get(),
             size_y_nm: value.size_y_nm.get(),
+            mirror: value.mirror.unwrap_or(false),
             h_align: value.h_align.to_string(),
             v_align: value.v_align.to_string(),
             italic: value.italic,
@@ -2181,7 +2214,7 @@ struct BoundsAccumulator {
     max_x: f64,
     max_y: f64,
     has_geometry: bool,
-    unsupported_text: bool,
+    estimated_text: bool,
 }
 
 impl BoundsAccumulator {
@@ -2326,28 +2359,15 @@ fn resolve_viewport(
 ) -> Result<(SvgViewport, Option<SvgBounds>, Vec<SvgWarning>), SvgError> {
     let visible_bounds = bounds.finish()?;
     let mut warnings = Vec::new();
+    if bounds.estimated_text {
+        warnings.push(SvgWarning::EstimatedBoundsForUncachedText);
+    }
     match policy {
         ViewportPolicy::Explicit(viewport) => {
             validate_viewport(viewport)?;
-            if bounds.unsupported_text {
-                warnings.push(SvgWarning::BoundsUnavailableForUncachedText);
-                Ok((viewport, None, warnings))
-            } else {
-                Ok((viewport, visible_bounds, warnings))
-            }
+            Ok((viewport, visible_bounds, warnings))
         }
         ViewportPolicy::Fit(options) => {
-            if bounds.unsupported_text {
-                let viewport = options.fallback.ok_or_else(|| {
-                    direct_error(
-                        SvgErrorKind::UnsupportedFitText,
-                        "fit viewport requires deterministic cached text bounds",
-                    )
-                })?;
-                validate_viewport(viewport)?;
-                warnings.push(SvgWarning::BoundsUnavailableForUncachedText);
-                return Ok((viewport, None, warnings));
-            }
             let Some(visible_bounds) = visible_bounds else {
                 let viewport = options.fallback.ok_or_else(|| {
                     direct_error(
@@ -2477,6 +2497,11 @@ fn add_operation_bounds(
             }
         }
         OperationData::Text(text) => {
+            nonnegative(text.size_x_nm, "size_x_nm")?;
+            nonnegative(text.size_y_nm, "size_y_nm")?;
+            if text.size_x_nm == 0 || text.size_y_nm == 0 {
+                return Ok(());
+            }
             let mut cached = false;
             for point in text.cache.iter().flatten().flatten() {
                 bounds.point(transform.point(*point), 0.0);
@@ -2487,7 +2512,7 @@ fn add_operation_bounds(
                 cached = true;
             }
             if !cached {
-                bounds.unsupported_text = true;
+                add_uncached_text_bounds(text, transform, bounds)?;
             }
         }
         OperationData::Image {
@@ -2584,6 +2609,105 @@ fn add_operation_bounds(
             bounds,
         ),
         OperationData::StartBlock { .. } | OperationData::EndBlock => {}
+    }
+    Ok(())
+}
+
+/// Add deterministic robust estimated bounds for browser-font text.
+///
+/// Plotter-IR a0 retains the nominal X/Y font size and alignment but no shaped
+/// glyph metrics for uncached text. One horizontal em per Unicode scalar plus
+/// an extra horizontal em for italic/bold and one nominal em of safety on every
+/// side keeps ordinary browser fonts inside fitted previews. The warning
+/// returned with the artifact distinguishes this heuristic from exact retained
+/// contour bounds, especially when callers override the font face.
+fn add_uncached_text_bounds(
+    text: &TextData<'_>,
+    transform: BoundsTransform,
+    bounds: &mut BoundsAccumulator,
+) -> Result<(), SvgError> {
+    nonnegative(text.size_x_nm, "size_x_nm")?;
+    nonnegative(text.size_y_nm, "size_y_nm")?;
+    if text.size_x_nm == 0 || text.size_y_nm == 0 || text.text.is_empty() {
+        return Ok(());
+    }
+    let line_count = if text.multiline {
+        text.text
+            .bytes()
+            .filter(|byte| *byte == b'\n')
+            .count()
+            .checked_add(1)
+            .ok_or_else(|| overflow_error("text line count overflowed"))?
+    } else {
+        1
+    };
+    let (first, step) = if line_count > 1 {
+        direct_multiline_positions(text, line_count)?
+    } else {
+        ((text.x, text.y), (0, 0))
+    };
+    let height = text.size_y_nm as f64;
+    let mut add_line = |index: usize, line: &str| -> Result<(), SvgError> {
+        if line.is_empty() {
+            return Ok(());
+        }
+        let index =
+            i64::try_from(index).map_err(|_| overflow_error("text line index exceeds i64"))?;
+        let x = checked_line_coordinate(first.0, step.0, index)?;
+        let y = checked_line_coordinate(first.1, step.1, index)?;
+        let scalar_count = i128::try_from(line.chars().count())
+            .map_err(|_| overflow_error("text scalar count exceeds i128"))?;
+        let overhang = i128::from(u8::from(text.bold || text.italic));
+        let width_nm = i128::from(text.size_x_nm)
+            .checked_mul(scalar_count + overhang)
+            .ok_or_else(|| overflow_error("estimated text width overflowed"))?;
+        let width = i64::try_from(width_nm)
+            .map_err(|_| overflow_error("estimated text width exceeds i64"))?
+            as f64;
+        let (base_min_x, base_max_x) = if text.h_align.ends_with("CENTER") {
+            (-width / 2.0, width / 2.0)
+        } else if text.h_align.ends_with("RIGHT") {
+            (-width, 0.0)
+        } else {
+            (0.0, width)
+        };
+        let (base_min_y, base_max_y) = if text.v_align.ends_with("TOP") {
+            (0.0, height)
+        } else if text.v_align.ends_with("CENTER") {
+            (-height / 2.0, height / 2.0)
+        } else if text.v_align.ends_with("BOTTOM") {
+            (-height, 0.0)
+        } else {
+            (-height, height / 4.0)
+        };
+        let horizontal_margin = text.size_x_nm as f64;
+        let vertical_margin = text.size_y_nm as f64;
+        let min_x = base_min_x - horizontal_margin;
+        let max_x = base_max_x + horizontal_margin;
+        let min_y = base_min_y - vertical_margin;
+        let max_y = base_max_y + vertical_margin;
+        for offset in [
+            (min_x, min_y),
+            (max_x, min_y),
+            (max_x, max_y),
+            (min_x, max_y),
+        ] {
+            let local_x = if text.mirror { -offset.0 } else { offset.0 };
+            let rotated = rotate_offset(local_x, offset.1, -text.orient_deg);
+            bounds.point(
+                transform.point_f64((x as f64 + rotated.0, y as f64 + rotated.1)),
+                0.0,
+            );
+        }
+        bounds.estimated_text = true;
+        Ok(())
+    };
+    if text.multiline {
+        for (index, line) in text.text.split('\n').enumerate() {
+            add_line(index, line)?;
+        }
+    } else {
+        add_line(0, text.text)?;
     }
     Ok(())
 }
@@ -2823,7 +2947,11 @@ fn render_typed_document<'a, O: 'a>(
         "render work",
     )?;
     ensure(preflight_work, limits.max_render_work, "render work")?;
-    let bounds_work = checked_add(preflight.operations, preflight.points, "bounds work")?;
+    let bounds_work = checked_add(
+        checked_add(preflight.operations, preflight.points, "bounds work")?,
+        preflight.estimated_text_bounds_work,
+        "bounds work",
+    )?;
     ensure(bounds_work, limits.max_bounds_work, "bounds work")?;
     let (viewport, visible_bounds, warnings) = resolve_typed_viewport(
         records.clone(),
@@ -2933,7 +3061,11 @@ fn render_normalized_document(
         "render work",
     )?;
     ensure(preflight_work, limits.max_render_work, "render work")?;
-    let bounds_work = checked_add(preflight.operations, preflight.points, "bounds work")?;
+    let bounds_work = checked_add(
+        checked_add(preflight.operations, preflight.points, "bounds work")?,
+        preflight.estimated_text_bounds_work,
+        "bounds work",
+    )?;
     ensure(bounds_work, limits.max_bounds_work, "bounds work")?;
     let (viewport, visible_bounds, warnings) = resolve_normalized_viewport(
         &records,
@@ -3066,6 +3198,17 @@ fn account(operation: &OperationData<'_>, counts: &mut Preflight) -> Result<(), 
                 .try_fold(0usize, |sum, points| {
                     checked_add(sum, points.len(), "points")
                 })?;
+            let has_cache_geometry = cache_points > 0;
+            if !has_cache_geometry && text.size_x_nm != 0 && text.size_y_nm != 0 {
+                counts.estimated_text_bounds_work = checked_add(
+                    counts.estimated_text_bounds_work,
+                    text.text
+                        .len()
+                        .checked_mul(2)
+                        .ok_or_else(|| overflow_error("estimated text bounds work overflowed"))?,
+                    "bounds work",
+                )?;
+            }
             (checked_add(1, cache_points, "points")?, text.text.len(), 0)
         }
         OperationData::Image { data, .. } => (1, 0, data.len()),
@@ -3095,14 +3238,14 @@ fn open_svg(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{}mm\" height=\"{}mm\" viewBox=\"0 0 {} {}\">\n",
         format_mm(viewport.width_nm),
         format_mm(viewport.height_nm),
-        viewport.width_nm,
-        viewport.height_nm,
+        format_mm(viewport.width_nm),
+        format_mm(viewport.height_nm),
     ))?;
     if let SvgBackground::Opaque(color) = context.background() {
         sink.element()?;
         sink.raw("<rect x=\"0\" y=\"0\"")?;
-        sink.attribute("width", &viewport.width_nm.to_string())?;
-        sink.attribute("height", &viewport.height_nm.to_string())?;
+        sink.attribute("width", &format_mm(viewport.width_nm))?;
+        sink.attribute("height", &format_mm(viewport.height_nm))?;
         color_attribute(sink, "fill", color.as_str(), None)?;
         sink.raw("/>\n")?;
     }
@@ -3116,7 +3259,10 @@ fn open_svg(
         .min_y_nm
         .checked_neg()
         .ok_or_else(|| overflow_error("viewport Y offset overflowed"))?;
-    sink.attribute("transform", &format!("translate({x} {y})"))?;
+    sink.attribute(
+        "transform",
+        &format!("translate({} {})", format_nm(x), format_nm(y)),
+    )?;
     sink.raw(">\n")
 }
 
@@ -3150,7 +3296,7 @@ fn open_normalized_record(
     if let Some((x, y, angle)) = record.placement {
         let mut transforms = Vec::with_capacity(2);
         if x != 0 || y != 0 {
-            transforms.push(format!("translate({x} {y})"));
+            transforms.push(format!("translate({} {})", format_nm(x), format_nm(y)));
         }
         if angle != 0.0 {
             transforms.push(format!("rotate({})", number(-angle)));
@@ -3455,14 +3601,14 @@ fn render_operation(
             if let Some((radius, large, sweep)) = arc_parameters(*start, *mid, *end) {
                 sink.raw(&format!(
                     "<path d=\"M {} {} A {} {} 0 {} {} {} {}\"",
-                    start.0,
-                    start.1,
-                    number(radius),
-                    number(radius),
+                    format_nm(start.0),
+                    format_nm(start.1),
+                    format_nm_f64(radius),
+                    format_nm_f64(radius),
                     u8::from(large),
                     u8::from(sweep),
-                    end.0,
-                    end.1,
+                    format_nm(end.0),
+                    format_nm(end.1),
                 ))?;
             } else {
                 sink.raw("<line")?;
@@ -3485,9 +3631,9 @@ fn render_operation(
             nonnegative(*diameter_nm, "diameter_nm")?;
             sink.element()?;
             sink.raw("<circle")?;
-            sink.attribute("cx", &center.0.to_string())?;
-            sink.attribute("cy", &center.1.to_string())?;
-            sink.attribute("r", &half_number(i128::from(*diameter_nm)))?;
+            sink.attribute("cx", &format_nm(center.0))?;
+            sink.attribute("cy", &format_nm(center.1))?;
+            sink.attribute("r", &format_half_nm(i128::from(*diameter_nm)))?;
             emit_inherited_style(sink, style, PlotterOperationKind::Circle, context, scope)?;
             sink.raw("/>\n")
         }
@@ -3499,13 +3645,13 @@ fn render_operation(
         } => {
             sink.element()?;
             sink.raw("<rect")?;
-            sink.attribute("x", &first.0.min(second.0).to_string())?;
-            sink.attribute("y", &first.1.min(second.1).to_string())?;
-            sink.attribute("width", &first.0.abs_diff(second.0).to_string())?;
-            sink.attribute("height", &first.1.abs_diff(second.1).to_string())?;
+            sink.attribute("x", &format_nm(first.0.min(second.0)))?;
+            sink.attribute("y", &format_nm(first.1.min(second.1)))?;
+            sink.attribute("width", &format_mm(first.0.abs_diff(second.0)))?;
+            sink.attribute("height", &format_mm(first.1.abs_diff(second.1)))?;
             if *corner_radius_nm > 0 {
-                sink.attribute("rx", &corner_radius_nm.to_string())?;
-                sink.attribute("ry", &corner_radius_nm.to_string())?;
+                sink.attribute("rx", &format_nm(*corner_radius_nm))?;
+                sink.attribute("ry", &format_nm(*corner_radius_nm))?;
             }
             emit_inherited_style(sink, style, PlotterOperationKind::Rect, context, scope)?;
             sink.raw("/>\n")
@@ -3527,14 +3673,14 @@ fn render_operation(
             sink.element()?;
             sink.raw(&format!(
                 "<path d=\"M {} {} C {} {}, {} {}, {} {}\"",
-                points[0].0,
-                points[0].1,
-                points[1].0,
-                points[1].1,
-                points[2].0,
-                points[2].1,
-                points[3].0,
-                points[3].1,
+                format_nm(points[0].0),
+                format_nm(points[0].1),
+                format_nm(points[1].0),
+                format_nm(points[1].1),
+                format_nm(points[2].0),
+                format_nm(points[2].1),
+                format_nm(points[3].0),
+                format_nm(points[3].1),
             ))?;
             emit_inherited_style(
                 sink,
@@ -3561,9 +3707,9 @@ fn render_operation(
             nonnegative(*diameter_nm, "diameter_nm")?;
             sink.element()?;
             sink.raw("<circle")?;
-            sink.attribute("cx", &center.0.to_string())?;
-            sink.attribute("cy", &center.1.to_string())?;
-            sink.attribute("r", &half_number(i128::from(*diameter_nm)))?;
+            sink.attribute("cx", &format_nm(center.0))?;
+            sink.attribute("cy", &format_nm(center.1))?;
+            sink.attribute("r", &format_half_nm(i128::from(*diameter_nm)))?;
             emit_pad_style(
                 sink,
                 PlotterOperationKind::FlashPadCircle,
@@ -4024,7 +4170,7 @@ fn emit_style(
         };
         let color = style.stroke.as_ref().map_or("#000000FF", SvgColor::as_str);
         color_attribute(sink, "stroke", color, Some(style.opacity))?;
-        sink.attribute("stroke-width", &width.to_string())?;
+        sink.attribute("stroke-width", &format_nm(width))?;
         sink.attribute("stroke-linecap", "round")?;
         sink.attribute("stroke-linejoin", "round")?;
         emit_dash(sink, style.line_style, width)?;
@@ -4246,6 +4392,11 @@ fn render_text(
     context: &ValidatedSvgRenderContextA1,
     scope: RenderScope<'_>,
 ) -> Result<(), SvgError> {
+    nonnegative(text.size_x_nm, "size_x_nm")?;
+    nonnegative(text.size_y_nm, "size_y_nm")?;
+    if text.size_x_nm == 0 || text.size_y_nm == 0 {
+        return Ok(());
+    }
     let (color, opacity) = resolved_text_style(
         text.color,
         text.layer.or(scope.layer),
@@ -4311,9 +4462,9 @@ fn render_text(
         let y = checked_line_coordinate(first.1, step.1, index)?;
         sink.element()?;
         sink.raw("<text")?;
-        sink.attribute("x", &x.to_string())?;
-        sink.attribute("y", &y.to_string())?;
-        sink.attribute("font-size", &text.size_y_nm.to_string())?;
+        sink.attribute("x", &format_nm(x))?;
+        sink.attribute("y", &format_nm(y))?;
+        sink.attribute("font-size", &format_nm(text.size_y_nm))?;
         let face = context.font_face_override().unwrap_or(text.font_face);
         if !face.is_empty() {
             sink.attribute("font-family", face)?;
@@ -4345,11 +4496,29 @@ fn render_text(
             },
         )?;
         color_attribute(sink, "fill", color.as_str(), Some(opacity))?;
-        if text.orient_deg != 0.0 {
-            sink.attribute(
-                "transform",
-                &format!("rotate({} {x} {y})", number(-text.orient_deg)),
-            )?;
+        let horizontal_scale =
+            (text.size_x_nm as f64 / text.size_y_nm as f64) * if text.mirror { -1.0 } else { 1.0 };
+        if text.orient_deg != 0.0 || text.size_x_nm != text.size_y_nm || text.mirror {
+            let mut transforms = Vec::new();
+            if text.orient_deg != 0.0 {
+                transforms.push(format!(
+                    "rotate({} {} {})",
+                    number(-text.orient_deg),
+                    format_nm(x),
+                    format_nm(y)
+                ));
+            }
+            if text.size_x_nm != text.size_y_nm || text.mirror {
+                transforms.push(format!(
+                    "translate({} {}) scale({} 1) translate({} {})",
+                    format_nm(x),
+                    format_nm(y),
+                    number(horizontal_scale),
+                    format_nm_i128(-i128::from(x)),
+                    format_nm_i128(-i128::from(y))
+                ));
+            }
+            sink.attribute("transform", &transforms.join(" "))?;
         }
         sink.raw(">")?;
         sink.escaped(line)?;
@@ -4484,8 +4653,8 @@ fn render_image(
     sink.raw("<image")?;
     sink.attribute("x", &centered_start(center.0, width))?;
     sink.attribute("y", &centered_start(center.1, height))?;
-    sink.attribute("width", &width.to_string())?;
-    sink.attribute("height", &height.to_string())?;
+    sink.attribute("width", &format_nm(width))?;
+    sink.attribute("height", &format_nm(height))?;
     sink.attribute("preserveAspectRatio", "none")?;
     let mut style = EffectiveStyle {
         stroke: None,
@@ -4528,9 +4697,9 @@ fn render_pad_oval(
     let Some(line) = pad_oval_centerline(center, size)? else {
         sink.element()?;
         sink.raw("<circle")?;
-        sink.attribute("cx", &center.0.to_string())?;
-        sink.attribute("cy", &center.1.to_string())?;
-        sink.attribute("r", &half_number(i128::from(size.0)))?;
+        sink.attribute("cx", &format_nm(center.0))?;
+        sink.attribute("cy", &format_nm(center.1))?;
+        sink.attribute("r", &format_half_nm(i128::from(size.0)))?;
         emit_pad_style(sink, PlotterOperationKind::FlashPadOval, context, scope)?;
         return sink.raw("/>\n");
     };
@@ -4542,13 +4711,13 @@ fn render_pad_oval(
         ("x2", line.second_twice.0),
         ("y2", line.second_twice.1),
     ] {
-        sink.attribute(name, &half_number(value))?;
+        sink.attribute(name, &format_half_nm(value))?;
     }
     rotation(sink, center, angle)?;
     if !context.has_style_overrides() {
         sink.attribute("fill", "none")?;
         sink.attribute("stroke", "#000000")?;
-        sink.attribute("stroke-width", &line.width_nm.to_string())?;
+        sink.attribute("stroke-width", &format_nm(line.width_nm))?;
         sink.attribute("stroke-linecap", "round")?;
         sink.attribute("stroke-linejoin", "round")?;
         return sink.raw("/>\n");
@@ -4619,11 +4788,11 @@ fn render_pad_rect(
     sink.raw("<rect")?;
     sink.attribute("x", &centered_start(center.0, size.0))?;
     sink.attribute("y", &centered_start(center.1, size.1))?;
-    sink.attribute("width", &size.0.to_string())?;
-    sink.attribute("height", &size.1.to_string())?;
+    sink.attribute("width", &format_nm(size.0))?;
+    sink.attribute("height", &format_nm(size.1))?;
     if let Some(radius) = radius {
-        sink.attribute("rx", &radius.to_string())?;
-        sink.attribute("ry", &radius.to_string())?;
+        sink.attribute("rx", &format_nm(radius))?;
+        sink.attribute("ry", &format_nm(radius))?;
     }
     rotation(sink, center, angle)?;
     emit_pad_style(
@@ -4656,8 +4825,8 @@ fn render_local_polygon(
         "transform",
         &format!(
             "translate({} {}) rotate({})",
-            center.0,
-            center.1,
+            format_nm(center.0),
+            format_nm(center.1),
             number(-angle),
         ),
     )?;
@@ -4672,7 +4841,7 @@ fn point_attributes(sink: &mut SvgSink, start: Point, end: Point) -> Result<(), 
         ("x2", end.0),
         ("y2", end.1),
     ] {
-        sink.attribute(name, &value.to_string())?;
+        sink.attribute(name, &format_nm(value))?;
     }
     Ok(())
 }
@@ -4682,7 +4851,7 @@ fn write_points(sink: &mut SvgSink, points: &[Point]) -> Result<(), SvgError> {
         if index > 0 {
             sink.raw(" ")?;
         }
-        sink.raw(&format!("{x},{y}"))?;
+        sink.raw(&format!("{},{}", format_nm(*x), format_nm(*y)))?;
     }
     Ok(())
 }
@@ -4690,7 +4859,7 @@ fn write_points(sink: &mut SvgSink, points: &[Point]) -> Result<(), SvgError> {
 fn write_path(sink: &mut SvgSink, points: &[Point]) -> Result<(), SvgError> {
     for (index, (x, y)) in points.iter().enumerate() {
         sink.raw(if index == 0 { "M " } else { " L " })?;
-        sink.raw(&format!("{x} {y}"))?;
+        sink.raw(&format!("{} {}", format_nm(*x), format_nm(*y)))?;
     }
     sink.raw(" Z ")
 }
@@ -4699,7 +4868,12 @@ fn rotation(sink: &mut SvgSink, center: Point, angle: f64) -> Result<(), SvgErro
     if angle != 0.0 {
         sink.attribute(
             "transform",
-            &format!("rotate({} {} {})", number(-angle), center.0, center.1,),
+            &format!(
+                "rotate({} {} {})",
+                number(-angle),
+                format_nm(center.0),
+                format_nm(center.1),
+            ),
         )?;
     }
     Ok(())
@@ -4733,23 +4907,27 @@ fn emit_dash(sink: &mut SvgSink, style: Option<SvgLineStyle>, width: i64) -> Res
             .ok_or_else(|| overflow_error("SVG dash length overflowed"))
     };
     let pattern = match style {
-        Some(SvgLineStyle::Dash) => Some(format!("{} {}", scaled(4)?, scaled(2)?)),
-        Some(SvgLineStyle::Dot) => Some(format!("{} {}", width, scaled(2)?)),
+        Some(SvgLineStyle::Dash) => Some(format!(
+            "{} {}",
+            format_nm(scaled(4)?),
+            format_nm(scaled(2)?)
+        )),
+        Some(SvgLineStyle::Dot) => Some(format!("{} {}", format_nm(width), format_nm(scaled(2)?))),
         Some(SvgLineStyle::DashDot) => Some(format!(
             "{} {} {} {}",
-            scaled(4)?,
-            scaled(2)?,
-            width,
-            scaled(2)?
+            format_nm(scaled(4)?),
+            format_nm(scaled(2)?),
+            format_nm(width),
+            format_nm(scaled(2)?)
         )),
         Some(SvgLineStyle::DashDotDot) => Some(format!(
             "{} {} {} {} {} {}",
-            scaled(4)?,
-            scaled(2)?,
-            width,
-            scaled(2)?,
-            width,
-            scaled(2)?
+            format_nm(scaled(4)?),
+            format_nm(scaled(2)?),
+            format_nm(width),
+            format_nm(scaled(2)?),
+            format_nm(width),
+            format_nm(scaled(2)?)
         )),
         _ => None,
     };
@@ -4799,18 +4977,40 @@ fn arc_parameters(start: Point, mid: Point, end: Point) -> Option<(f64, bool, bo
 }
 
 fn centered_start(center: i64, size: i64) -> String {
-    half_number(i128::from(center) * 2 - i128::from(size))
+    format_half_nm(i128::from(center) * 2 - i128::from(size))
 }
 
-fn half_number(numerator: i128) -> String {
-    let whole = numerator / 2;
-    if numerator % 2 == 0 {
-        whole.to_string()
-    } else if numerator == -1 {
-        "-0.5".to_owned()
-    } else {
-        format!("{whole}.5")
+fn format_nm(value_nm: i64) -> String {
+    format_nm_i128(i128::from(value_nm))
+}
+
+fn format_nm_i128(value_nm: i128) -> String {
+    format_scaled_decimal(value_nm, 1_000_000, 6)
+}
+
+fn format_half_nm(twice_value_nm: i128) -> String {
+    format_scaled_decimal(twice_value_nm, 2_000_000, 7)
+}
+
+fn format_nm_f64(value_nm: f64) -> String {
+    number(value_nm / 1_000_000.0)
+}
+
+fn format_scaled_decimal(numerator: i128, denominator: u128, fractional_digits: usize) -> String {
+    let negative = numerator.is_negative();
+    let magnitude = numerator.unsigned_abs();
+    let whole = magnitude / denominator;
+    let remainder = magnitude % denominator;
+    let sign = if negative { "-" } else { "" };
+    if remainder == 0 {
+        return format!("{sign}{whole}");
     }
+    let scale = 10_u128.pow(u32::try_from(fractional_digits).expect("fraction digits fit u32"));
+    let fraction = remainder * scale / denominator;
+    let fraction = format!("{fraction:0fractional_digits$}")
+        .trim_end_matches('0')
+        .to_owned();
+    format!("{sign}{whole}.{fraction}")
 }
 
 fn number(value: f64) -> String {
@@ -4826,15 +5026,7 @@ fn number(value: f64) -> String {
 }
 
 fn format_mm(value_nm: u64) -> String {
-    let whole = value_nm / 1_000_000;
-    let fraction = value_nm % 1_000_000;
-    if fraction == 0 {
-        whole.to_string()
-    } else {
-        format!("{whole}.{fraction:06}")
-            .trim_end_matches('0')
-            .to_owned()
-    }
+    format_scaled_decimal(i128::from(value_nm), 1_000_000, 6)
 }
 
 fn nonnegative(value: i64, label: &str) -> Result<(), SvgError> {
@@ -4885,6 +5077,186 @@ mod tests {
     use super::*;
     use crate::{LayerPattern, SvgContextLimits, SvgRenderContextA1, SvgVisibility};
 
+    #[test]
+    fn svg_lengths_format_exact_signed_and_half_nanometres_as_millimetres() {
+        assert_eq!(format_nm(0), "0");
+        assert_eq!(format_nm(1), "0.000001");
+        assert_eq!(format_nm(-1), "-0.000001");
+        assert_eq!(format_nm(1_270_000), "1.27");
+        assert_eq!(format_nm(-12_345_678), "-12.345678");
+        assert_eq!(
+            format_nm_i128(-i128::from(i64::MIN)),
+            "9223372036854.775808"
+        );
+        assert_eq!(format_half_nm(1), "0.0000005");
+        assert_eq!(format_half_nm(-1), "-0.0000005");
+        assert_eq!(format_half_nm(2_000_001), "1.0000005");
+        assert_eq!(format_mm(200_000_000), "200");
+    }
+
+    #[test]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one serializer matrix covers every dimensional SVG operation family"
+    )]
+    fn every_dimensional_operation_serializes_in_millimetres_exactly_once() {
+        let style = PrimitiveStyle {
+            layer: None,
+            role: None,
+            layers: &[],
+            stroke: Some("#000000FF"),
+            fill: None,
+            width_nm: 100_001,
+            line_style: Some("DASH".to_owned()),
+            filled: false,
+        };
+        let operations = vec![
+            OperationData::Segment {
+                start: (-1, 1),
+                end: (1_000_001, -1_000_001),
+                style: style.clone(),
+            },
+            OperationData::Arc {
+                start: (0, 0),
+                mid: (1_000_000, 1_000_000),
+                end: (2_000_000, 0),
+                style: style.clone(),
+            },
+            OperationData::Circle {
+                center: (1, -1),
+                diameter_nm: 1_000_001,
+                style: style.clone(),
+            },
+            OperationData::Rect {
+                first: (-1, -2),
+                second: (1_000_001, 2_000_002),
+                corner_radius_nm: 500_001,
+                style: style.clone(),
+            },
+            OperationData::Poly {
+                points: vec![(-1, 1), (1_000_001, 2_000_002)],
+                style: style.clone(),
+            },
+            OperationData::Bezier {
+                points: [(-1, 1), (2, -2), (3, -3), (1_000_001, -1_000_001)],
+                style: style.clone(),
+            },
+            OperationData::Text(TextData {
+                x: 1,
+                y: -1,
+                text: "T",
+                color: "#000000FF",
+                orient_deg: 30.0,
+                size_x_nm: 1_270_001,
+                size_y_nm: 1_270_001,
+                mirror: false,
+                h_align: "GR_TEXT_H_ALIGN_LEFT".to_owned(),
+                v_align: "GR_TEXT_V_ALIGN_BOTTOM".to_owned(),
+                italic: false,
+                bold: false,
+                multiline: false,
+                font_face: "",
+                layer: None,
+                cache: vec![vec![vec![(1, -1), (1_000_001, 2_000_002), (3, 4)]]],
+                legacy_cache: Vec::new(),
+            }),
+            OperationData::Text(TextData {
+                x: 1,
+                y: -1,
+                text: "fallback",
+                color: "#000000FF",
+                orient_deg: 30.0,
+                size_x_nm: 1_270_001,
+                size_y_nm: 1_270_001,
+                mirror: false,
+                h_align: "GR_TEXT_H_ALIGN_LEFT".to_owned(),
+                v_align: "GR_TEXT_V_ALIGN_BOTTOM".to_owned(),
+                italic: false,
+                bold: false,
+                multiline: false,
+                font_face: "",
+                layer: None,
+                cache: Vec::new(),
+                legacy_cache: Vec::new(),
+            }),
+            OperationData::Image {
+                center: (0, 0),
+                width_nm: 1,
+                height_nm: 3,
+                format: "png",
+                data: "AA==",
+            },
+            OperationData::PadCircle {
+                center: (1, -1),
+                diameter_nm: 3,
+                layers: &[],
+            },
+            OperationData::PadOval {
+                center: (1, -1),
+                size: (1_000_001, 3),
+                angle_deg: 30.0,
+                layers: &[],
+            },
+            OperationData::PadRect {
+                center: (1, -1),
+                size: (3, 5),
+                angle_deg: 45.0,
+                radius_nm: Some(1),
+                layers: &[],
+            },
+            OperationData::PadCustom {
+                center: (1, -1),
+                angle_deg: 15.0,
+                polygons: vec![vec![(-1, 1), (1_000_001, 2_000_002), (3, 4)]],
+                layers: &[],
+            },
+            OperationData::PadTrapez {
+                center: (1, -1),
+                angle_deg: 60.0,
+                corners: vec![(-1, 1), (1_000_001, 2_000_002), (3, 4)],
+                layers: &[],
+            },
+        ];
+        let context = ValidatedSvgRenderContextA1::defaults();
+        let mut sink = SvgSink::new(1_000_000, 100, 1_000_000);
+        let mut blocks = BlockState::new(8);
+        for operation in &operations {
+            render_operation(
+                operation,
+                &mut sink,
+                &context,
+                RenderScope::default(),
+                &mut blocks,
+            )
+            .unwrap();
+        }
+        let (svg, elements, _) = sink.finish().unwrap();
+        assert_eq!(elements, operations.len());
+        for expected in [
+            "x1=\"-0.000001\" y1=\"0.000001\" x2=\"1.000001\" y2=\"-1.000001\"",
+            "stroke-width=\"0.100001\"",
+            "stroke-dasharray=\"0.400004 0.200002\"",
+            "d=\"M 0 0 A 1 1 0 0 0 2 0\"",
+            "cx=\"0.000001\" cy=\"-0.000001\" r=\"0.5000005\"",
+            "x=\"-0.000001\" y=\"-0.000002\" width=\"1.000002\" height=\"2.000004\" rx=\"0.500001\"",
+            "points=\"-0.000001,0.000001 1.000001,2.000002\"",
+            "d=\"M -0.000001 0.000001 C 0.000002 -0.000002, 0.000003 -0.000003, 1.000001 -1.000001\"",
+            "font-size=\"1.270001\"",
+            "rotate(-30 0.000001 -0.000001)",
+            "d=\"M 0.000001 -0.000001 L 1.000001 2.000002 L 0.000003 0.000004 Z \"",
+            "x=\"-0.0000005\" y=\"-0.0000015\" width=\"0.000001\" height=\"0.000003\"",
+            "r=\"0.0000015\"",
+            "translate(0.000001 -0.000001) rotate(-15)",
+            "translate(0.000001 -0.000001) rotate(-60)",
+        ] {
+            assert!(svg.contains(expected), "missing {expected:?} in:\n{svg}");
+        }
+        assert!(!svg.contains("x2=\"1000001\""));
+        assert!(!svg.contains("stroke-width=\"100001\""));
+        assert!(!svg.contains("font-size=\"1270001\""));
+        assert!(!svg.contains("1000001,2000002"));
+    }
+
     fn filled_style() -> PrimitiveStyle<'static> {
         PrimitiveStyle {
             layer: None,
@@ -4926,7 +5298,9 @@ mod tests {
                 text: "IN",
                 color: "#000000FF",
                 orient_deg: 0.0,
+                size_x_nm: 1,
                 size_y_nm: 1,
+                mirror: false,
                 h_align: "LEFT".to_owned(),
                 v_align: "TOP".to_owned(),
                 italic: false,

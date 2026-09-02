@@ -2,20 +2,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
-use std::num::NonZeroU64;
 
-use kicad_monkey_contracts::JavaScriptSafeInteger;
-use kicad_monkey_contracts::generated::native_svg_render_request::{
-    CanonicalUint64Decimal, NativeBoardSvgDocument, NativeSvgPlotDocument,
-    NativeSvgPositiveSafeInteger, NativeSvgRenderLimits, NativeSvgRenderRequestA0,
-    NativeSvgViewport,
-};
+use kicad_monkey_contracts::generated::board_plot_document::BoardPlotDocumentA0;
 use kicad_monkey_core::{PcbLimits, PcbView, ProjectDocument, ProjectLimits};
-use kicad_monkey_svg::{SvgMetrics, render_svg};
+use kicad_monkey_svg::{
+    SvgMetrics, SvgRenderContextA1, SvgViewport, ViewportPolicy, render_board_document_svg,
+};
 use serde_json::{Value, json};
 
 use crate::design::{
-    BoardPlotDocument, DesignError, LoadedDesignSources, SchematicSvgRenderLimits, sha256_hex,
+    BoardPlotDocument, DesignError, LoadedDesignSources, SchematicSvgRenderLimits,
+    schematic_svg_limits, sha256_hex,
 };
 
 const ENRICHMENT_SCHEMA: &str = "kicad_monkey.pcb.svg.enrichment.a0";
@@ -200,6 +197,9 @@ fn build_pcb_review_svgs_internal(
     let usage_started = profile_enabled.then(std::time::Instant::now);
     let (contract_materialized_bytes, contract_preflight_work) =
         value_projection_usage(&document.value, composition.remaining_work())?;
+    let render_materialized_bytes = contract_materialized_bytes
+        .checked_mul(2)
+        .ok_or_else(|| DesignError::new("PCB typed render materialization overflowed"))?;
     composition.reserve(0, contract_preflight_work)?;
     profile.contract_usage_preflight_ns = profile_elapsed_ns(usage_started);
     let size_started = profile_enabled.then(std::time::Instant::now);
@@ -213,7 +213,9 @@ fn build_pcb_review_svgs_internal(
         // A filtered Value can retain the complete contract plus Value/map
         // allocation overhead. Reserve its structural upper bound before the
         // first clone in `filter_document`.
-        composition.begin_temporary(contract_materialized_bytes, contract_bytes)?;
+        // Keep one filtered JSON value for Cruncher enrichment and one owned
+        // typed contract for the direct renderer at the same time.
+        composition.begin_temporary(render_materialized_bytes, contract_bytes)?;
         let included_layers = vec![layer.clone(), "Edge.Cuts".to_owned()];
         metadata["view"]["included_layers"] = json!(&included_layers);
         metadata["view"]["includes_board_outline"] = json!(true);
@@ -246,21 +248,34 @@ fn build_pcb_review_svgs_internal(
             .min(composition.remaining_materialized())
             .min(composition.remaining_work());
         let request_started = profile_enabled.then(std::time::Instant::now);
-        let request = render_request(filtered, bounds, limits.native, render_limit)?;
+        let typed: BoardPlotDocumentA0 =
+            serde_json::from_value(filtered.clone()).map_err(|error| {
+                DesignError::context("could not decode typed board plot document", error)
+            })?;
+        let viewport = SvgViewport {
+            min_x_nm: bounds.min_x,
+            min_y_nm: bounds.min_y,
+            width_nm: bounds.width(),
+            height_nm: bounds.height(),
+        };
+        let context = SvgRenderContextA1::default()
+            .validate(Default::default())
+            .map_err(|error| DesignError::context("could not validate SVG context", error))?;
         profile.render_request_ns = profile
             .render_request_ns
             .saturating_add(profile_elapsed_ns(request_started));
         let render_started = profile_enabled.then(std::time::Instant::now);
-        let rendered = render_svg(&request)
-            .map_err(|error| DesignError::context("could not render PCB base SVG", error))?;
+        let rendered = render_board_document_svg(
+            &typed,
+            ViewportPolicy::Explicit(viewport),
+            &context,
+            schematic_svg_limits(&limits.native, render_limit),
+        )
+        .map_err(|error| DesignError::context("could not render PCB base SVG", error))?;
         profile.native_render_ns = profile
             .native_render_ns
             .saturating_add(profile_elapsed_ns(render_started));
         composition.reserve(rendered.svg.len(), rendered.svg.len())?;
-        let filtered = match &request.document {
-            NativeSvgPlotDocument::BoardSvgDocument(document) => &document.value,
-            _ => return Err(DesignError::new("PCB SVG request lost its board document")),
-        };
         let composition_preflight_started = profile_enabled.then(std::time::Instant::now);
         let composition_upper = composition_upper_bound(
             &rendered.svg,
@@ -276,7 +291,7 @@ fn build_pcb_review_svgs_internal(
         let compose_started = profile_enabled.then(std::time::Instant::now);
         let svg = compose_review_svg(
             &rendered.svg,
-            filtered,
+            &filtered,
             layer,
             &included_layers,
             &document.source_path,
@@ -310,7 +325,7 @@ fn build_pcb_review_svgs_internal(
             metrics: rendered.metrics,
             viewport_bounds_nm: [bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y],
         });
-        composition.end_temporary(contract_materialized_bytes)?;
+        composition.end_temporary(render_materialized_bytes)?;
         profile.artifact_finalize_ns = profile
             .artifact_finalize_ns
             .saturating_add(profile_elapsed_ns(finalize_started));
@@ -802,53 +817,6 @@ fn copper_index(layer: &str) -> Option<usize> {
     }
 }
 
-fn render_request(
-    document: Value,
-    bounds: Bounds,
-    limits: SchematicSvgRenderLimits,
-    max_svg_bytes: usize,
-) -> Result<NativeSvgRenderRequestA0, DesignError> {
-    Ok(NativeSvgRenderRequestA0 {
-        document: NativeSvgPlotDocument::BoardSvgDocument(NativeBoardSvgDocument {
-            kind: "board".to_owned(),
-            value: document,
-        }),
-        limits: NativeSvgRenderLimits {
-            max_block_depth: limits.max_block_depth,
-            max_image_encoded_bytes: decimal(limits.max_image_encoded_bytes),
-            max_operations: limits.max_operations,
-            max_points: decimal(limits.max_points),
-            max_records: limits.max_records,
-            max_render_work: decimal(limits.max_render_work),
-            max_result_bytes: decimal(max_svg_bytes),
-            max_svg_bytes: decimal(max_svg_bytes),
-            max_svg_elements: decimal(limits.max_svg_elements),
-            max_text_bytes: decimal(limits.max_text_bytes),
-        },
-        profile: "plotter-base-a0".to_owned(),
-        type_: "kicad_monkey.native.svg.request".to_owned(),
-        version: "a0".to_owned(),
-        viewport: NativeSvgViewport {
-            height_nm: positive(bounds.height())?,
-            min_x_nm: JavaScriptSafeInteger::try_from(bounds.min_x)
-                .map_err(|error| DesignError::context("PCB viewport X is unsafe", error))?,
-            min_y_nm: JavaScriptSafeInteger::try_from(bounds.min_y)
-                .map_err(|error| DesignError::context("PCB viewport Y is unsafe", error))?,
-            width_nm: positive(bounds.width())?,
-        },
-    })
-}
-
-fn decimal(value: usize) -> CanonicalUint64Decimal {
-    CanonicalUint64Decimal(value.to_string())
-}
-
-fn positive(value: u64) -> Result<NativeSvgPositiveSafeInteger, DesignError> {
-    NonZeroU64::new(value)
-        .map(NativeSvgPositiveSafeInteger)
-        .ok_or_else(|| DesignError::new("PCB viewport is empty"))
-}
-
 fn preflight_enrichment_metadata(
     loaded: &LoadedDesignSources,
     view: &PcbView<'_>,
@@ -1256,9 +1224,13 @@ fn compose_review_svg(
     categorized.sort_by_key(|(order, _)| *order);
     let width = nm_text(bounds.width());
     let height = nm_text(bounds.height());
-    let root = root
-        .replace(&format!("viewBox=\"0 0 {} {}\"", bounds.width(), bounds.height()), &format!("viewBox=\"0 0 {width} {height}\""))
-        .replacen(">", &format!(
+    let expected_viewbox = format!("viewBox=\"0 0 {width} {height}\"");
+    if !root.contains(&expected_viewbox) {
+        return Err(DesignError::new(
+            "PCB SVG base viewport is not millimetre-scaled",
+        ));
+    }
+    let root = root.replacen(">", &format!(
             " data-stage=\"enriched\" data-group-mode=\"source-record\" data-enrichment-schema=\"{ENRICHMENT_SCHEMA}\" data-view-kind=\"layer_set\" data-profile=\"enriched\" data-mirror-x=\"false\" data-source=\"{}\" data-included-layers=\"{}\" data-review-theme=\"{REVIEW_THEME}\" data-review-layer=\"{}\" data-review-draw-order=\"tracks,polygons-zones,edge-cuts,pads,drills-slots\">",
             xml_attr(source_path.rsplit(['/', '\\']).next().unwrap_or(source_path)),
             xml_attr(&included_layers.join(",")),
@@ -1276,11 +1248,7 @@ fn compose_review_svg(
     )?;
     push_xml_text_bounded(&mut output, metadata, max_bytes)?;
     push_bounded(&mut output, "\n</metadata>\n", max_bytes)?;
-    push_bounded(
-        &mut output,
-        &background.replace("/>", " transform=\"scale(0.000001)\"/>"),
-        max_bytes,
-    )?;
+    push_bounded(&mut output, background, max_bytes)?;
     push_bounded(&mut output, "\n", max_bytes)?;
     for (_, group) in categorized {
         push_bounded(&mut output, &group, max_bytes)?;
@@ -1772,13 +1740,17 @@ fn style_group(
                 .map(|(name, value)| format!(" {name}=\"{}\"", xml_attr(value)))
                 .collect::<String>();
             line = line.replacen('>', &format!("{fragment}>"), 1);
+            let x = bounds
+                .min_x
+                .checked_neg()
+                .ok_or_else(|| DesignError::new("PCB viewport X offset overflowed"))?;
+            let y = bounds
+                .min_y
+                .checked_neg()
+                .ok_or_else(|| DesignError::new("PCB viewport Y offset overflowed"))?;
             line = prepend_transform(
                 &line,
-                &format!(
-                    "scale(0.000001) translate({} {})",
-                    bounds.min_x.saturating_neg(),
-                    bounds.min_y.saturating_neg()
-                ),
+                &format!("translate({} {})", signed_nm_text(x), signed_nm_text(y)),
             )?;
         }
         if line.starts_with("<g ") && index != 0 {
@@ -1975,6 +1947,14 @@ fn nm_text(value: u64) -> String {
         format!("{whole}.{fraction:06}")
             .trim_end_matches('0')
             .to_owned()
+    }
+}
+
+fn signed_nm_text(value: i64) -> String {
+    if value < 0 {
+        format!("-{}", nm_text(value.unsigned_abs()))
+    } else {
+        nm_text(value as u64)
     }
 }
 

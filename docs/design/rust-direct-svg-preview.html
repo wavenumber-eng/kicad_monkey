@@ -142,11 +142,35 @@ render_{footprint,symbol,board,schematic}_svg(
   images, block transforms, and footprint placement. Checked arithmetic and
   work limits apply. Empty content is an error unless a caller supplied an
   explicit fallback; no page-size guess is made.</p>
-  <p>Fit rejects a visible semantic <code>Text</code> operation that lacks
-  deterministic retained cache contours. Explicit viewport rendering continues
-  to emit the existing semantic text. A caller may therefore request explicit
-  source/page framing or arrange deterministic text resources during
-  projection; fit never guesses browser-font glyph bounds.</p>
+  <p>Retained filled-contour text uses its exact painted bounds. Uncached
+  browser-font text uses a deterministic robust fit estimate based on both
+  nominal font dimensions: one horizontal em per Unicode scalar, an extra
+  horizontal em for bold or italic, and one nominal em of safety on every side,
+  transformed through the same alignment, rotation, placement, and visibility
+  stream as emission. Emission applies the nominal X/Y ratio around the text
+  anchor before rotation and applies authored horizontal mirroring at that same
+  anchor, so non-square or mirrored KiCad text is not silently changed.
+  The artifact reports <code>EstimatedBoundsForUncachedText</code>, and the
+  scalar scan is charged to <code>max_bounds_work</code>. Empty and zero-size
+  text contributes no visible bounds. This estimate is intentionally not a
+  claim of exact browser shaping, particularly with an arbitrary font-face
+  override; it prevents one uncached label from erasing otherwise renderable
+  geometry.</p>
+
+  <h3>SVG serialization units</h3>
+  <p>Plotter-IR, viewport, bounds, fit padding, and artifact metadata remain
+  exact nanometres. At the direct SVG serialization boundary only, one shared
+  formatter converts every dimensional token to millimetres: root intrinsic
+  dimensions and viewBox, points and paths, radii, translations and rotation
+  centers, stroke widths and dashes, text placement and font size, images, and
+  pad geometry. Signed integer nanometres and half-nanometre pad geometry use
+  exact decimal formatting without an <code>f64</code> round trip. Opacity,
+  angles, identifiers, colors, roles, and indexes remain dimensionless.</p>
+  <p>This matches the browser-safe scale of KiCad CLI SVG and both maintained
+  Python SVG paths. Rust cached text is filled contour geometry; Python's
+  standalone Newstroke text is stroked path geometry; uncached Rust text is a
+  scaled browser-font fallback. Hidden semantic text associated with outline
+  geometry is not a second painted copy.</p>
 
   <h2>Layer truth</h2>
   <p>Layer selection is exact with a bounded documented wildcard matcher.
@@ -201,10 +225,12 @@ render_board_svg(&amp;ProjectedBoardPlotArtifact, policy, context, limits)
   multiplies profile/context opacity and must remain finite in [0,1].</p>
 
   <h2>Compatibility and ownership</h2>
-  <p>The native a0 renderer decodes its frozen JSON request then delegates to
-  the same rendering engine with the default context and explicit viewport.
-  WASM projectors delegate to core. Existing exact SVG vectors remain the
-  default-output oracle. Product themes, UI selection state, application cache
+  <p>The native a0 renderer retains its legacy raw-nanometre serializer because
+  exact SVG bytes and error ordering are part of that frozen transport. The
+  four typed direct renderers use browser-safe millimetres by default. WASM
+  projectors delegate to core and do not render SVG. Existing exact native SVG
+  vectors remain transport-compatibility evidence; pinned Chromium is the
+  browser-correctness oracle. Product themes, UI selection state, application cache
   policy, and post-render workflows belong to Alexandria; Monkey exposes only
   bounded truthful source identities and basic 2D presentation controls.</p>
   <p>The frozen adapter always performs wire-size preflight, generated request
@@ -272,6 +298,18 @@ render_board_svg(&amp;ProjectedBoardPlotArtifact, policy, context, limits)
   Tests cover all four families, exact and malformed limits, repeated hierarchy
   occurrences, context immutability, bounds/filter parity, a0 vectors, native
   and Node WASM adapters, reviewed corpus behavior, and applicable Cruncher
-  consumers. Test ownership and runtime are recorded before closeout.</p>
+  consumers. Rack L3_029 renders MIMX, all four direct families, and actual
+  Cruncher PCB/schematic artifacts in managed Chromium. Rack L3_030 builds a
+  temporary external Cargo project against one exact candidate commit (the
+  checked-out <code>GITHUB_SHA</code> on clean CI, or a clearly marked synthetic
+  snapshot for local dirty-tree validation), checks
+  the runtime tree excludes native/WASM adapters, and browser-renders all four
+  context-overridden outputs. Test ownership and runtime are recorded before
+  closeout. Chromium is the normative browser gate; the MIMX case also runs a
+  WebKit advisory intrinsic-size, visibility, and clipping smoke. Retained
+  evidence includes SVGs, screenshots, root-relative normalized painted facts,
+  browser logs, and an environment manifest. Pixel diffs are intentionally not
+  an acceptance oracle because KiCad/Python retained outlines and Rust browser
+  text use different rasterization strategies.</p>
 </body>
 </html>

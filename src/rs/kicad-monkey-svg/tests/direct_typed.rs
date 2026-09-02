@@ -20,8 +20,8 @@ use kicad_monkey_svg::{
     LayerPattern, LayerSelection, PlotterOperationKind, SvgBackground, SvgColor, SvgContextLimits,
     SvgErrorKind, SvgFitOptions, SvgIdentityMode, SvgRenderContextA1, SvgRenderLimits,
     SvgSemanticRole, SvgStyleOverride, SvgViewport, SvgVisibility, SvgWarning, ViewportPolicy,
-    render_board_document_svg, render_board_svg, render_footprint_svg, render_schematic_page_svg,
-    render_schematic_svg, render_svg, render_symbol_svg,
+    render_board_document_svg, render_board_svg, render_footprint_svg, render_native_svg_a0_compat,
+    render_schematic_page_svg, render_schematic_svg, render_symbol_svg,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -184,7 +184,11 @@ fn accent_context(accent: &SvgColor) -> kicad_monkey_svg::ValidatedSvgRenderCont
 }
 
 #[test]
-fn direct_defaults_match_the_established_renderer_for_every_successful_vector() {
+#[allow(
+    clippy::too_many_lines,
+    reason = "one matrix keeps all frozen native and browser-safe direct family outcomes together"
+)]
+fn direct_defaults_are_browser_scaled_while_native_a0_bytes_remain_frozen() {
     let context = ValidatedContext::default();
     let mut compared = 0usize;
     for (file, family, _, _) in [
@@ -221,7 +225,7 @@ fn direct_defaults_match_the_established_renderer_for_every_successful_vector() 
             let decoded =
                 decode_native_svg_render_request_a0(&serde_json::to_vec(&request).unwrap())
                     .expect("legacy request");
-            let legacy = render_svg(&decoded);
+            let legacy = render_native_svg_a0_compat(&decoded);
             let direct = match family {
                 "footprint" => render_footprint_svg(
                     &serde_json::from_value::<FootprintPlotDocumentA0>(document).unwrap(),
@@ -251,23 +255,36 @@ fn direct_defaults_match_the_established_renderer_for_every_successful_vector() 
             };
             match (legacy, direct) {
                 (Ok(legacy), Ok(direct)) => {
-                    assert_eq!(
-                        direct.svg, legacy.svg,
-                        "default SVG mismatch for {family}/{document_id}"
-                    );
                     let frozen = expected.1.as_ref().expect("frozen SVG outcome");
                     assert_eq!(
-                        direct.svg.len(),
+                        legacy.svg.len(),
                         frozen.0,
                         "frozen bytes for {family}/{document_id}"
                     );
                     assert_eq!(
-                        Sha256::digest(direct.svg.as_bytes())
+                        Sha256::digest(legacy.svg.as_bytes())
                             .iter()
                             .map(|byte| format!("{byte:02x}"))
                             .collect::<String>(),
                         frozen.1,
                         "frozen hash for {family}/{document_id}"
+                    );
+                    assert_eq!(direct.viewport, legacy.viewport);
+                    assert_eq!(direct.source_kind, legacy.source_kind);
+                    assert_eq!(direct.document_id, legacy.document_id);
+                    let expected_viewbox = format!(
+                        "viewBox=\"0 0 {} {}\"",
+                        test_mm(expected.0.width_nm),
+                        test_mm(expected.0.height_nm)
+                    );
+                    assert!(
+                        direct.svg.contains(&expected_viewbox),
+                        "browser-safe millimetre viewBox missing for {family}/{document_id}: {}",
+                        direct.svg.lines().nth(1).unwrap_or_default()
+                    );
+                    assert_ne!(
+                        direct.svg, legacy.svg,
+                        "direct output must not retain native a0 raw-nanometre tokens"
                     );
                     compared += 1;
                 }
@@ -320,8 +337,8 @@ fn internal_layer_keeps_physical_pad_and_via_drills_without_removed_copper() {
 
     assert_eq!(svg.matches("data-ref=\"pad_hole\"").count(), 2, "{svg}");
     assert!(svg.contains("data-ref=\"via\""));
-    assert!(svg.contains("r=\"200000\""));
-    assert!(!svg.contains("r=\"400000\""));
+    assert!(svg.contains("r=\"0.2\""));
+    assert!(!svg.contains("r=\"0.4\""));
 
     let hidden_context = SvgRenderContextA1::builder()
         .layer_selection(LayerSelection::include(
@@ -416,7 +433,7 @@ fn governed_yoshi_internal_layer_keeps_zone_connected_land_and_physical_hole() {
 }
 
 #[test]
-fn fit_returns_exact_used_viewport_and_fails_closed_for_uncached_text() {
+fn fit_returns_exact_nm_metadata_and_estimates_uncached_text_without_erasing_geometry() {
     let footprint: FootprintPlotDocumentA0 =
         serde_json::from_value(first_document("footprint_plotter_a0_vectors.json")).unwrap();
     let context = ValidatedContext::default();
@@ -451,10 +468,15 @@ fn fit_returns_exact_used_viewport_and_fails_closed_for_uncached_text() {
         min_extent_nm: 1,
         fallback: None,
     });
-    let error =
-        render_footprint_svg(&textual, fit, context.get(), SvgRenderLimits::default()).unwrap_err();
-    assert_eq!(error.kind(), SvgErrorKind::UnsupportedFitText);
-    assert!(error.to_string().contains("cached text"));
+    let estimated =
+        render_footprint_svg(&textual, fit, context.get(), SvgRenderLimits::default()).unwrap();
+    assert!(estimated.visible_bounds.is_some());
+    assert_eq!(
+        estimated.warnings,
+        [SvgWarning::EstimatedBoundsForUncachedText]
+    );
+    assert!(estimated.svg.contains("font-size=\"1.27\""));
+    assert!(!estimated.svg.contains("font-size=\"1270000\""));
     let fallback = SvgViewport {
         min_x_nm: -1,
         min_y_nm: -2,
@@ -472,11 +494,123 @@ fn fit_returns_exact_used_viewport_and_fails_closed_for_uncached_text() {
         SvgRenderLimits::default(),
     )
     .expect("fit fallback");
-    assert_eq!(artifact.viewport, fallback);
+    assert_ne!(
+        artifact.viewport, fallback,
+        "fit no longer needs its fallback"
+    );
     assert_eq!(
         artifact.warnings,
-        [SvgWarning::BoundsUnavailableForUncachedText]
+        [SvgWarning::EstimatedBoundsForUncachedText]
     );
+}
+
+#[test]
+fn uncached_text_estimation_obeys_exact_bounds_work_and_zero_size_is_not_visible() {
+    let textual: FootprintPlotDocumentA0 = serde_json::from_value(document_by_id(
+        "footprint_plotter_a0_vectors.json",
+        "standalone-properties-text-and-text-box",
+    ))
+    .unwrap();
+    let context = ValidatedContext::default();
+    let fit = ViewportPolicy::Fit(SvgFitOptions {
+        padding_nm: 0,
+        min_extent_nm: 1,
+        fallback: None,
+    });
+    let baseline = render_footprint_svg(&textual, fit, context.get(), SvgRenderLimits::default())
+        .expect("uncached text bounds baseline");
+    assert!(baseline.metrics.bounds_work > baseline.metrics.operations);
+    let exact = SvgRenderLimits {
+        max_bounds_work: baseline.metrics.bounds_work,
+        ..SvgRenderLimits::default()
+    };
+    render_footprint_svg(&textual, fit, context.get(), exact)
+        .expect("exact uncached-text bounds work");
+    let error = render_footprint_svg(
+        &textual,
+        fit,
+        context.get(),
+        SvgRenderLimits {
+            max_bounds_work: baseline.metrics.bounds_work - 1,
+            ..SvgRenderLimits::default()
+        },
+    )
+    .expect_err("one-under uncached-text bounds work");
+    assert_eq!(error.kind(), SvgErrorKind::ResourceLimit);
+    assert!(error.to_string().contains("bounds work"));
+
+    let mut zero_value = document_by_id(
+        "footprint_plotter_a0_vectors.json",
+        "standalone-properties-text-and-text-box",
+    );
+    let record = zero_value["records"][0].as_object_mut().unwrap();
+    let mut text = record["operations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|operation| operation["kind"] == "Text")
+        .unwrap()
+        .clone();
+    text["size_x_nm"] = json!(0);
+    text["size_y_nm"] = json!(0);
+    record.insert("operations".to_owned(), json!([text]));
+    record.insert("operation_count".to_owned(), json!(1));
+    zero_value["total_operations"] = json!(1);
+    let zero: FootprintPlotDocumentA0 = serde_json::from_value(zero_value).unwrap();
+    let explicit = render_footprint_svg(&zero, VIEWPORT, context.get(), SvgRenderLimits::default())
+        .expect("zero-size text explicit viewport");
+    assert!(explicit.visible_bounds.is_none());
+    assert!(explicit.warnings.is_empty());
+    let error = render_footprint_svg(&zero, fit, context.get(), SvgRenderLimits::default())
+        .expect_err("zero-size text cannot invent fit geometry");
+    assert_eq!(error.kind(), SvgErrorKind::EmptyBounds);
+
+    for zero_dimension in ["size_x_nm", "size_y_nm"] {
+        let mut cached_value = document_by_id(
+            "board_plotter_a0_vectors.json",
+            "board-text-follows-python-serializer",
+        );
+        let records = cached_value["records"].as_array_mut().unwrap();
+        let record_index = records
+            .iter()
+            .position(|record| {
+                record["operations"].as_array().is_some_and(|operations| {
+                    operations
+                        .iter()
+                        .any(|operation| operation.get("render_cache").is_some())
+                })
+            })
+            .unwrap();
+        let mut record = records[record_index].clone();
+        let mut cached = record["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|operation| operation.get("render_cache").is_some())
+            .unwrap()
+            .clone();
+        cached[zero_dimension] = json!(0);
+        cached["index"] = json!(0);
+        record["operations"] = json!([cached]);
+        record["operation_count"] = json!(1);
+        cached_value["records"] = json!([record]);
+        cached_value["total_operations"] = json!(1);
+        let cached_zero: BoardPlotDocumentA0 =
+            serde_json::from_value(cached_value).expect("cached zero-size text document");
+        let explicit = render_board_document_svg(
+            &cached_zero,
+            VIEWPORT,
+            context.get(),
+            SvgRenderLimits::default(),
+        )
+        .expect("cached zero-size text explicit viewport");
+        assert!(explicit.visible_bounds.is_none());
+        assert!(!explicit.svg.contains("<path d="));
+        let error =
+            render_board_document_svg(&cached_zero, fit, context.get(), SvgRenderLimits::default())
+                .expect_err("cached zero-size text cannot invent fit geometry");
+        assert_eq!(error.kind(), SvgErrorKind::EmptyBounds);
+    }
 }
 
 #[test]
@@ -501,7 +635,7 @@ fn context_controls_are_effective_and_balanced_on_applicable_families() {
     assert!(!svg.contains("fill=\"#FFFFFF\""));
     assert!(!svg.contains("data-ref="));
     assert!(svg.contains("stroke=\"#A1B2C3\""));
-    assert!(svg.contains("stroke-width=\"333000\""));
+    assert!(svg.contains("stroke-width=\"0.333\""));
 
     let textual: FootprintPlotDocumentA0 = serde_json::from_value(document_by_id(
         "footprint_plotter_a0_vectors.json",
@@ -897,6 +1031,18 @@ fn document_by_id(file: &str, id: &str) -> Value {
         .find(|vector| vector["id"] == id)
         .expect("vector id")["expected"]
         .clone()
+}
+
+fn test_mm(value_nm: u64) -> String {
+    let whole = value_nm / 1_000_000;
+    let fraction = value_nm % 1_000_000;
+    if fraction == 0 {
+        whole.to_string()
+    } else {
+        format!("{whole}.{fraction:06}")
+            .trim_end_matches('0')
+            .to_owned()
+    }
 }
 
 fn native_svg_expected(family: &str, document_id: &str) -> (SvgViewport, Option<(usize, String)>) {
