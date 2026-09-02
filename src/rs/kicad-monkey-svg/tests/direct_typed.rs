@@ -564,7 +564,16 @@ fn uncached_text_estimation_obeys_exact_bounds_work_and_zero_size_is_not_visible
     let error = render_footprint_svg(&zero, fit, context.get(), SvgRenderLimits::default())
         .expect_err("zero-size text cannot invent fit geometry");
     assert_eq!(error.kind(), SvgErrorKind::EmptyBounds);
+}
 
+#[test]
+fn cached_zero_size_text_contributes_neither_output_nor_bounds() {
+    let context = ValidatedContext::default();
+    let fit = ViewportPolicy::Fit(SvgFitOptions {
+        padding_nm: 0,
+        min_extent_nm: 1,
+        fallback: None,
+    });
     for zero_dimension in ["size_x_nm", "size_y_nm"] {
         let mut cached_value = document_by_id(
             "board_plotter_a0_vectors.json",
