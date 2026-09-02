@@ -291,6 +291,28 @@ render_board_svg(&amp;ProjectedBoardPlotArtifact, policy, context, limits)
   raw results instead of scraping console text. The measurements establish a
   reproducible implementation-host baseline; they do not set release budgets.</p>
 
+  <h2>Identity metadata</h2>
+  <p>The default <code>SvgIdentityMode::Full</code> preserves identity metadata
+  carried by the selected plot-document contract. Board-derived pad groups emit
+  attributes including <code>data-pad-number</code>,
+  <code>data-pad-designator</code>, pad type, net, and hole metadata. The frozen
+  standalone <code>FootprintPlotDocumentA0</code> contract predates enriched pad
+  blocks: it flattens each pad into drawing operations and therefore cannot emit
+  pad numbers for a standalone <code>.kicad_mod</code> preview. Consumers must not
+  depend on standalone pad selectors until a new versioned footprint contract
+  preserves that identity. <code>SvgIdentityMode::None</code> intentionally omits
+  all identity attributes.</p>
+
+  <h2>Manual symbol proof</h2>
+  <p>The checked-in Rust example renders an arbitrary symbol-library entry
+  directly, without native or WASM transport:</p>
+  <pre><code>cargo run --locked -p kicad-monkey-svg --example render_symbol_svg -- &lt;library.kicad_sym&gt; &lt;symbol&gt; &lt;unit&gt; &lt;output.svg&gt;</code></pre>
+  <p>Rack owns the browser-visible regression test. Set
+  <code>KM_SVG_BROWSER_ARTIFACTS</code> to retain its SVGs, screenshots, browser
+  facts, and environment manifest under a transient output directory:</p>
+  <pre><code>$env:KM_SVG_BROWSER_ARTIFACTS="$PWD\output\svg-browser"
+uv run python tests/rack.py run L3_rendering --test L3_029 --no-progress</code></pre>
+
   <h2>Consumption and tests</h2>
   <p>Alexandria pins every direct Monkey Cargo dependency to one exact Git
   revision and commits its lockfile. Local validation creates a temporary Git
