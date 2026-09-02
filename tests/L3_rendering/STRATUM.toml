@@ -484,3 +484,52 @@ secondary = [
     "Direct compiler calls accept explicit project alias context",
     "Design netlist JSON and full design JSON remain consistent",
 ]
+
+[[subtests]]
+id = "L3_029"
+file = "test_L3_029_rust_svg_browser.py"
+name = "Rust Direct SVG Browser Correctness"
+description = "Direct Rust symbol SVG uses browser-safe units and remains visibly legible beside Python and KiCad CLI oracles"
+test_cases = "${KM_CORPUS_ROOT}/kicad/symbol_svg"
+test_case_type = "release_acceptance"
+concerns = ["rust", "rendering", "rendering.text", "browser", "parity", "contracts", "release"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_symbol_svg"
+modules = [
+    "kicad_monkey.kicad_symbol_lib",
+]
+
+[subtests.objectives]
+primary = "The public direct Rust symbol renderer produces a legible MIMXRT685 preview in pinned Chromium, with WebKit advisory coverage, without raw-nanometre font clamping"
+secondary = [
+    "Direct SVG viewBox, geometry, strokes, transforms, and browser-font fallback use one millimetre serialization scale while public viewport metadata remains nanometres",
+    "MIMXRT685 unit 1 paints its body, pins, A13, and VDD1V8_1 at bounded visible sizes",
+    "Python Newstroke and reviewed KiCad CLI artifacts remain nonempty comparison oracles with hidden semantic text",
+    "The promoted test fails rather than skips when the reviewed corpus, Node, Playwright, or pinned Chromium is unavailable",
+    "WebKit exercises intrinsic sizing, text visibility, and clipping as an advisory browser-engine smoke",
+    "SVG and screenshot artifacts remain transient test output",
+]
+
+[[subtests]]
+id = "L3_030"
+file = "test_L3_030_pinned_git_svg_consumer.py"
+name = "Pinned-Git Direct SVG Consumer"
+description = "An external Cargo project renders all four families through one exact Git revision without transport adapters"
+test_case_type = "release_acceptance"
+concerns = ["rust", "rendering", "browser", "git", "contracts", "release"]
+
+[subtests.code_under_test]
+modules = [
+    "kicad_monkey_core",
+    "kicad_monkey_svg",
+]
+
+[subtests.objectives]
+primary = "A pinned-Git external consumer renders footprint, symbol, board, and schematic SVGs through direct typed APIs"
+secondary = [
+    "Every directly used Monkey crate resolves from the same exact candidate revision",
+    "The runtime dependency tree excludes WASM, native transport, Cruncher, Python, and sidecars",
+    "A non-default shared context changes all four outputs without SVG post-processing",
+    "All four artifacts use browser-safe units and paint in pinned Chromium",
+]

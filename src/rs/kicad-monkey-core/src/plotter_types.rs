@@ -66,6 +66,7 @@ pub struct PlotterText {
     pub pen_width_nm: i64,
     pub italic: bool,
     pub bold: bool,
+    pub mirror: bool,
     pub multiline: bool,
     pub font_face: String,
     pub layer: Option<String>,

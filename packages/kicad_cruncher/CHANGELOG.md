@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.9.2
+
+- Require `kicad-monkey>=2026.9.2` and consume its browser-safe direct Rust SVG
+  serialization in native schematic and PCB design-review output. Production
+  browser coverage now exercises the actual Cruncher composition paths with
+  typed warnings and exact viewport metadata, while preserving context-driven
+  color and style overrides.
+
 ## 2026.9.1
 
 - Require `kicad-monkey>=2026.9.1` and verify Cruncher can consume Monkey's

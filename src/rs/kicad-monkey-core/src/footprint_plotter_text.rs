@@ -250,6 +250,7 @@ pub(crate) fn operation_from_effects(
             .unwrap_or(0),
         italic: input.effects.font.italic,
         bold: input.effects.font.bold,
+        mirror: input.effects.justify.iter().any(|token| token == "mirror"),
         multiline: input.multiline,
         font_face: input.effects.font.face.clone().unwrap_or_default(),
         layer: Some(input.layer.to_owned()),

@@ -436,11 +436,11 @@ fn text_operations(
             .color
             .and_then(|c| color_hex(c.red, c.green, c.blue, c.alpha))
             .unwrap_or_else(|| DRAWING_SHEET_COLOR.to_owned());
-        let multiline = body.contains('\n');
         operations.push(
             PlotterOperation::Text(PlotterText {
                 x: mm_to_nm(point.0)?,
                 y: mm_to_nm(point.1)?,
+                multiline: body.contains('\n'),
                 text: body,
                 color,
                 orient_deg: item.rotate,
@@ -451,7 +451,7 @@ fn text_operations(
                 pen_width_nm: pen_width,
                 italic: item.font.italic,
                 bold: item.font.bold,
-                multiline,
+                mirror: false,
                 font_face: font_face.to_owned(),
                 layer: None,
             })

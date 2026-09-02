@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted and independently approved for release on 2026-09-01.
+Accepted and independently approved for release on 2026-09-01. Amended on
+2026-09-02 after the issue #78 browser-correctness regression was reproduced.
 
 ## Public outcome
 
@@ -23,8 +24,10 @@ resources.
 
 - The four frozen Plotter-IR a0 schemas and native SVG a0 request/result remain
   unchanged.
-- The default direct context with an explicit viewport is byte-identical to
-  every accepted native a0 success vector.
+- Direct typed renderers serialize every dimensional SVG token in millimetres,
+  while `SvgViewport`, `SvgBounds`, `SvgFitOptions`, and `SvgArtifact` metadata
+  remain exact nanometres. The frozen native a0 adapter alone preserves the
+  historical raw-nanometre SVG bytes and error ordering.
 - Every MOD, SYM, PCB, and SCH direct-render entry point consumes the same
   validated render context. Color remaps, semantic/layer/operation style
   overrides, text policy, visibility, identity emission, and viewport/fit
@@ -60,9 +63,16 @@ Fit bounds use the same validated context, visibility decisions, effective
 stroke widths, and transforms as rendering. Empty visible content produces a
 typed error unless the caller supplied a fallback. Padding, aspect handling,
 minimum extent, arithmetic, traversed geometry, and output are bounded.
-Fit must reject visible semantic text without deterministic retained contour
-geometry. It must not estimate arbitrary browser-font glyph bounds. Explicit
-viewport rendering retains current semantic-text behavior.
+Fit uses exact retained contour bounds when available. For uncached visible
+browser text it uses a deterministic robust estimate based on the nominal X/Y
+font size: one horizontal em per Unicode scalar, an extra horizontal em for
+bold or italic, and one nominal em of safety on every side. It returns
+`EstimatedBoundsForUncachedText` because browser shaping and an arbitrary
+`font_face_override` can differ from the estimate. Estimation work is charged to
+`max_bounds_work`; zero-size and empty text contribute no visible bounds. One
+uncached label must not erase otherwise valid geometry or force a fallback.
+Nominal X/Y aspect, alignment, mirror, rotation, and placement are applied the
+same way by the estimate and browser-text emission.
 
 Board layer filtering receives an additive typed, non-wire complete enabled
 layer catalog and ordered copper stack produced atomically with the board
@@ -102,9 +112,16 @@ Acceptance requires four-family projector tests, direct-render byte parity,
 four-family non-default context/override tests, context validation, bounds/fit,
 Yoshi pad/via/drill assertions, repeated-child
 schematic occurrence selection, real Node WASM and native transport parity, a
-pinned-Git consumer, relevant Rack/corpus/Cruncher gates, locked workspace
+pinned-Git consumer, pinned-Chromium rendering of MIMX and all four families,
+actual Cruncher PCB and schematic browser artifacts, relevant Rack/corpus/Cruncher gates, locked workspace
 tests, formatting, warning-denied Clippy, dev-std audits, and independent
 architecture/implementation/resource/test review.
+
+The direct renderer's browser-safe millimetre output is the correctness
+contract. Native a0 hashes are transport compatibility evidence, not a browser
+oracle. WASM remains a projection adapter and does not select the SVG output
+profile. Cruncher consumes the direct renderer for PCB and schematic production
+artifacts and must not apply a second nanometre-to-millimetre transform.
 
 Performance evidence records cold and warm build time plus render time, peak
 memory, and SVG bytes for at least one fixture per family. It is a regression

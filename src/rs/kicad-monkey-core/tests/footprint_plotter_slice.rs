@@ -27,7 +27,7 @@ const TEXT_FOOTPRINT: &str = r#"(footprint "Textual"
   (property "Visible" "${Note}" (at -1 -2) (layer "B.Fab"))
   (fp_text reference "raw" (at 3 4 15) (layer "F.SilkS"))
   (fp_text user "${Note}" (at 7 8) (layer "B.SilkS")
-    (effects (font (size 1 1)) (justify center bottom)))
+    (effects (font (size 1 1)) (justify center bottom mirror)))
   (fp_text_box "${Note} A" (start 0 0) (end 1.5 2)
     (margins 0.1 0.2 0.1 0.2) (layer "F.SilkS") (border yes)
     (effects (font (size 1 1)) (justify left top)))
@@ -87,6 +87,7 @@ fn standalone_text_carriers_follow_python_order_defaults_and_variables() {
     assert_eq!(texts[0].h_align, PlotterTextHAlign::Left);
     assert_eq!(texts[0].v_align, PlotterTextVAlign::Bottom);
     assert_eq!(texts[3].h_align, PlotterTextHAlign::Center);
+    assert!(texts[3].mirror);
     assert_eq!(texts[4].v_align, PlotterTextVAlign::Top);
     assert!(texts[4].multiline);
     assert!(matches!(document.operations[4], PlotterOperation::Rect(_)));

@@ -154,7 +154,7 @@ fn board_footprint_placement_widths_multiline_and_ownership_are_exact() {
     .unwrap();
     let svg = render_svg(&decoded).expect("placed footprint SVG").svg;
     assert!(svg.contains(
-        "id=\"footprint-rich\" data-ref=\"footprint\" data-object-id=\"Demo:Rich\" transform=\"translate(10000000 20000000) rotate(-90)\""
+        "id=\"footprint-rich\" data-ref=\"footprint\" data-object-id=\"Demo:Rich\" transform=\"translate(10 20) rotate(-90)\""
     ));
     assert!(svg.contains(
         "<g id=\"footprint-empty\" data-ref=\"footprint\" data-object-id=\"Demo:Empty\">"
@@ -179,7 +179,7 @@ fn board_footprint_placement_widths_multiline_and_ownership_are_exact() {
     )
     .unwrap();
     let svg = render_svg(&decoded).expect("authored width SVG").svg;
-    assert!(svg.contains("stroke-width=\"50000\""));
+    assert!(svg.contains("stroke-width=\"0.05\""));
 
     let multiline = document_by_id(
         "board_plotter_a0_vectors.json",
@@ -197,9 +197,35 @@ fn board_footprint_placement_widths_multiline_and_ownership_are_exact() {
     )
     .unwrap();
     let svg = render_svg(&decoded).expect("multiline SVG").svg;
-    assert!(svg.contains("x=\"1755000\" y=\"1000000\""));
-    assert!(svg.contains("x=\"3435000\" y=\"1000000\""));
-    assert!(svg.contains("rotate(-90 1755000 1000000)"));
+    assert!(svg.contains("x=\"1.755\" y=\"1\""));
+    assert!(svg.contains("x=\"3.435\" y=\"1\""));
+    assert!(svg.contains("rotate(-90 1.755 1)"));
+}
+
+#[test]
+fn public_request_adapter_retains_typed_artifact_metadata() {
+    let document = document_by_id(
+        "footprint_plotter_a0_vectors.json",
+        "standalone-properties-text-and-text-box",
+    );
+    let decoded = decode_native_svg_render_request_a0(
+        &serde_json::to_vec(&request(
+            document,
+            "footprint",
+            20_000_000,
+            20_000_000,
+            1_000_000,
+        ))
+        .unwrap(),
+    )
+    .expect("typed public request");
+    let artifact = render_svg(&decoded).expect("public request adapter");
+    assert!(artifact.visible_bounds.is_some());
+    assert_eq!(
+        artifact.warnings,
+        [kicad_monkey_svg::SvgWarning::EstimatedBoundsForUncachedText]
+    );
+    assert!(artifact.metrics.bounds_work > 0);
 }
 
 #[test]
@@ -225,8 +251,8 @@ fn board_via_with_removed_copper_renders_as_drill_only() {
     let svg = render_svg(&decoded).expect("drill-only via SVG").svg;
 
     assert!(svg.contains("<g id=\"via-wildcard\" data-ref=\"via\" data-object-id=\"via\">"));
-    assert!(svg.contains("<circle cx=\"1000000\" cy=\"1000000\" r=\"125000\""));
-    assert!(!svg.contains("r=\"250000\""));
+    assert!(svg.contains("<circle cx=\"1\" cy=\"1\" r=\"0.125\""));
+    assert!(!svg.contains("r=\"0.25\""));
 }
 
 #[test]
@@ -279,7 +305,7 @@ fn oval_pads_are_stadiums_and_negative_geometry_mutations_fail_closed() {
     .unwrap();
     let svg = render_svg(&decoded).expect("pad stadium SVG").svg;
     assert!(svg.contains(
-        "<line x1=\"-1500000\" y1=\"0\" x2=\"-500000\" y2=\"0\" transform=\"rotate(-30 -1000000 0)\" fill=\"none\" stroke=\"#000000\" stroke-width=\"1000000\" stroke-linecap=\"round\""
+        "<line x1=\"-1.5\" y1=\"0\" x2=\"-0.5\" y2=\"0\" transform=\"rotate(-30 -1 0)\" fill=\"none\" stroke=\"#000000\" stroke-width=\"1\" stroke-linecap=\"round\""
     ));
     assert!(!svg.contains("<ellipse"));
 

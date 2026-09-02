@@ -1382,6 +1382,7 @@ fn operation_bbox(
                 pen_width_nm: value.text.pen_width_nm,
                 italic: value.text.italic,
                 bold: value.text.bold,
+                mirror: value.text.mirror,
                 font_face: value.text.font_face.clone(),
                 hyperlink_href: value.hyperlink_href.clone(),
             };

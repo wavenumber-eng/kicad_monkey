@@ -38,7 +38,7 @@ use kicad_monkey_core::{
     SourceBundle, SourceBundleLimits, build_compiled_schematic_graph, build_kicad_netlist,
     emit_kicad_netlist, validate_compiled_schematic_graph,
 };
-use kicad_monkey_svg::render_svg;
+use kicad_monkey_svg::render_native_svg_a0_compat;
 use serde::Serialize;
 use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor};
 use sha2::{Digest, Sha256};
@@ -207,7 +207,7 @@ pub fn execute_svg_request_bytes(request_bytes: &[u8]) -> Result<Vec<u8>, Native
     )?;
     let request = decode_native_svg_render_request_a0(request_bytes)
         .map_err(|error| request_error(format!("invalid native SVG request: {error}")))?;
-    let artifact = render_svg(&request)
+    let artifact = render_native_svg_a0_compat(&request)
         .map_err(|error| NativeError::new(NativeErrorKind::Core, error.to_string()))?;
     let svg_bytes = artifact.svg.len();
     let svg_sha256 = hex_digest(Sha256::digest(artifact.svg.as_bytes()).as_slice());

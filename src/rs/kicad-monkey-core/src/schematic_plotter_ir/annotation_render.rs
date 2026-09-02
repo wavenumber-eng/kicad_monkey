@@ -470,6 +470,7 @@ pub(super) struct TextStyle {
     pub(super) pen_width_nm: i64,
     pub(super) italic: bool,
     pub(super) bold: bool,
+    pub(super) mirror: bool,
     pub(super) font_face: String,
     pub(super) hyperlink_href: Option<String>,
 }
@@ -541,6 +542,7 @@ pub(super) fn text_style(
         pen_width_nm,
         italic: effects.font.italic,
         bold: effects.font.bold,
+        mirror: effects.justify.iter().any(|token| token == "mirror"),
         font_face: effects
             .font
             .face
@@ -584,6 +586,7 @@ pub(super) fn schematic_text(
             pen_width_nm: style.pen_width_nm,
             italic: style.italic,
             bold: style.bold,
+            mirror: style.mirror,
             multiline,
             font_face: style.font_face,
             layer: None,
