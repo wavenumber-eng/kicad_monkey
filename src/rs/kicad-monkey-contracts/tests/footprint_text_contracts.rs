@@ -23,6 +23,12 @@ fn footprint_semantics_accept_standalone_text_and_reject_noncanonical_states() {
     let document: FootprintPlotDocumentA0 =
         serde_json::from_value(valid.clone()).expect("text shape");
     validate_footprint_plot_document(&document).expect("canonical standalone footprint text");
+    let mut mirrored = valid.clone();
+    mirrored["records"][0]["operations"][0]["mirror"] = serde_json::json!(true);
+    let mirrored: FootprintPlotDocumentA0 =
+        serde_json::from_value(mirrored).expect("mirrored text shape");
+    validate_footprint_plot_document(&mirrored)
+        .expect("canonical standalone footprint text permits a true mirror marker");
     let mut mutations = Vec::new();
 
     let mut wrong_document = valid.clone();
@@ -49,7 +55,7 @@ fn footprint_semantics_accept_standalone_text_and_reject_noncanonical_states() {
     mutations.push(("missing layer", missing_layer, "missing_layer"));
 
     for (field, value) in [
-        ("mirror", serde_json::json!(true)),
+        ("mirror", serde_json::json!(false)),
         ("text_as_polygons", serde_json::json!(true)),
         ("polyline_per_segment", serde_json::json!(true)),
         ("knockout", serde_json::json!(true)),

@@ -718,7 +718,7 @@ fn validate_footprint_text(operation: &TextOperation, path: String) -> Result<()
     require_layer(operation.layer.as_deref(), path.clone())?;
     if operation.kind != "Text"
         || operation.context.is_some()
-        || operation.mirror.is_some()
+        || operation.mirror == Some(false)
         || operation.text_as_polygons.is_some()
         || operation.polyline_per_segment.is_some()
         || operation.knockout.is_some()
@@ -730,7 +730,7 @@ fn validate_footprint_text(operation: &TextOperation, path: String) -> Result<()
         return Err(validation_error(
             "invalid_footprint_text",
             path,
-            "standalone footprint Text operations require a layer and cache-free canonical state",
+            "standalone footprint Text operations require a layer, an absent-or-true mirror marker, and cache-free canonical state",
         ));
     }
     Ok(())
