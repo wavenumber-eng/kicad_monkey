@@ -72,7 +72,7 @@ use kicad_monkey_svg::{
 const FOOTPRINT: &str = r#"(footprint "External" (layer "F.Cu")
   (fp_line (start -1 0) (end 1 0) (stroke (width 0.2) (type dash)) (layer "F.SilkS"))
   (fp_text user "gyp" (at 0 1) (layer "F.SilkS")
-    (effects (font (size 2 1) italic) (justify right bottom))))"#;
+    (effects (font (size 2 1) italic) (justify mirror right bottom))))"#;
 const SYMBOL: &str = r#"(kicad_symbol_lib (version 20241209) (generator kicad_symbol_editor)
   (symbol "External" (symbol "External_0_1"
     (rectangle (start -2 2) (end 2 -2) (stroke (width 0.2) (type solid)) (fill (type none)))
