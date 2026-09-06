@@ -30,9 +30,9 @@ Create both annotated package-qualified tags at the same reviewed main commit:
 ```powershell
 git checkout main
 git pull --ff-only
-git tag -a kicad-monkey-v2026.9.2 -m "Release kicad-monkey 2026.9.2"
-git tag -a kicad-cruncher-v2026.9.2 -m "Release kicad-cruncher 2026.9.2"
-git push origin kicad-monkey-v2026.9.2 kicad-cruncher-v2026.9.2
+git tag -a kicad-monkey-v2026.9.7 -m "Release kicad-monkey 2026.9.7"
+git tag -a kicad-cruncher-v2026.9.7 -m "Release kicad-cruncher 2026.9.7"
+git push origin kicad-monkey-v2026.9.7 kicad-cruncher-v2026.9.7
 ```
 
 From the Actions page, run `Publish coordinated release` on `main` and select
@@ -64,7 +64,7 @@ workflow and no candidate run ID to find or enter.
 
 Published PyPI versions remain immutable. If source bytes must change, create a
 new date version or a same-day fourth-component version such as
-`2026.9.2.1`; do not move a published tag.
+`2026.9.7.1`; do not move a published tag.
 
 ## Workspace consumers
 

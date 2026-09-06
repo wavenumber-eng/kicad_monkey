@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2026.9.7
+
+- Require `kicad-monkey>=2026.9.7` and update the controlled assembly
+  projection dependency to `wn-geometer==2026.9.7`.
+- Keep KiCad Cruncher command, artifact, and rendering behavior unchanged.
+
 ## 2026.9.2
 
 - Require `kicad-monkey>=2026.9.2` and consume its browser-safe direct Rust SVG

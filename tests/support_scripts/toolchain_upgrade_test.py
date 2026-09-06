@@ -11,9 +11,9 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 OLD_CRUNCHER_VERSION = "2026.8.11.1"
-NEW_CRUNCHER_VERSION = "2026.9.2"
+NEW_CRUNCHER_VERSION = "2026.9.7"
 OLD_MONKEY_VERSION = "2026.8.17"
-NEW_MONKEY_VERSION = "2026.9.2"
+NEW_MONKEY_VERSION = "2026.9.7"
 
 
 def _latest_wheel(dist_dir: Path, prefix: str) -> Path:
