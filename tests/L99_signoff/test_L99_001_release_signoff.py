@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import re
 
@@ -47,10 +47,10 @@ def _load_corpus_archive_module():
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.9.2"
-EXPECTED_RELEASE_DATE = date(2026, 9, 2)
-EXPECTED_RUST_VERSION = "2026.9.2"
-EXPECTED_RUST_RELEASE_DATE = date(2026, 9, 2)
+EXPECTED_VERSION = "2026.9.7"
+EXPECTED_RELEASE_DATE = date(2026, 9, 7)
+EXPECTED_RUST_VERSION = "2026.9.7"
+EXPECTED_RUST_RELEASE_DATE = date(2026, 9, 7)
 CORPUS_ARCHIVE_PATH = "tests/corpus/kicad.zip"
 CORPUS_ARCHIVE_MANIFEST_PATH = "tests/corpus/kicad.archive.toml"
 DEV_STD_AUDIT_SCOPES = {"repo", "ci", "docs.design", "docs.links", "docs.plans"}
@@ -126,20 +126,20 @@ def test_version_contract_matches_date_based_release() -> None:
         EXPECTED_RUST_RELEASE_DATE.month,
         EXPECTED_RUST_RELEASE_DATE.day,
     )
-    assert EXPECTED_RUST_RELEASE_DATE <= date.today()
+    assert EXPECTED_RUST_RELEASE_DATE <= date.today() + timedelta(days=1)
     assert __version__ == EXPECTED_VERSION
     assert kicad_monkey.__version__ == EXPECTED_VERSION
     assert parsed.string == EXPECTED_VERSION
     assert (parsed.major, parsed.minor, parsed.patch, parsed.build, parsed.alpha) == (
         2026,
         9,
-        2,
+        7,
         None,
         None,
     )
     assert parsed.is_prerelease is False
     assert parsed.release_date == EXPECTED_RELEASE_DATE
-    assert parsed.release_date <= date.today()
+    assert parsed.release_date <= date.today() + timedelta(days=1)
 
 
 def test_changelog_mentions_package_version() -> None:

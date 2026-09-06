@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 2026.9.7
+
+- Coordinate the toolchain dependency release; no KiCad parser, model,
+  rendering, or native transport behavior changes.
+
 ## 2026.9.2
 
 - Repair reopened issue #78 by serializing direct Rust footprint, symbol,
