@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust typed PCB and footprint authoring</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust typed PCB and footprint authoring</h1>
+
+  <p>Status: issue #84 typed authoring is independently reviewed and accepted
+  through roots/setup, pad/via manufacturing, route/zone/fill cache,
+  presentation, resource/model, and explicit support/gap tranches. The
+  public API constructs new <code>.kicad_pcb</code> and
+  <code>.kicad_mod</code> source from owned typed values. It does not require or
+  replay an existing source string. Existing source-preserving document edits
+  remain a separate API.</p>
+
+  <h2>Supported source envelope and ownership</h2>
+  <p>The first explicit source revision is <code>20241229</code>. Any other
+  authored revision is rejected before source construction; newer syntax is
+  promoted only with a concrete accepted vector. <code>AuthoredPcb</code> owns
+  the board envelope and board members. <code>AuthoredFootprint</code> owns only
+  a reusable local definition; <code>AuthoredStandaloneFootprint</code> owns its
+  document revision, generator fields, default layer, and local definition.
+  <code>AuthoredFootprintOccurrence</code> separately owns board layer,
+  position, angle, and occurrence UUID. A standalone root therefore cannot
+  pretend to carry a board occurrence UUID, document-envelope fields cannot be
+  silently ignored by board placement, and repeated occurrences require distinct
+  occurrence and member UUIDs.</p>
+
+  <p><code>canonical_text()</code> validates typed values and emits through the
+  package S-expression builder. <code>to_document()</code> additionally
+  reparses the complete candidate into <code>PcbDocument</code> or
+  <code>FootprintDocument</code> before publication. Both owned documents expose
+  bounded <code>write_to()</code>; the pre-existing PCB replay/edit path is
+  unchanged.</p>
+
+  <h2>First promoted families</h2>
+  <p>The spike promotes explicit board thickness, paper, layer table, auxiliary
+  and grid origins, physical stackup layers/material/electrical fields, outer
+  profile and cutout graphics, nets, footprint occurrences, properties and
+  user text with Newstroke source effects, non-text local artwork, basic and custom polygon
+  pads, round and slotted drills with offsets and plating implied by typed pad
+  kind, board/footprint/pad mask-paste precedence and pad-local unused-layer
+  policies, models, straight routes,
+  three-point circular routes, and board/footprint embedded resources.</p>
+
+  <p>The writer preserves source vocabulary rather than introducing downstream
+  PCB A0 geometry. It emits a caller-authored arc as KiCad
+  <code>start/mid/end</code>, retains local footprint coordinates, and does not
+  compose bottom occurrence transforms. Project companions continue to use
+  <code>ProjectDocument</code>; this API neither replaces that writer nor
+  publishes artifacts. Text effects expose width as <code>size_x_mm</code> and
+  height as <code>size_y_mm</code>; emission follows KiCad's source ordering of
+  <code>(size height width)</code>.</p>
+
+  <p>Reference and Value are authored as footprint properties, matching the
+  canonical form retained by current KiCad. <code>AuthoredFootprintText</code>
+  is structurally user text; standalone pad net associations are rejected
+  because KiCad drops board-net evidence when upgrading a library footprint.
+  Board member layers must resolve through the authored layer table, and the
+  first promoted token vocabularies reject values outside their documented
+  KiCad spellings.</p>
+
+  <h2>Issue #84 support matrix</h2>
+  <table>
+    <thead>
+      <tr><th>Source family</th><th>Promoted typed authoring boundary</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Roots and physical setup</td><td>PCB/standalone-footprint envelopes,
+      layer table, board thickness and paper, physical stackup/material fields,
+      auxiliary/grid origins, outer profile and cutouts, and the explicitly typed
+      setup fields.</td></tr>
+      <tr><td>Identity and connectivity</td><td>Occurrence/member UUIDs, nets,
+      reusable footprint definitions, and independently identified placed
+      occurrences.</td></tr>
+      <tr><td>Land and drilled copper</td><td>Typed pads, custom polygons,
+      drills/slots/offset/plating evidence, vias, copper spans, board/footprint/
+      pad mask-paste settings, pad zone connection, the two typed unused-land
+      modes, and the explicitly listed via treatments below.</td></tr>
+      <tr><td>Routes and zones</td><td>Straight segments, three-point arcs,
+      zone layers/net/name/lock/hatch/priority, pad connection and clearance,
+      minimum thickness, thermal and island-removal settings, source outline
+      rings, and caller-supplied per-layer filled-polygon cache chains.</td></tr>
+      <tr><td>Presentation</td><td>Board and footprint line/arc/rectangle/circle/
+      polygon graphics, properties, text, text boxes, the effects listed below,
+      Newstroke source intent, and named-font render caches within the loss rules
+      below.</td></tr>
+      <tr><td>Resources and models</td><td>Owned/declaration-only/empty embedded
+      resources, resource checksums/encoding, and footprint model references
+      with offset, scale, and rotation.</td></tr>
+      <tr><td>Project companions</td><td>The pre-existing
+      <code>ProjectDocument</code> remains authoritative for supported project
+      text variables, netclasses, and rules; PCB authoring does not duplicate it.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Explicit authoring gaps</h3>
+  <table>
+    <thead>
+      <tr><th>Area</th><th>Not represented by the typed writer</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Board/setup</td><td>Board variants, top-level board property and
+      generated-item families, legacy-teardrop/embedded-font flags, plot
+      parameters, and other setup/manufacturing fields outside
+      <code>AuthoredSetup</code>.</td></tr>
+      <tr><td>Footprints/occurrences</td><td>Component classes, private layers,
+      net-tie/jumper groups, footprint clearance/zone/thermal defaults, generated
+      item markers, and occurrence lock, placement path, sheet name, and sheet
+      file evidence.</td></tr>
+      <tr><td>Pads/vias</td><td>Teardrop parameters, tertiary-drill,
+      backdrill/post-machining forms, and pad/via policies not named in the
+      promoted rows above.</td></tr>
+      <tr><td>Zones</td><td>Keepout/rule-area restrictions, placement enablement,
+      layer-property forms, and untyped fill settings. Filled geometry is retained
+      caller input, never a computed repour.</td></tr>
+      <tr><td>Presentation/containers</td><td>Bezier curves, groups, dimensions,
+      tables, images, and barcodes. Dimensions, tables, images, and barcodes are
+      outside issue #84's writer family table.</td></tr>
+    </tbody>
+  </table>
+
+  <p>The only authored source revision is <code>20241229</code>. The writer does
+  not infer filled-polygon topology, perform canonical PCB A0 mapping, resolve
+  workspace paths, fetch resources, or publish a coordinated PCB/project
+  transaction. A consumer must treat every field and family in the gap table as
+  unsupported, even when a separate KiCad Monkey reader exposes it.</p>
+
+  <h2>Typed pad and via manufacturing tranche</h2>
+  <p>Pad geometry now includes trapezoids and chamfered round rectangles in
+  addition to the first-spike shapes. Typed pad policy fields cover local mask
+  and paste margins, paste ratio, clearance, thermal bridge width/angle/gap,
+  zone connection mode, forced zone layers, and plated-through-hole unused-land
+  behavior. Chamfer corners are a closed enum, forced layers resolve to declared
+  copper layers, and unsupported or contradictory combinations fail before
+  emission.</p>
+
+  <p>Pad zone connection is a closed four-case enum: no connection, thermal
+  relief, solid fill, or thermal relief for through-hole pads. These map to
+  KiCad source values 0 through 3; out-of-domain integers are not constructible.</p>
+
+  <p><code>AuthoredVia</code> owns diameter, drill, position, net, UUID, ordered
+  copper endpoints, free status, front/back tenting/covering/plugging facts,
+  capping/filling, forced zone layers, and unused-land policy. Through spans must
+  be <code>F.Cu</code> to <code>B.Cu</code>; blind/buried spans must be partial;
+  microvias must join adjacent declared copper layers. KiCad represents both
+  blind and buried cases with the <code>blind</code> token and distinguishes them
+  through their endpoints, which the typed API preserves.</p>
+
+  <p>Via net code <code>0</code> is the reserved typed representation for an
+  unconnected via and needs no matching board net declaration. Positive codes
+  must resolve to an authored board net; negative and unknown codes are
+  rejected.</p>
+
+  <p>KiCad canonicalizes <code>start_end_only no</code> to absence and treats
+  <code>start_end_only yes</code> as an alternative to the remove-unused/keep-end
+  pair. The writer therefore rejects the lossy explicit-no form and conflicting
+  mode combinations. Upgrading a 20241229 source in KiCad 10 also changes via
+  connectivity from numeric to name-only net references; the independent proof
+  resolves that name against the retained board net declaration.</p>
+
+  <p>Forced pad/via zone-layer connections require
+  <code>remove_unused_layers=yes</code>; KiCad otherwise discards the requested
+  layers during canonicalization. Pad layer lists and forced pad/via layer lists
+  must also be unique because KiCad deduplicates repeated entries.</p>
+
+  <h2>Presentation-source tranche</h2>
+  <p>Fresh boards now own non-profile graphics, board text, and board text
+  boxes. Footprint definitions own graphical Reference/Value properties, user
+  text, text boxes, and local graphics independently of the occurrence
+  transform. This preserves bottom-local layers and coordinates while a board
+  occurrence separately owns its bottom/rotated placement.</p>
+
+  <p>Text effects distinguish an absent face (native Newstroke source intent)
+  from a named outline-font face. Supported 20241229 effects include explicit
+  width/height, optional thickness and line spacing, bold, italic, closed
+  horizontal and vertical alignment, and mirroring. PCB/footprint color and
+  hyperlink effects are rejected because KiCad 10 does not accept them in this
+  source revision.</p>
+
+  <p>A named-font carrier can own the existing typed
+  <code>TextRenderCache</code>, including multiple contours in one glyph
+  polygon. The cache uses the package's existing bounded render-cache writer.
+  Its text is realized display text: footprint property variables are resolved
+  before validation, while cached board/project variables and wrapping-dependent
+  text-box whitespace fail closed without companion outline-font context. A
+  Newstroke carrier with a TTF cache is rejected instead of changing font
+  semantics.</p>
+
+  <p>Standalone cache points are footprint-local. For a placed property or user
+  text, board emission translates contours by the transformed carrier-anchor
+  delta without rotating the glyphs, matching KiCad's cache frame. Locked
+  footprint carriers in both standalone and board-embedded source use KiCad's keep-upright angle folded into
+  <code>(-90, 90]</code>; unlocked carriers retain their local angle. A placed
+  text-box cache instead rotates and translates contours with its geometry and
+  adds the occurrence angle. Derived coordinates are checked for finiteness
+  before emission. KiCad owns
+  regeneration of outline-font caches during upgrade, so independent
+  pre-upgrade evidence pins caller coordinates and post-upgrade evidence pins
+  text, angle, finite contour geometry, and cache presence.</p>
+
+  <p>Board and embedded-footprint text-box locking is supported. KiCad 10
+  discards a locked flag while upgrading a standalone library footprint, so
+  that specific request fails before emission. Boolean and ordering spellings
+  for locked, unlocked, border, knockout, and text-box effects follow the
+  accepted KiCad 10 writer/parser behavior for revision 20241229. Text-box
+  geometry is a closed rectangle-or-polygon type, and margins are ordered left,
+  top, right, bottom. Embedded text boxes retain local geometry only on an
+  unrotated occurrence. KiCad 10 corrupts both polygon and start/end forms on a
+  rotated occurrence across repeated saves, so that request is rejected. The
+  unrotated polygon proof retains its exact local point chain through two CLI
+  upgrades. Hidden user footprint text is also rejected because KiCad rewrites
+  it as a generated property and changes its identity.</p>
+
+  <h2>Resources and failure policy</h2>
+  <p><code>AuthoredResourceData</code> distinguishes declaration-only, explicit
+  empty, and owned bytes. Byte payloads are compressed with zstd, encoded in
+  KiCad's <code>|base64|</code> source form, and labelled with KiCad's current
+  seeded MMH3-128 checksum. The same package decoder verifies exact readback.
+  Input and aggregate encoded bytes have independent ceilings. Before doing
+  resource work, the writer also checks a conservative aggregate allocation
+  bound covering both the retained zstd buffer and base64 output.</p>
+
+  <p>Boards author resource payloads; standalone and embedded footprints author
+  model references/transforms plus local resource declarations and payloads.
+  KiCad 10 hoists an embedded-footprint
+  payload into the board resource table during board normalization and leaves
+  the footprint declaration as its lookup input; the independent oracle checks
+  that exact relationship and payload bytes. A footprint declaration may
+  intentionally reference a same-name board-owned payload. Because KiCad hoists
+  footprint payloads into one effective board table, every repeated name across
+  board and occurrences must have one resource type and at most one distinct
+  payload semantics. Declaration-only references and byte-identical duplicate
+  payloads are accepted; conflicting types, bytes, or empty/encoded presence
+  fail before emission. A <code>kicad-embed://NAME</code> model requires a
+  matching declaration of type <code>model</code>: local-only for standalone
+  footprints and local or board scope for occurrences. Declaration-only entries
+  remain valid lookup inputs because the host may supply bytes. Other model path
+  schemes stay host-owned.</p>
+
+  <p>Companion project facts remain owned by the existing
+  <code>ProjectDocument</code> API. Callers author supported text variables,
+  netclasses, rules, and other accepted project paths there and stage its
+  <code>canonical_text()</code> beside the PCB result. The PCB authoring API
+  returns no implicit path, fetch, publication, or multi-file transaction.</p>
+
+  <p>Unsupported versions, invalid/nonfinite geometry, invalid or duplicate
+  UUIDs, inconsistent net references, invalid pad/drill combinations, invalid
+  custom polygons, duplicate resource names within an owner, object/point/
+  string/resource ceilings, and output overflow return structured source-build
+  errors. No candidate document or partial source is published on failure.
+  Types only expose promoted syntax; unrepresented families are explicit gaps,
+  not fields silently dropped by a permissive serializer.</p>
+
+  <h2>Usage shape</h2>
+  <pre><code>let mut board = AuthoredPcb::default();
+board.layers = authored_layers;
+board.nets.push(AuthoredNet { code: 1, name: "GND".into() });
+board.footprints.push(AuthoredFootprintOccurrence {
+    footprint: local_definition,
+    layer: "B.Cu".into(),
+    at: AuthoredPoint { x_mm: 40.0, y_mm: 30.0 },
+    angle_degrees: 90.0,
+    uuid: occurrence_uuid,
+});
+let document = board.to_document(PcbAuthoringLimits::default())?;
+document.write_to(output)?;</code></pre>
+
+  <pre><code>let mut footprint = AuthoredStandaloneFootprint::new("Demo:Native", "F.Cu");
+footprint.footprint.models.push(AuthoredModel {
+    path: "kicad-embed://body.step".into(),
+    offset_mm: [0.0; 3],
+    scale: [1.0; 3],
+    rotate_degrees: [0.0; 3],
+});
+footprint.footprint.embedded_files.push(AuthoredEmbeddedFile {
+    name: "body.step".into(),
+    file_type: "model".into(),
+    data: AuthoredResourceData::Bytes(model_bytes),
+});
+let document = footprint.to_document(PcbAuthoringLimits::default())?;
+document.write_to(output)?;</code></pre>
+
+  <h2>Evidence and retained work</h2>
+  <p><code>pcb_authoring_slice</code> constructs the complete first board and
+  footprint proof from Rust structs, reparses them through native typed readers,
+  verifies two same-Reference occurrences retain distinct occurrence/member
+  identities, proves board/footprint/pad mask-paste precedence, checks exact
+  payload bytes, and owns unsupported/loss and resource-limit vectors. Rack
+  L1_039 invokes that writer
+  independently, validates semantic relationships through the Python source
+  model, and asks a resolvable KiCad CLI to upgrade both outputs. It reparses
+  those upgraded files and reasserts the promoted source facts so a successful
+  CLI exit cannot hide discarded input. The accepted local evidence used KiCad
+  10.0.5.</p>
+
+  <p><code>pcb_authoring_pad_via_slice</code> adds exact native readback for
+  trapezoid/chamfer/slot geometry, local fabrication and connection policies,
+  through/blind/buried/micro spans, side-specific treatments, and both
+  unused-land modes. Rack L1_040 repeats the semantic checks through the Python
+  source model before and after a KiCad CLI upgrade, without depending on source
+  member order.</p>
+
+  <p>Authored zones retain source outline rings, per-layer filled-polygon cache
+  chains, exact point order, and explicit island markers without classifying
+  downstream topology. KiCad holes are bridge/fracture-encoded within one
+  filled-polygon chain; a separate opposite-winding record is another positive
+  outline, not a hole. Native and independent Python readback pin
+  the emitted cache exactly. KiCad owns fill realization and recomputes those
+  cache chains during a CLI upgrade, so the post-upgrade oracle reasserts authored
+  zone intent and valid per-zone-layer refill output rather than claiming that
+  KiCad preserves caller cache coordinates.</p>
+
+  <p><code>pcb_authoring_zone_slice</code> also owns four source-identity-pinned
+  clockwise/counterclockwise by minor/major three-point circular-arc vectors.
+  Native and Python readers classify the authored triples geometrically, and
+  Rack L1_041 repeats that classification after KiCad normalization rather than
+  requiring one raw encoding.</p>
+
+  <p>The promoted zone intent includes closed none/edge/full outline hatch
+  styles, closed thermal/no/solid/through-hole-only pad-connection modes,
+  clearance, minimum thickness, priority, fill thermal settings, and the three
+  island-removal modes. The 20241229 grammar only authors
+  <code>filled_areas_thickness no</code>; an explicit <code>yes</code> request is
+  rejected. Island minimum area is accepted only with minimum-area removal mode.
+  Boards must declare an even copper-layer count, and reserved net code zero is
+  supported for unconnected straight and arc routes as well as vias.</p>
+
+  <p><code>pcb_authoring_presentation_slice</code> adds exact native readback
+  for board and footprint graphics, Reference/Value and user-text effects,
+  board and local text boxes, Newstroke source intent, and multi-contour TTF
+  caches. Rack L1_042 repeats those semantic checks with the independent Python
+  reader and KiCad 10. It accepts KiCad-owned outline-cache regeneration while
+  requiring retained font, alignment, layer, transform, knockout, and carrier
+  relationships. It repeats the board upgrade to catch non-idempotent
+  text-box geometry drift.</p>
+
+  <p><code>pcb_authoring_slice</code> additionally owns model transforms,
+  exact resource bytes and presence states, same-name effective board namespace
+  conflicts, declaration-only host lookup, and standalone-local versus
+  occurrence-local/board model resolution. Rack L1_039 proves the corresponding
+  KiCad 10 footprint-payload hoist and exact decoded bytes after upgrade.</p>
+
+  <p>Known fail-closed cases include unsupported source revisions; hidden user
+  footprint text; rotated embedded text boxes; standalone text-box locking;
+  Newstroke carriers with outline-font caches; cached unresolved board/project
+  variables; wrapping-dependent text-box cache requests; source-revision-invalid
+  color or hyperlink effects; standalone pad net evidence; conflicting effective
+  resource declarations; and embedded model paths without a matching model
+  declaration. These are structured errors, not silently discarded fields.</p>
+</body>
+</html>

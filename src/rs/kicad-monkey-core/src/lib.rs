@@ -14,6 +14,7 @@ pub mod board_plotter_ir;
 pub mod compiled_schematic_graph;
 pub mod design_json;
 pub mod document_metadata;
+mod embedded_resource;
 mod fake_style;
 pub mod font_outline;
 pub mod footprint;
@@ -21,7 +22,9 @@ pub mod footprint_plot_contract;
 mod footprint_plotter_text;
 mod footprint_text;
 pub mod kicad_netlist;
+pub mod newstroke;
 pub mod pcb;
+pub mod pcb_authoring;
 pub mod plot_document_contract;
 mod plotter_contract;
 pub mod plotter_ir;
@@ -36,7 +39,7 @@ pub mod schematic_bus_connectivity;
 pub mod schematic_connectivity;
 pub mod schematic_design;
 mod schematic_effective;
-#[cfg(feature = "schematic-embedded-zstd")]
+#[cfg(feature = "embedded-resource-zstd")]
 pub mod schematic_embedded;
 pub mod schematic_netlist;
 mod schematic_page_plot;
@@ -103,12 +106,17 @@ pub use design_json::{
     build_kicad_design_json_with_limits,
 };
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
+pub use embedded_resource::{
+    EmbeddedDataPresence, EmbeddedDecodeLimits, EmbeddedFile, EmbeddedFileOwner,
+};
 pub use font_outline::{
     FONT_OUTLINE_ENGINE, FontOutlineError, FontOutlineErrorKind, FontOutlineFace,
     FontOutlineFaceRequest, FontOutlineLimits, FontOutlineOutput, FontOutlineRequest,
     HINTED_FONT_OUTLINE_ENGINE, HintedFontOutlineFace, extract_font_outline_a0,
 };
-pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
+pub use footprint::{
+    FootprintDocument, FootprintEdit, FootprintLimits, FootprintProperty, FootprintView,
+};
 pub use footprint_plot_contract::project_footprint_plot_document_a0;
 pub use footprint_text::{FootprintGraphicalProperty, FootprintText, FootprintTextBox};
 pub use kicad_netlist::{
@@ -117,18 +125,36 @@ pub use kicad_netlist::{
     KiCadNetlistGraphicalIds, KiCadNetlistJsonMetadata, KiCadNetlistLimits, KiCadNetlistTerminal,
     build_kicad_netlist, build_kicad_netlist_json, emit_kicad_netlist,
 };
+pub use newstroke::{
+    NewstrokeError, NewstrokeErrorKind, NewstrokeLimits, NewstrokeOutput, NewstrokePoint,
+    NewstrokePolyline, NewstrokeRequest, realize_newstroke_a0,
+};
 pub use pcb::{
-    PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument,
-    PcbDrillLayerSpan, PcbDrillProperties, PcbEdit, PcbEmbeddedFile, PcbFamily, PcbFootprint,
-    PcbFootprintGraphic, PcbFootprintProperty, PcbFootprintText, PcbFootprintTextBox,
-    PcbFootprintTransform, PcbFrontBackOptionalBool, PcbGeneratedItem, PcbGraphic, PcbGraphicKind,
-    PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits,
-    PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive,
-    PcbPadDrill, PcbPoint, PcbPostMachiningProperties, PcbProfileOwner, PcbProfilePrimitive,
-    PcbProperty, PcbRoutingArc, PcbSegment, PcbSelection, PcbSetup, PcbStackup, PcbStackupLayer,
-    PcbTable, PcbTableCell, PcbTeardropParameters, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon,
-    PcbZoneKeepout, PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement,
-    PcbZonePlacementSource, PcbZonePolygon,
+    PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbComponentClassRef, PcbCounts, PcbDimension,
+    PcbDocument, PcbDrillLayerSpan, PcbDrillProperties, PcbEdit, PcbEmbeddedFile, PcbFamily,
+    PcbFootprint, PcbFootprintGraphic, PcbFootprintMemberOwner, PcbFootprintProperty,
+    PcbFootprintText, PcbFootprintTextBox, PcbFootprintTransform, PcbFrontBackOptionalBool,
+    PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape,
+    PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet, PcbNetRef, PcbPad,
+    PcbPadCustomOptions, PcbPadCustomPrimitive, PcbPadDrill, PcbPadNameGroup, PcbPoint,
+    PcbPostMachiningProperties, PcbProfileOwner, PcbProfilePrimitive, PcbProperty, PcbRoutingArc,
+    PcbSegment, PcbSelection, PcbSetup, PcbStackup, PcbStackupLayer, PcbTable, PcbTableCell,
+    PcbTeardropParameters, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout,
+    PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement, PcbZonePlacementSource,
+    PcbZonePolygon,
+};
+pub use pcb_authoring::{
+    AuthoredBoardText, AuthoredChamferCorner, AuthoredColor, AuthoredDrill, AuthoredEmbeddedFile,
+    AuthoredFootprint, AuthoredFootprintOccurrence, AuthoredFootprintProperty,
+    AuthoredFootprintText, AuthoredFrontBackPolicy, AuthoredGraphic, AuthoredGraphicGeometry,
+    AuthoredLayer, AuthoredModel, AuthoredNet, AuthoredNetRef, AuthoredPad, AuthoredPadKind,
+    AuthoredPadShape, AuthoredPcb, AuthoredPoint, AuthoredResourceData, AuthoredRoutingArc,
+    AuthoredSegment, AuthoredSetup, AuthoredStackup, AuthoredStackupLayer,
+    AuthoredStandaloneFootprint, AuthoredTextBox, AuthoredTextBoxGeometry, AuthoredTextEffects,
+    AuthoredTextHorizontalJustification, AuthoredTextVerticalJustification, AuthoredVia,
+    AuthoredViaKind, AuthoredZone, AuthoredZoneConnection, AuthoredZoneFill,
+    AuthoredZoneFilledPolygon, AuthoredZoneHatch, AuthoredZonePadConnection, AuthoredZonePolygon,
+    KICAD_SOURCE_VERSION_2024_12_29, PcbAuthoringLimits,
 };
 pub use plot_document_contract::{
     PlotDocumentMetadata, PlotDocumentProjectionLimits, PlotProjectionError,

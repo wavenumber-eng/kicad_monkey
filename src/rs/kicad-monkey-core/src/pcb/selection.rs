@@ -31,6 +31,8 @@ pub enum PcbFamily {
     Holes,
     FootprintTransforms,
     Profile,
+    /// Embedded resource declarations owned by board footprints.
+    FootprintEmbeddedFiles,
 }
 
 /// A compact, allocation-free set of requested PCB families.
@@ -38,7 +40,7 @@ pub enum PcbFamily {
 pub struct PcbSelection(u32);
 
 impl PcbSelection {
-    const FAMILY_COUNT: u32 = PcbFamily::Profile as u32 + 1;
+    const FAMILY_COUNT: u32 = PcbFamily::FootprintEmbeddedFiles as u32 + 1;
     const ALL_MASK: u32 = (1 << Self::FAMILY_COUNT) - 1;
 
     pub const fn none() -> Self {
@@ -88,6 +90,7 @@ impl PcbSelection {
             | family_mask(PcbFamily::FootprintTextBoxes)
             | family_mask(PcbFamily::Holes)
             | family_mask(PcbFamily::FootprintTransforms)
+            | family_mask(PcbFamily::FootprintEmbeddedFiles)
             | family_mask(PcbFamily::Profile),
     );
 

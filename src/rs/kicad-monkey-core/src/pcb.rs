@@ -3,6 +3,9 @@
 //! The board model indexes exact source spans and decodes domain records on
 //! demand. It intentionally does not construct the generic compatibility tree.
 
+#[cfg(feature = "embedded-resource-zstd")]
+use crate::embedded_resource::decoded_data;
+use crate::embedded_resource::{encoded_data, metadata_from_span};
 use crate::sexpr::{
     Error, ErrorKind, ErrorPhase, Lexer, Patch, Position, Sexp, Token, TokenKind,
     apply_patches_with_limit, build_with_limit, decode_quoted, decode_quoted_with_limit,
@@ -28,6 +31,11 @@ mod setup;
 mod vias;
 mod zones;
 use self::{decode::*, indexing::*, scalars::*};
+pub use crate::embedded_resource::{
+    EmbeddedDataPresence as PcbEmbeddedDataPresence,
+    EmbeddedDecodeLimits as PcbEmbeddedDecodeLimits, EmbeddedFile as PcbEmbeddedFile,
+    EmbeddedFileOwner as PcbEmbeddedFileOwner,
+};
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
 };
@@ -68,6 +76,7 @@ pub struct PcbLimits {
     pub max_properties: usize,
     pub max_footprints: usize,
     pub max_footprint_children: usize,
+    pub max_footprint_header_scalars: usize,
     pub max_footprint_attributes: usize,
     pub max_footprint_properties: usize,
     pub max_footprint_graphics: usize,
@@ -140,6 +149,7 @@ impl PcbLimits {
             max_properties,
             max_footprints,
             max_footprint_children,
+            max_footprint_header_scalars,
             max_footprint_attributes,
             max_footprint_properties,
             max_footprint_graphics,
@@ -207,6 +217,7 @@ impl Default for PcbLimits {
             max_properties: 100_000,
             max_footprints: 1_000_000,
             max_footprint_children: 1_000_000,
+            max_footprint_header_scalars: 256,
             max_footprint_attributes: 256,
             max_footprint_properties: 4_000_000,
             max_footprint_graphics: 4_000_000,
@@ -292,6 +303,7 @@ pub struct PcbCounts {
     pub dimensions: usize,
     pub generated_items: usize,
     pub embedded_files: usize,
+    pub footprint_embedded_files: usize,
     pub unknown_top_level: usize,
 }
 
@@ -344,25 +356,58 @@ pub struct PcbFootprint {
     pub description: String,
     pub tags: String,
     pub attributes: Vec<String>,
+    pub component_classes: Vec<PcbComponentClassRef>,
+    pub private_layers: Vec<String>,
+    pub net_tie_pad_groups: Vec<PcbPadNameGroup>,
     pub embedded_fonts: bool,
     pub duplicate_pad_numbers_are_jumpers: Option<bool>,
+    pub jumper_pad_groups: Vec<PcbPadNameGroup>,
     pub solder_mask_margin: Option<f64>,
     pub solder_paste_margin: Option<f64>,
     pub solder_paste_margin_ratio: Option<f64>,
     pub clearance: Option<f64>,
     pub zone_connect: Option<i64>,
+    pub thermal_width: Option<f64>,
+    pub thermal_gap: Option<f64>,
     pub property_count: usize,
     pub graphic_count: usize,
     pub text_count: usize,
     pub text_box_count: usize,
     pub pad_count: usize,
     pub model_count: usize,
+    pub embedded_file_count: usize,
     pub source_range: Range<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PcbComponentClassRef {
+    pub name: String,
+    pub source_range: Range<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PcbPadNameGroup {
+    pub pad_names: Vec<String>,
+    /// Exact authored net-tie token spelling, including quotes and escapes.
+    /// Jumper groups are authored as child forms and therefore use `None`.
+    pub raw_token: Option<String>,
+    pub source_range: Range<usize>,
+}
+
+/// Source owner for a footprint-local typed member reused by board and
+/// standalone readers.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PcbFootprintMemberOwner {
+    EmbeddedFootprint { footprint_index: usize },
+    StandaloneFootprint,
 }
 
 /// One typed footprint 3D-model reference in board source order.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbModelReference {
+    pub owner: PcbFootprintMemberOwner,
+    /// Compatibility index for board consumers; zero for standalone records.
+    /// Prefer `owner` when distinguishing document scope.
     pub footprint_index: usize,
     pub path: String,
     pub offset: [f64; 3],
@@ -528,15 +573,6 @@ pub struct PcbGeneratedItem {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PcbEmbeddedFile {
-    pub name: String,
-    pub file_type: String,
-    pub checksum: Option<String>,
-    pub encoded_data_bytes: usize,
-    pub source_range: Range<usize>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PcbEdit {
     pub source: String,
     pub changed: bool,
@@ -551,11 +587,18 @@ struct IndexedFootprint {
     text_box_count: usize,
     pad_count: usize,
     model_count: usize,
+    embedded_file_count: usize,
 }
 
 #[derive(Clone, Debug)]
 struct IndexedNestedForm {
     parent_index: usize,
+    span: FormSpan,
+}
+
+#[derive(Clone, Debug)]
+struct IndexedEmbeddedFile {
+    owner: PcbEmbeddedFileOwner,
     span: FormSpan,
 }
 
@@ -609,7 +652,7 @@ struct PcbIndex {
     dimensions: Vec<FormSpan>,
     groups: Vec<FormSpan>,
     generated_items: Vec<FormSpan>,
-    embedded_files: Vec<FormSpan>,
+    embedded_files: Vec<IndexedEmbeddedFile>,
     variants: Vec<FormSpan>,
     images: Vec<FormSpan>,
     barcodes: Vec<FormSpan>,
@@ -642,7 +685,7 @@ pub struct PcbView<'a> {
     dimensions: Vec<FormSpan>,
     groups: Vec<FormSpan>,
     generated_items: Vec<FormSpan>,
-    embedded_files: Vec<FormSpan>,
+    embedded_files: Vec<IndexedEmbeddedFile>,
     variants: Vec<FormSpan>,
     images: Vec<FormSpan>,
     barcodes: Vec<FormSpan>,
@@ -887,11 +930,97 @@ impl<'a> PcbView<'a> {
             .map(|span| generated_from_span(self.source, span, self.limits))
     }
 
+    /// Iterate board-owned embedded resources in source order.
+    ///
+    /// This preserves the pre-existing board-scope behavior. Use
+    /// [`Self::footprint_embedded_files`] or [`Self::all_embedded_files`] for
+    /// nested declarations.
     pub fn embedded_files(&self) -> impl Iterator<Item = Result<PcbEmbeddedFile, Error>> + '_ {
         self.embedded_files
             .iter()
-            .filter(move |_| self.selection.contains(PcbFamily::EmbeddedFiles))
-            .map(|span| embedded_file_from_span(self.source, span, self.limits))
+            .filter(move |indexed| {
+                self.selection.contains(PcbFamily::EmbeddedFiles)
+                    && indexed.owner == PcbEmbeddedFileOwner::Board
+            })
+            .map(|indexed| embedded_file_from_span(self.source, indexed, self.limits))
+    }
+
+    /// Iterate footprint-owned embedded resources in board and child source order.
+    pub fn footprint_embedded_files(
+        &self,
+    ) -> impl Iterator<Item = Result<PcbEmbeddedFile, Error>> + '_ {
+        self.embedded_files
+            .iter()
+            .filter(move |indexed| {
+                self.selection.contains(PcbFamily::FootprintEmbeddedFiles)
+                    && matches!(
+                        indexed.owner,
+                        PcbEmbeddedFileOwner::EmbeddedFootprint { .. }
+                    )
+            })
+            .map(|indexed| embedded_file_from_span(self.source, indexed, self.limits))
+    }
+
+    /// Iterate all board and embedded-footprint resource declarations.
+    pub fn all_embedded_files(&self) -> impl Iterator<Item = Result<PcbEmbeddedFile, Error>> + '_ {
+        self.embedded_files
+            .iter()
+            .filter(move |indexed| match indexed.owner {
+                PcbEmbeddedFileOwner::Board => self.selection.contains(PcbFamily::EmbeddedFiles),
+                PcbEmbeddedFileOwner::EmbeddedFootprint { .. } => {
+                    self.selection.contains(PcbFamily::FootprintEmbeddedFiles)
+                }
+                PcbEmbeddedFileOwner::StandaloneFootprint => false,
+            })
+            .map(|indexed| embedded_file_from_span(self.source, indexed, self.limits))
+    }
+
+    /// Return the exact joined base64 payload without decoding it.
+    ///
+    /// `None` means no `(data ...)` form was authored; `Some("")` is an
+    /// explicitly empty payload.
+    pub fn embedded_file_encoded_data(
+        &self,
+        file: &PcbEmbeddedFile,
+        maximum: usize,
+    ) -> Result<Option<String>, Error> {
+        if !self
+            .embedded_files
+            .iter()
+            .any(|indexed| indexed.span.range == file.source_range && indexed.owner == file.owner)
+        {
+            return Err(Error::build(
+                ErrorKind::InvalidSpan,
+                format!(
+                    "Embedded resource {:?} does not belong to this PCB view",
+                    file.name
+                ),
+            ));
+        }
+        encoded_data(self.source, file, maximum)
+    }
+
+    /// Decode and checksum-verify one zstd/base64 payload on demand.
+    #[cfg(feature = "embedded-resource-zstd")]
+    pub fn decode_embedded_file(
+        &self,
+        file: &PcbEmbeddedFile,
+        limits: PcbEmbeddedDecodeLimits,
+    ) -> Result<Option<Vec<u8>>, Error> {
+        if !self
+            .embedded_files
+            .iter()
+            .any(|indexed| indexed.span.range == file.source_range && indexed.owner == file.owner)
+        {
+            return Err(Error::build(
+                ErrorKind::InvalidSpan,
+                format!(
+                    "Embedded resource {:?} does not belong to this PCB view",
+                    file.name
+                ),
+            ));
+        }
+        decoded_data(self.source, file, limits)
     }
 
     /// Remove one unambiguous identified top-level object by `uuid` or legacy `id`.
@@ -1071,3 +1200,123 @@ impl<'a> PcbView<'a> {
 }
 
 pub use document::PcbDocument;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct StandaloneFootprintCounts {
+    pub properties: usize,
+    pub graphics: usize,
+    pub texts: usize,
+    pub text_boxes: usize,
+    pub pads: usize,
+    pub models: usize,
+    pub embedded_files: usize,
+}
+
+pub(crate) fn standalone_footprint_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+    counts: StandaloneFootprintCounts,
+) -> Result<PcbFootprint, Error> {
+    footprint_from_span(
+        source,
+        &IndexedFootprint {
+            span: span.clone(),
+            property_count: counts.properties,
+            graphic_count: counts.graphics,
+            text_count: counts.texts,
+            text_box_count: counts.text_boxes,
+            pad_count: counts.pads,
+            model_count: counts.models,
+            embedded_file_count: counts.embedded_files,
+        },
+        limits,
+    )
+}
+
+pub(crate) fn standalone_pad_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbPad, Error> {
+    let mut pad = pads::pad_from_span(
+        source,
+        &IndexedNestedForm {
+            parent_index: 0,
+            span: span.clone(),
+        },
+        limits,
+    )?;
+    pad.owner = PcbFootprintMemberOwner::StandaloneFootprint;
+    Ok(pad)
+}
+
+pub(crate) fn standalone_property_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbFootprintProperty, Error> {
+    footprints::footprint_property_from_span(
+        source,
+        &IndexedNestedForm {
+            parent_index: 0,
+            span: span.clone(),
+        },
+        limits,
+    )
+}
+
+pub(crate) fn standalone_text_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbFootprintText, Error> {
+    footprints::footprint_text_from_span(
+        source,
+        &IndexedNestedForm {
+            parent_index: 0,
+            span: span.clone(),
+        },
+        limits,
+    )
+}
+
+pub(crate) fn standalone_text_box_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbFootprintTextBox, Error> {
+    footprints::footprint_text_box_from_span(
+        source,
+        &IndexedNestedForm {
+            parent_index: 0,
+            span: span.clone(),
+        },
+        limits,
+    )
+}
+
+pub(crate) fn standalone_model_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbModelReference, Error> {
+    let mut model = model_from_span(
+        source,
+        &IndexedNestedForm {
+            parent_index: 0,
+            span: span.clone(),
+        },
+        limits,
+    )?;
+    model.owner = PcbFootprintMemberOwner::StandaloneFootprint;
+    Ok(model)
+}
+
+pub(crate) fn standalone_graphic_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbGraphic, Error> {
+    graphic_from_span(source, span, limits)
+}

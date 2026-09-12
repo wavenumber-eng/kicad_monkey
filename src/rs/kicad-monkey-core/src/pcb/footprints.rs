@@ -116,16 +116,26 @@ impl<'a> PcbView<'a> {
     }
 }
 
-fn footprint_text_from_span(
+pub(super) fn footprint_text_from_span(
     source: &str,
     indexed: &IndexedNestedForm,
     limits: PcbLimits,
 ) -> Result<PcbFootprintText, Error> {
-    let header = bounded_scalar_values(source, &indexed.span, MAX_PROPERTY_HEADER_SCALARS)?;
+    let header = bounded_scalar_values(
+        source,
+        &indexed.span,
+        MAX_PROPERTY_HEADER_SCALARS.min(limits.max_object_children),
+    )?;
     let children = direct_children(source, &indexed.span, limits.max_object_children, limits)?;
-    let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
+    let at = optional_vector(
+        source,
+        &children,
+        "at",
+        [0.0, 0.0, 0.0],
+        limits.max_object_children,
+    )?;
     let effects = text_effects_from_children(source, &children, limits)?.unwrap_or_default();
-    let (layer, knockout) = text_layer(source, &children)?;
+    let (layer, knockout) = text_layer(source, &children, limits.max_object_children)?;
     Ok(PcbFootprintText {
         footprint_index: indexed.parent_index,
         kind: required_string(
@@ -149,12 +159,16 @@ fn footprint_text_from_span(
     })
 }
 
-fn footprint_text_box_from_span(
+pub(super) fn footprint_text_box_from_span(
     source: &str,
     indexed: &IndexedNestedForm,
     limits: PcbLimits,
 ) -> Result<PcbFootprintTextBox, Error> {
-    let header = bounded_scalar_values(source, &indexed.span, MAX_PROPERTY_HEADER_SCALARS)?;
+    let header = bounded_scalar_values(
+        source,
+        &indexed.span,
+        MAX_PROPERTY_HEADER_SCALARS.min(limits.max_object_children),
+    )?;
     let children = direct_children(source, &indexed.span, limits.max_object_children, limits)?;
     let polygon_points = child(&children, "pts")
         .map(|span| text_box_points(source, span, limits))
@@ -172,7 +186,7 @@ fn footprint_text_box_from_span(
         start = PcbPoint { x: min_x, y: min_y };
         end = PcbPoint { x: max_x, y: max_y };
     }
-    let margins = text_box_margins(source, &children)?;
+    let margins = text_box_margins(source, &children, limits.max_object_children)?;
     let (stroke_width, stroke_kind) = text_box_stroke(source, &children, limits)?;
     Ok(PcbFootprintTextBox {
         footprint_index: indexed.parent_index,
@@ -204,7 +218,11 @@ fn text_effects_from_children(
     let Some(effects) = child(children, "effects") else {
         return Ok(None);
     };
-    let header = bounded_scalar_values(source, effects, MAX_EFFECTS_FLAGS)?;
+    let header = bounded_scalar_values(
+        source,
+        effects,
+        MAX_EFFECTS_FLAGS.min(limits.max_text_effect_children),
+    )?;
     let fields = direct_children(source, effects, limits.max_text_effect_children, limits)?;
     let justify = child(&fields, "justify")
         .map(|span| bounded_scalar_values(source, span, limits.max_text_justify_tokens))
@@ -230,10 +248,14 @@ fn text_font_from_children(
     let Some(font) = child(effects_children, "font") else {
         return Ok(KiCadFont::default());
     };
-    let header = bounded_scalar_values(source, font, MAX_EFFECTS_FLAGS)?;
+    let header = bounded_scalar_values(
+        source,
+        font,
+        MAX_EFFECTS_FLAGS.min(limits.max_text_font_children),
+    )?;
     let fields = direct_children(source, font, limits.max_text_font_children, limits)?;
     let size = child(&fields, "size")
-        .map(|span| bounded_scalar_values(source, span, 2))
+        .map(|span| bounded_scalar_values(source, span, 2.min(limits.max_text_font_children)))
         .transpose()?
         .unwrap_or_default();
     Ok(KiCadFont {
@@ -244,15 +266,19 @@ fn text_font_from_children(
         bold: has_flag(&header, "bold") || child_bool(source, &fields, "bold")?,
         italic: has_flag(&header, "italic") || child_bool(source, &fields, "italic")?,
         line_spacing: optional_child_f64(source, &fields, "line_spacing")?,
-        color: optional_color(source, &fields)?,
+        color: optional_color(source, &fields, limits.max_text_font_children)?,
     })
 }
 
-fn optional_color(source: &str, children: &[FormSpan]) -> Result<Option<KiCadColor>, Error> {
+fn optional_color(
+    source: &str,
+    children: &[FormSpan],
+    maximum: usize,
+) -> Result<Option<KiCadColor>, Error> {
     let Some(color) = child(children, "color") else {
         return Ok(None);
     };
-    let values = bounded_scalar_values(source, color, 4)?;
+    let values = bounded_scalar_values(source, color, 4.min(maximum))?;
     if values.len() < 4 {
         return Ok(None);
     }
@@ -264,11 +290,15 @@ fn optional_color(source: &str, children: &[FormSpan]) -> Result<Option<KiCadCol
     }))
 }
 
-fn text_layer(source: &str, children: &[FormSpan]) -> Result<(String, bool), Error> {
+fn text_layer(
+    source: &str,
+    children: &[FormSpan],
+    maximum: usize,
+) -> Result<(String, bool), Error> {
     let Some(layer) = child(children, "layer") else {
         return Ok(("F.SilkS".to_owned(), false));
     };
-    let values = bounded_scalar_values(source, layer, 8)?;
+    let values = bounded_scalar_values(source, layer, 8.min(maximum))?;
     Ok((
         values
             .first()
@@ -300,11 +330,15 @@ fn text_box_points(
     Ok(result)
 }
 
-fn text_box_margins(source: &str, children: &[FormSpan]) -> Result<[f64; 4], Error> {
+fn text_box_margins(
+    source: &str,
+    children: &[FormSpan],
+    maximum: usize,
+) -> Result<[f64; 4], Error> {
     let Some(margins) = child(children, "margins") else {
         return Ok([0.0; 4]);
     };
-    let values = bounded_scalar_values(source, margins, 4)?;
+    let values = bounded_scalar_values(source, margins, 4.min(maximum))?;
     let mut result = [0.0; 4];
     for (index, value) in result.iter_mut().enumerate() {
         *value = optional_f64(values.get(index), margins)?.unwrap_or(0.0);
@@ -351,14 +385,24 @@ fn optional_named_bool(
     ))
 }
 
-fn footprint_property_from_span(
+pub(super) fn footprint_property_from_span(
     source: &str,
     indexed: &IndexedNestedForm,
     limits: PcbLimits,
 ) -> Result<PcbFootprintProperty, Error> {
-    let header = bounded_scalar_values(source, &indexed.span, MAX_PROPERTY_HEADER_SCALARS)?;
+    let header = bounded_scalar_values(
+        source,
+        &indexed.span,
+        MAX_PROPERTY_HEADER_SCALARS.min(limits.max_object_children),
+    )?;
     let children = direct_children(source, &indexed.span, limits.max_object_children, limits)?;
-    let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
+    let at = optional_vector(
+        source,
+        &children,
+        "at",
+        [0.0, 0.0, 0.0],
+        limits.max_object_children,
+    )?;
     let graphical = child(&children, "at").is_some() && child(&children, "layer").is_some();
     let effects = text_effects_from_children(source, &children, limits)?.unwrap_or_default();
     let hidden =

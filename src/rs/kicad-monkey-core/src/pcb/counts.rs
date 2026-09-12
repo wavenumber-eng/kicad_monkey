@@ -46,6 +46,9 @@ impl PcbCounts {
         if !selection.contains(PcbFamily::FootprintTextBoxes) {
             self.footprint_text_boxes = 0;
         }
+        if !selection.contains(PcbFamily::FootprintEmbeddedFiles) {
+            self.footprint_embedded_files = 0;
+        }
     }
 
     fn retain_routing_selection(&mut self, selection: PcbSelection) {

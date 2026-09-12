@@ -1,10 +1,11 @@
 //! Standalone-footprint property and text carrier decoding.
 
 use crate::KiCadTextEffects;
-use crate::footprint::{FootprintLimits, FootprintView, rebase_error};
-use crate::plotter_ir::{child, model_error, numeric_at as parse_numeric_at, value_at};
-use crate::sexpr::{Error, Limits, Position, Sexp, parse_with_limits};
-use crate::text_metadata::parse_text_effects;
+use crate::footprint::FootprintView;
+use crate::pcb::{
+    standalone_property_from_span, standalone_text_box_from_span, standalone_text_from_span,
+};
+use crate::sexpr::Error;
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -19,6 +20,8 @@ pub struct FootprintGraphicalProperty {
     pub unlocked: bool,
     pub graphical: bool,
     pub effects: KiCadTextEffects,
+    pub render_cache_range: Option<Range<usize>>,
+    pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }
 
@@ -34,6 +37,8 @@ pub struct FootprintText {
     pub hidden: bool,
     pub unlocked: bool,
     pub effects: KiCadTextEffects,
+    pub render_cache_range: Option<Range<usize>>,
+    pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }
 
@@ -51,8 +56,11 @@ pub struct FootprintTextBox {
     pub locked: bool,
     pub effects: Option<KiCadTextEffects>,
     pub stroke_width: Option<f64>,
+    pub stroke_kind: Option<String>,
     pub border: Option<bool>,
     pub knockout: Option<bool>,
+    pub render_cache_range: Option<Range<usize>>,
+    pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }
 
@@ -62,245 +70,75 @@ impl FootprintView<'_> {
         &self,
     ) -> impl Iterator<Item = Result<FootprintGraphicalProperty, Error>> + '_ {
         self.properties.iter().map(|span| {
-            let form = parse_span(self.source, span, self.limits)?;
-            (|| {
-                let effects = parse_text_effects(&form)?.unwrap_or_default();
-                let at = vector3(child(&form, "at"), [0.0, 0.0, 0.0])?;
-                let layer = child(&form, "layer");
-                Ok(FootprintGraphicalProperty {
-                    name: required_value(&form, 1, "Expected footprint property name")?,
-                    value: required_value(&form, 2, "Expected footprint property value")?,
-                    at_x: at[0],
-                    at_y: at[1],
-                    angle: at[2],
-                    layer: layer
-                        .and_then(|value| value_at(value, 1))
-                        .unwrap_or("F.SilkS")
-                        .to_owned(),
-                    hidden: named_bool(&form, "hide").unwrap_or(false) || effects.hidden,
-                    unlocked: named_bool(&form, "unlocked").unwrap_or(false),
-                    graphical: child(&form, "at").is_some() && layer.is_some(),
-                    effects,
-                    source_range: span.range.clone(),
-                })
-            })()
-            .map_err(|error| rebase_error(error, span))
+            let value = standalone_property_from_span(self.source, span, self.pcb_limits())?;
+            Ok(FootprintGraphicalProperty {
+                name: value.name,
+                value: value.value,
+                at_x: value.at.x,
+                at_y: value.at.y,
+                angle: value.angle,
+                layer: value.layer,
+                hidden: value.hidden,
+                unlocked: value.unlocked,
+                graphical: value.graphical,
+                effects: value.effects,
+                render_cache_range: value.render_cache_range,
+                uuid: value.uuid,
+                source_range: value.source_range,
+            })
         })
     }
 
     /// Decode footprint-local `fp_text` carriers in source order.
     pub fn texts(&self) -> impl Iterator<Item = Result<FootprintText, Error>> + '_ {
         self.texts.iter().map(|span| {
-            let form = parse_span(self.source, span, self.limits)?;
-            (|| {
-                let effects = parse_text_effects(&form)?.unwrap_or_default();
-                let at = vector3(child(&form, "at"), [0.0, 0.0, 0.0])?;
-                let layer_form = child(&form, "layer");
-                Ok(FootprintText {
-                    kind: required_value(&form, 1, "Expected footprint text kind")?,
-                    text: required_value(&form, 2, "Expected footprint text value")?,
-                    at_x: at[0],
-                    at_y: at[1],
-                    angle: at[2],
-                    layer: layer_form
-                        .and_then(|value| value_at(value, 1))
-                        .unwrap_or("F.SilkS")
-                        .to_owned(),
-                    knockout: layer_form.is_some_and(|value| has_flag(value, "knockout")),
-                    hidden: named_bool(&form, "hide").unwrap_or(false) || effects.hidden,
-                    unlocked: named_bool(&form, "unlocked").unwrap_or(false),
-                    effects,
-                    source_range: span.range.clone(),
-                })
-            })()
-            .map_err(|error| rebase_error(error, span))
+            let value = standalone_text_from_span(self.source, span, self.pcb_limits())?;
+            Ok(FootprintText {
+                kind: value.kind,
+                text: value.text,
+                at_x: value.at.x,
+                at_y: value.at.y,
+                angle: value.angle,
+                layer: value.layer,
+                knockout: value.knockout,
+                hidden: value.hidden,
+                unlocked: value.unlocked,
+                effects: value.effects,
+                render_cache_range: value.render_cache_range,
+                uuid: value.uuid,
+                source_range: value.source_range,
+            })
         })
     }
 
     /// Decode standalone `fp_text_box` carriers in source order.
     pub fn text_boxes(&self) -> impl Iterator<Item = Result<FootprintTextBox, Error>> + '_ {
         self.text_boxes.iter().map(|span| {
-            let form = parse_span(self.source, span, self.limits)?;
-            (|| {
-                let polygon_points = points(child(&form, "pts"))?;
-                let mut start = vector2(child(&form, "start"), [0.0, 0.0])?;
-                let mut end = vector2(child(&form, "end"), [0.0, 0.0])?;
-                if !polygon_points.is_empty()
-                    && (child(&form, "start").is_none() || child(&form, "end").is_none())
-                {
-                    start = [
-                        extent(&polygon_points, 0, f64::min),
-                        extent(&polygon_points, 1, f64::min),
-                    ];
-                    end = [
-                        extent(&polygon_points, 0, f64::max),
-                        extent(&polygon_points, 1, f64::max),
-                    ];
-                }
-                let margins = match child(&form, "margins") {
-                    Some(value) if list_values(value).is_some_and(|values| values.len() >= 5) => {
-                        vector4(Some(value), [0.0; 4])?
-                    }
-                    _ => [0.0; 4],
-                };
-                let stroke = child(&form, "stroke");
-                Ok(FootprintTextBox {
-                    text: value_at(&form, 1).unwrap_or_default().to_owned(),
-                    start_x: start[0],
-                    start_y: start[1],
-                    end_x: end[0],
-                    end_y: end[1],
-                    margins,
-                    angle: scalar(child(&form, "angle"), 0.0)?,
-                    polygon_points,
-                    layer: child(&form, "layer")
-                        .and_then(|value| value_at(value, 1))
-                        .unwrap_or("F.SilkS")
-                        .to_owned(),
-                    locked: named_bool(&form, "locked").unwrap_or(false),
-                    effects: parse_text_effects(&form)?,
-                    stroke_width: stroke
-                        .and_then(|value| child(value, "width"))
-                        .map(|value| numeric_at(value, 1, Position::START))
-                        .transpose()?,
-                    border: named_bool(&form, "border"),
-                    knockout: named_bool(&form, "knockout"),
-                    source_range: span.range.clone(),
-                })
-            })()
-            .map_err(|error| rebase_error(error, span))
+            let value = standalone_text_box_from_span(self.source, span, self.pcb_limits())?;
+            Ok(FootprintTextBox {
+                text: value.text,
+                start_x: value.start.x,
+                start_y: value.start.y,
+                end_x: value.end.x,
+                end_y: value.end.y,
+                margins: value.margins,
+                angle: value.angle,
+                polygon_points: value
+                    .polygon_points
+                    .into_iter()
+                    .map(|point| [point.x, point.y])
+                    .collect(),
+                layer: value.layer,
+                locked: value.locked,
+                effects: value.effects,
+                stroke_width: value.stroke_width,
+                stroke_kind: value.stroke_kind,
+                border: value.border,
+                knockout: value.knockout,
+                render_cache_range: value.render_cache_range,
+                uuid: value.uuid,
+                source_range: value.source_range,
+            })
         })
-    }
-}
-
-fn parse_span(
-    source: &str,
-    span: &crate::sexpr_projection::FormSpan,
-    limits: FootprintLimits,
-) -> Result<Sexp, Error> {
-    let text = span.text(source)?;
-    parse_with_limits(
-        text,
-        Limits {
-            max_source_bytes: text.len(),
-            max_depth: limits.max_depth,
-            max_nodes: limits.max_object_nodes,
-            max_decoded_string_bytes: limits.max_source_bytes,
-        },
-    )
-    .map_err(|error| rebase_error(error, span))
-}
-
-fn required_value(form: &Sexp, index: usize, message: &'static str) -> Result<String, Error> {
-    value_at(form, index)
-        .map(str::to_owned)
-        .ok_or_else(|| model_error(message, Position::START))
-}
-
-fn numeric_at(form: &Sexp, index: usize, position: Position) -> Result<f64, Error> {
-    let value = parse_numeric_at(form, index, position)?;
-    if value.is_finite() {
-        Ok(value)
-    } else {
-        Err(model_error(
-            "Expected finite footprint text numeric value",
-            position,
-        ))
-    }
-}
-
-fn points(form: Option<&Sexp>) -> Result<Vec<[f64; 2]>, Error> {
-    let Some(values) = form.and_then(list_values) else {
-        return Ok(Vec::new());
-    };
-    values[1..]
-        .iter()
-        .filter(|value| {
-            list_values(value).is_some_and(|point| point.len() >= 3)
-                && value_at(value, 0) == Some("xy")
-        })
-        .map(|value| {
-            Ok([
-                numeric_at(value, 1, Position::START)?,
-                numeric_at(value, 2, Position::START)?,
-            ])
-        })
-        .collect()
-}
-
-fn extent(points: &[[f64; 2]], axis: usize, operation: fn(f64, f64) -> f64) -> f64 {
-    points
-        .iter()
-        .map(|point| point[axis])
-        .reduce(operation)
-        .unwrap_or(0.0)
-}
-
-fn vector2(form: Option<&Sexp>, default: [f64; 2]) -> Result<[f64; 2], Error> {
-    Ok([
-        numeric_or(form, 1, default[0])?,
-        numeric_or(form, 2, default[1])?,
-    ])
-}
-
-fn vector3(form: Option<&Sexp>, default: [f64; 3]) -> Result<[f64; 3], Error> {
-    Ok([
-        numeric_or(form, 1, default[0])?,
-        numeric_or(form, 2, default[1])?,
-        numeric_or(form, 3, default[2])?,
-    ])
-}
-
-fn vector4(form: Option<&Sexp>, default: [f64; 4]) -> Result<[f64; 4], Error> {
-    Ok([
-        numeric_or(form, 1, default[0])?,
-        numeric_or(form, 2, default[1])?,
-        numeric_or(form, 3, default[2])?,
-        numeric_or(form, 4, default[3])?,
-    ])
-}
-
-fn scalar(form: Option<&Sexp>, default: f64) -> Result<f64, Error> {
-    numeric_or(form, 1, default)
-}
-
-fn numeric_or(form: Option<&Sexp>, index: usize, default: f64) -> Result<f64, Error> {
-    match form {
-        Some(value) if list_values(value).is_some_and(|values| values.len() > index) => {
-            numeric_at(value, index, Position::START)
-        }
-        _ => Ok(default),
-    }
-}
-
-fn named_bool(form: &Sexp, name: &str) -> Option<bool> {
-    if has_flag(form, name) {
-        return Some(true);
-    }
-    let value = child(form, name)?;
-    if list_values(value).is_none_or(|values| values.len() <= 1) {
-        return Some(true);
-    }
-    Some(value_at(value, 1) == Some("yes"))
-}
-
-fn has_flag(form: &Sexp, name: &str) -> bool {
-    list_values(form)
-        .into_iter()
-        .flatten()
-        .any(|value| text_value(value) == Some(name))
-}
-
-fn list_values(form: &Sexp) -> Option<&[Sexp]> {
-    match form {
-        Sexp::List(values) => Some(values),
-        _ => None,
-    }
-}
-
-fn text_value(value: &Sexp) -> Option<&str> {
-    match value {
-        Sexp::Atom(value) | Sexp::Quoted(value) => Some(value),
-        _ => None,
     }
 }

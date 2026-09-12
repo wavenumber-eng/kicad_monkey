@@ -30,13 +30,13 @@ EXPECTED_RELEASE_DATE = date(2026, 9, 7)
 EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-09-07.md"
 CONTROLLED_DEPENDENCIES = {
     "kicad-monkey": "2026.9.7",
-    "wn-geometer": "2026.9.7",
+    "wn-geometer": "2026.9.11",
 }
 CONTROLLED_DEPENDENCY_SPECIFIERS = {
     "kicad-monkey": ">=",
     "wn-geometer": "==",
 }
-DEV_STD_MINIMUM_VERSION = "2026.8.12"
+DEV_STD_MINIMUM_VERSION = "2026.9.8"
 DEV_STD_AUDIT_SCOPES = {
     "repo",
     "docs.design",
@@ -87,9 +87,7 @@ def test_controlled_dependency_pins_match_latest_release_versions() -> None:
 
     test_dependencies = set(pyproject["project"]["optional-dependencies"]["test"])
     dev_dependencies = set(pyproject["dependency-groups"]["dev"])
-    dev_std_requirement = (
-        f"wn-dev-std>={DEV_STD_MINIMUM_VERSION}; python_version >= '3.12'"
-    )
+    dev_std_requirement = f"wn-dev-std>={DEV_STD_MINIMUM_VERSION}; python_version >= '3.12'"
     assert dev_std_requirement in test_dependencies
     assert dev_std_requirement in dev_dependencies
 
@@ -97,7 +95,7 @@ def test_controlled_dependency_pins_match_latest_release_versions() -> None:
 def test_configured_dev_std_audit_scopes_pass() -> None:
     """Verify the configured dev-std audit scopes are part of release signoff."""
     if sys.version_info < (3, 12):
-        pytest.skip("wn-dev-std 2026.7.18 requires Python 3.12")
+        pytest.skip(f"wn-dev-std {DEV_STD_MINIMUM_VERSION} requires Python 3.12")
 
     completed = subprocess.run(
         [
@@ -125,7 +123,7 @@ def test_configured_dev_std_audit_scopes_pass() -> None:
 def test_dev_std_upstream_version_is_current() -> None:
     """Verify release signoff notices when the configured standard is stale."""
     if sys.version_info < (3, 12):
-        pytest.skip("wn-dev-std 2026.7.18 requires Python 3.12")
+        pytest.skip(f"wn-dev-std {DEV_STD_MINIMUM_VERSION} requires Python 3.12")
 
     completed = subprocess.run(
         [

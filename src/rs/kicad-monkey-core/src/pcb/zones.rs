@@ -74,6 +74,7 @@ pub struct PcbZone {
     pub hatch_style: String,
     pub hatch_pitch: f64,
     pub priority: i64,
+    pub connect_pads_mode: Option<String>,
     pub connect_pads_clearance: f64,
     pub min_thickness: f64,
     pub filled_areas_thickness: bool,
@@ -132,13 +133,12 @@ pub(super) fn zone_from_span(
         .map(|item| bounded_scalar_values(source, item, 2))
         .transpose()?
         .unwrap_or_default();
-    let connect_pads_clearance = nested_f64(
-        source,
-        child(&children, "connect_pads"),
-        "clearance",
-        0.5,
-        limits,
-    )?;
+    let connect_pads = child(&children, "connect_pads");
+    let connect_pads_mode = connect_pads
+        .map(|item| first_string(source, item))
+        .transpose()?
+        .flatten();
+    let connect_pads_clearance = nested_f64(source, connect_pads, "clearance", 0.5, limits)?;
     let fill = child(&children, "fill");
     let fill_enabled = fill
         .map(|item| bounded_scalar_values(source, item, 1))
@@ -167,6 +167,7 @@ pub(super) fn zone_from_span(
             .unwrap_or_else(|| "edge".to_owned()),
         hatch_pitch: optional_f64(hatch_values.get(1), hatch.unwrap_or(span))?.unwrap_or(0.5),
         priority: optional_child_i64(source, &children, "priority")?.unwrap_or(0),
+        connect_pads_mode,
         connect_pads_clearance,
         min_thickness: optional_child_f64(source, &children, "min_thickness")?.unwrap_or(0.25),
         filled_areas_thickness: optional_child_string(source, &children, "filled_areas_thickness")?

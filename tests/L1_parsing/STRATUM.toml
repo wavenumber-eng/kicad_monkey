@@ -656,6 +656,23 @@ secondary = [
 ]
 
 [[subtests]]
+id = "L1_039"
+file = "test_L1_039_rust_pcb_authoring.py"
+name = "Rust Fresh PCB and Footprint Authoring"
+description = "Require typed fresh-source emission, native/Python semantic readback, and KiCad CLI acceptance when available"
+concerns = ["sexpr", "rust", "pcb", "footprint", "authoring", "kicad_cli"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Fresh typed board and footprint values emit valid KiCad source without replay input"
+secondary = [
+    "Native readers preserve stackup, profile/cutout, connectivity, placements, pads, routing, model transforms, and board/footprint resource bytes",
+    "The independent Python reader checks semantic owner, identity, coordinate, layer, model lookup, and payload relationships",
+    "KiCad 10 upgrades both emitted source types and preserves payload lookup while hoisting embedded-footprint bytes to board scope",
+    "Unsupported versions, duplicate identities, board-wide resource type/payload conflicts, unknown nets, and resource/output limits fail explicitly",
+]
+
+[[subtests]]
 id = "L1_037"
 file = "test_L1_037_native_design_facts_transport.py"
 name = "Native Design Facts Process Transport"
@@ -674,4 +691,58 @@ secondary = [
     "The generated graph decoder and semantic validator run before facts are published",
     "The validated native graph can be injected only into the matching in-memory design state",
     "Cargo execution is serialized at four build jobs and two test threads",
+]
+
+[[subtests]]
+id = "L1_040"
+file = "test_L1_040_rust_pad_via_authoring.py"
+name = "Rust Typed Pad and Via Authoring"
+description = "Require typed pad geometry/policies and typed through, blind/buried, and microvia emission to survive native, Python, and KiCad CLI readback"
+concerns = ["sexpr", "rust", "pcb", "pads", "vias", "authoring", "kicad_cli"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Typed pad and via values emit source-valid geometry, drill, copper-span, land, and fabrication policies"
+secondary = [
+    "Trapezoid, chamfered roundrect, plated-slot, mask/paste, thermal, zone, and removed-land facts round-trip exactly",
+    "Through, blind, buried, and microvia spans are structurally validated against the declared copper stack",
+    "Absent and explicit front/back treatment values remain distinguishable",
+    "Invalid spans, policies, dimensions, and lossy combinations fail before source emission",
+    "KiCad upgrades the fresh board without losing supported typed facts when a compatible CLI is available",
+]
+
+[[subtests]]
+id = "L1_041"
+file = "test_L1_041_rust_zone_authoring.py"
+name = "Rust Typed Zone and Fill-Cache Authoring"
+description = "Require authored zone intent and retained fill-cache chains to survive native, Python, and KiCad CLI readback"
+concerns = ["sexpr", "rust", "pcb", "zones", "authoring", "kicad_cli"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Typed zones emit source-owned outline intent and exact retained fill-cache chains without downstream topology inference"
+secondary = [
+    "Multi-layer zone identity, net, hatch, clearance, priority, and fill settings round-trip exactly",
+    "Bridge-encoded hole chains, island markers, and per-layer caches retain source order and coordinates",
+    "Filled chains cannot target undeclared or out-of-zone layers and cannot exist without fill settings",
+    "Unconnected straight and arc routes use reserved net zero without a fabricated net declaration",
+    "KiCad upgrades and reparses the representative fresh zone board when a compatible CLI is available",
+]
+
+[[subtests]]
+id = "L1_042"
+file = "test_L1_042_rust_presentation_authoring.py"
+name = "Rust Typed Presentation-Source Authoring"
+description = "Require authored board and footprint graphics, text effects, reference/value carriers, text boxes, and TTF caches to survive native, Python, and KiCad CLI readback"
+concerns = ["sexpr", "rust", "pcb", "footprint", "text", "authoring", "kicad_cli"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Typed board and footprint presentation facts emit without source replay or downstream font/source syntax"
+secondary = [
+    "Named-font effects and exact multi-contour TTF caches round-trip before KiCad owns cache regeneration",
+    "Newstroke source intent remains a faceless text carrier without a fabricated TTF cache",
+    "Reference/value, bottom-local artwork, rotation, mirroring, knockout, locking, and text-box policies stay source-owned",
+    "Stale/unresolved caches, Newstroke caches, unsupported 20241229 effects, hidden user text, rotated embedded text boxes, and known standalone-lock loss fail before emission",
+    "KiCad upgrades and reparses representative authored board and standalone-footprint presentation sources twice where normalization drift is known",
 ]

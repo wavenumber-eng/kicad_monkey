@@ -223,7 +223,13 @@ fn pad_hole_from_span(
     if drill.width <= 0.0 || drill.height.is_some_and(|height| height <= 0.0) {
         return Ok(None);
     }
-    let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
+    let at = optional_vector(
+        source,
+        &children,
+        "at",
+        [0.0, 0.0, 0.0],
+        limits.max_pad_header_scalars,
+    )?;
     let header = bounded_scalar_values(source, &indexed.span, 3)?;
     let kind = header.get(1).map(token_string).unwrap_or_default();
     Ok(Some(PcbHole {
@@ -279,7 +285,13 @@ fn footprint_transform_from_span(
     limits: PcbLimits,
 ) -> Result<PcbFootprintTransform, Error> {
     let children = direct_children(source, &indexed.span, limits.max_footprint_children, limits)?;
-    let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
+    let at = optional_vector(
+        source,
+        &children,
+        "at",
+        [0.0, 0.0, 0.0],
+        limits.max_footprint_header_scalars,
+    )?;
     Ok(PcbFootprintTransform {
         footprint_index,
         x: at[0],

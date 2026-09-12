@@ -13,9 +13,12 @@ publish = false
 workspace = true
 
 [features]
-default = ["schematic-embedded-zstd"]
+default = ["embedded-resource-zstd"]
 measurement = []
-schematic-embedded-zstd = ["dep:zstd"]
+embedded-resource-zstd = ["dep:zstd"]
+# Backwards-compatible alias retained for callers that selected the original
+# schematic-specific feature name.
+schematic-embedded-zstd = ["embedded-resource-zstd"]
 
 [dependencies]
 harfrust.workspace = true

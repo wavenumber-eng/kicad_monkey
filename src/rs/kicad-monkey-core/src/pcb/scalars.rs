@@ -179,7 +179,7 @@ pub(super) fn required_xy(
 ) -> Result<(f64, f64), Error> {
     let span = child(children, head)
         .ok_or_else(|| source_error("Expected coordinate form", parent.start))?;
-    let values = scalar_values(source, span)?;
+    let values = first_two_scalar_values(source, span)?;
     Ok((
         required_f64(values.first(), "Expected x coordinate", span)?,
         required_f64(values.get(1), "Expected y coordinate", span)?,
@@ -204,7 +204,7 @@ pub(super) fn optional_child_point(
     let Some(span) = child(children, head) else {
         return Ok(None);
     };
-    let values = scalar_values(source, span)?;
+    let values = first_two_scalar_values(source, span)?;
     Ok(Some(PcbPoint {
         x: required_f64(values.first(), "Expected x coordinate", span)?,
         y: required_f64(values.get(1), "Expected y coordinate", span)?,
@@ -232,7 +232,7 @@ pub(super) fn points_from_span(
         .into_iter()
         .filter(|point| point.head.as_deref() == Some("xy"))
         .map(|point| {
-            let values = scalar_values(source, &point)?;
+            let values = first_two_scalar_values(source, &point)?;
             Ok(PcbPoint {
                 x: required_f64(values.first(), "Expected point x", &point)?,
                 y: required_f64(values.get(1), "Expected point y", &point)?,
@@ -250,7 +250,7 @@ pub(super) fn optional_pair(
     let Some(span) = child(children, head) else {
         return Ok(default);
     };
-    let values = scalar_values(source, span)?;
+    let values = first_two_scalar_values(source, span)?;
     Ok([
         required_f64(values.first(), "Expected first numeric value", span)?,
         required_f64(values.get(1), "Expected second numeric value", span)?,
@@ -277,11 +277,12 @@ pub(super) fn optional_vector(
     children: &[FormSpan],
     head: &str,
     default: [f64; 3],
+    maximum: usize,
 ) -> Result<[f64; 3], Error> {
     let Some(span) = child(children, head) else {
         return Ok(default);
     };
-    let values = scalar_values(source, span)?;
+    let values = bounded_scalar_values(source, span, maximum)?;
     Ok([
         required_f64(values.first(), "Expected first numeric value", span)?,
         required_f64(values.get(1), "Expected second numeric value", span)?,
@@ -303,7 +304,7 @@ pub(super) fn nested_xyz(
     let Some(xyz) = child(&nested, "xyz") else {
         return Ok(default);
     };
-    let values = scalar_values(source, xyz)?;
+    let values = bounded_scalar_values(source, xyz, limits.max_model_children)?;
     Ok([
         required_f64(values.first(), "Expected model x value", xyz)?,
         required_f64(values.get(1), "Expected model y value", xyz)?,
@@ -385,8 +386,8 @@ pub(super) fn optional_child_f64(
     let Some(span) = child(children, head) else {
         return Ok(None);
     };
-    let values = scalar_values(source, span)?;
-    optional_f64(values.first(), span)
+    let value = first_scalar_value(source, span)?;
+    optional_f64(value.as_ref(), span)
 }
 
 pub(super) fn optional_child_i64(
@@ -397,9 +398,9 @@ pub(super) fn optional_child_i64(
     let Some(span) = child(children, head) else {
         return Ok(None);
     };
-    let values = scalar_values(source, span)?;
-    values
-        .first()
+    let value = first_scalar_value(source, span)?;
+    value
+        .as_ref()
         .map(|token| parse_i64(token, span))
         .transpose()
 }
@@ -421,7 +422,21 @@ pub(super) fn child_bool(source: &str, children: &[FormSpan], head: &str) -> Res
     let Some(span) = child(children, head) else {
         return Ok(false);
     };
-    let values = scalar_values(source, span)?;
+    Ok(first_scalar_value(source, span)?
+        .as_ref()
+        .is_none_or(|value| matches!(token_string(value).as_str(), "yes" | "true" | "1")))
+}
+
+pub(super) fn bounded_child_bool(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+    maximum: usize,
+) -> Result<bool, Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(false);
+    };
+    let values = bounded_scalar_values(source, span, maximum)?;
     Ok(values
         .first()
         .is_none_or(|value| matches!(token_string(value).as_str(), "yes" | "true" | "1")))
@@ -434,10 +449,18 @@ pub(super) fn has_flag(values: &[Token<'_>], expected: &str) -> bool {
 }
 
 pub(super) fn child_net_ref(source: &str, children: &[FormSpan]) -> Result<PcbNetRef, Error> {
+    bounded_child_net_ref(source, children, usize::MAX)
+}
+
+pub(super) fn bounded_child_net_ref(
+    source: &str,
+    children: &[FormSpan],
+    maximum: usize,
+) -> Result<PcbNetRef, Error> {
     let Some(span) = child(children, "net") else {
         return Ok(PcbNetRef::default());
     };
-    let values = scalar_values(source, span)?;
+    let values = bounded_scalar_values(source, span, maximum)?;
     let Some(token) = values.first() else {
         return Ok(PcbNetRef::default());
     };
@@ -545,12 +568,19 @@ pub(super) fn optional_f64(
 }
 
 pub(super) fn parse_f64(token: &Token<'_>, span: &FormSpan) -> Result<f64, Error> {
-    token.lexeme.parse().map_err(|_| {
+    let value = token.lexeme.parse::<f64>().map_err(|_| {
         source_error(
             "Expected numeric value",
             rebase_position(token.position, span),
         )
-    })
+    })?;
+    if !value.is_finite() {
+        return Err(source_error(
+            "Expected finite numeric value",
+            rebase_position(token.position, span),
+        ));
+    }
+    Ok(value)
 }
 
 pub(super) fn expect_kind(

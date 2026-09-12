@@ -1,8 +1,5 @@
 //! Board dimension geometry and text emission.
 
-use super::stroke_font_widths::{
-    NEWSTROKE_GLYPH_DATA, NEWSTROKE_GLYPH_OFFSETS, NEWSTROKE_WIDTH_UNITS,
-};
 use super::text::{
     BoardTextHAlign, BoardTextVAlign, TextEffects, attach_gr_text_cache, gr_text_operation,
     has_flag, numeric_or, operation_text_bytes, parse_graphic_span, text_effects, text_point_total,
@@ -11,13 +8,16 @@ use super::text_cache::{cache_is_valid, parse_render_cache};
 use super::{
     BoardDimensionOperation, BoardDimensionRecord, BoardPlotLimits, BudgetTracker, text_limit_error,
 };
-use crate::TextContourErrorKind;
+use crate::newstroke::newstroke_alignment_width_mm;
 use crate::pcb::{PcbDimension, PcbPoint};
 use crate::plotter_ir::{child, mm_to_nm, model_error};
 use crate::plotter_text_cache::PlotterTextCacheSession;
 use crate::plotter_types::{PlotterCircle, PlotterFill, PlotterOperation, ThickSegment};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
-use crate::text_markup::{TextMarkupMarker, TextMarkupNode, parse_text_markup};
+use crate::{
+    NewstrokeError, NewstrokeErrorKind, NewstrokeLimits, NewstrokeRequest, TextHorizontalAlignment,
+    TextVerticalAlignment, realize_newstroke_a0,
+};
 
 const ARROW_ANGLE_DEG: f64 = 27.5;
 const INWARD_ARROW_TAIL_RATIO: f64 = 2.0;
@@ -25,14 +25,6 @@ const TEXT_MARGIN_RATIO: f64 = 0.625;
 /// Fixed guard against precision-driven allocation, independent of a caller's
 /// aggregate text budget.
 const MAX_DIMENSION_PRECISION: usize = 4_096;
-const STROKE_SCALE: f64 = 1.0 / 21.0;
-const FONT_OFFSET: f64 = -8.0;
-const ITALIC_TILT: f64 = 1.0 / 8.0;
-const SUPER_SUB_SIZE_MULTIPLIER: f64 = 0.8;
-const SUPER_HEIGHT_OFFSET: f64 = 0.35;
-const SUB_HEIGHT_OFFSET: f64 = 0.15;
-const OVERBAR_POSITION_FACTOR: f64 = 1.23;
-const OVERBAR_TRIM_RATIO: f64 = 0.1;
 
 #[derive(Clone, Copy)]
 struct Vec2 {
@@ -873,329 +865,75 @@ fn append_stroke_text(
     if text.text.is_empty() {
         return Ok(());
     }
-    let nodes = stroke_markup(&text.text, max_markup_nodes)?;
-    let width = stroke_markup_width(&text.text, &nodes) * effects.size_x;
     let (horizontal, vertical) = super::text::alignments(&effects.justify);
-    let mut cursor = match horizontal.unwrap_or(BoardTextHAlign::Center) {
-        BoardTextHAlign::Left => 0.0,
-        BoardTextHAlign::Center => -width / 2.0,
-        BoardTextHAlign::Right => -width,
-    };
-    let cap_top = -20.0 / 21.0;
-    let cap_bottom = 1.0 / 21.0;
-    let cap_center = (cap_top + cap_bottom) / 2.0;
-    let baseline_adjustment = 0.0024;
-    let offset_y = match vertical.unwrap_or(BoardTextVAlign::Center) {
-        BoardTextVAlign::Center => {
-            (-cap_center - cap_bottom + baseline_adjustment) * effects.size_y
-        }
-        BoardTextVAlign::Top => (-cap_top + baseline_adjustment) * effects.size_y,
-        BoardTextVAlign::Bottom => (-cap_bottom + baseline_adjustment) * effects.size_y,
-    };
-    let mirror = effects.justify.iter().any(|token| token == "mirror");
-    let radians = (-text.angle).to_radians();
-    let cos = radians.cos();
-    let sin = radians.sin();
-    let width_nm = mm_to_nm(effects.effective_thickness())?;
-    let mut frames = vec![StrokeMarkupFrame {
-        nodes: &nodes,
-        index: 0,
-        marker: None,
-        bar_start: cursor,
-        style: StrokeTextStyle::Normal,
-    }];
-    while let Some(frame) = frames.last_mut() {
-        let Some(node) = frame.nodes.get(frame.index) else {
-            let closed = frames.pop().expect("frame presence was checked");
-            if closed.marker == Some(TextMarkupMarker::Overbar) {
-                let trim = effects.size_x * OVERBAR_TRIM_RATIO;
-                let bar_y = offset_y - effects.size_y * OVERBAR_POSITION_FACTOR;
-                append_transformed_segment(
-                    operations,
-                    Vec2 {
-                        x: closed.bar_start + trim,
-                        y: bar_y,
-                    },
-                    Vec2 {
-                        x: cursor - trim,
-                        y: bar_y,
-                    },
-                    text.at,
-                    false,
-                    mirror,
-                    cos,
-                    sin,
-                    width_nm,
-                    layer,
-                    maximum,
-                )?;
-            }
-            continue;
-        };
-        frame.index += 1;
-        match node {
-            TextMarkupNode::Text(span) => append_stroke_chars(
-                operations,
-                &text.text[span.clone()],
-                frame.style,
-                &mut cursor,
-                offset_y,
-                text.at,
-                effects,
-                mirror,
-                cos,
-                sin,
-                width_nm,
-                layer,
-                maximum,
-            )?,
-            TextMarkupNode::Group { marker, children } => {
-                let style = child_stroke_style(frame.style, *marker);
-                frames.push(StrokeMarkupFrame {
-                    nodes: children,
-                    index: 0,
-                    marker: Some(*marker),
-                    bar_start: cursor,
-                    style,
-                });
-            }
-        }
-    }
-    Ok(())
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum StrokeTextStyle {
-    Normal,
-    Subscript,
-    Superscript,
-}
-
-struct StrokeMarkupFrame<'a> {
-    nodes: &'a [TextMarkupNode],
-    index: usize,
-    marker: Option<TextMarkupMarker>,
-    bar_start: f64,
-    style: StrokeTextStyle,
-}
-
-fn child_stroke_style(style: StrokeTextStyle, marker: TextMarkupMarker) -> StrokeTextStyle {
-    match marker {
-        TextMarkupMarker::Overbar => style,
-        TextMarkupMarker::Subscript => StrokeTextStyle::Subscript,
-        TextMarkupMarker::Superscript => {
-            if style == StrokeTextStyle::Subscript {
-                StrokeTextStyle::Subscript
-            } else {
-                StrokeTextStyle::Superscript
-            }
-        }
-    }
-}
-
-#[allow(
-    clippy::too_many_arguments,
-    reason = "streamed glyph emission carries one shared transform and aggregate output budget"
-)]
-fn append_stroke_chars(
-    operations: &mut Vec<BoardDimensionOperation>,
-    characters: &str,
-    style: StrokeTextStyle,
-    cursor: &mut f64,
-    offset_y: f64,
-    anchor: Vec2,
-    effects: &TextEffects,
-    mirror: bool,
-    cos: f64,
-    sin: f64,
-    width_nm: i64,
-    layer: &str,
-    maximum: usize,
-) -> Result<(), Error> {
-    let scale = if style == StrokeTextStyle::Normal {
-        1.0
-    } else {
-        SUPER_SUB_SIZE_MULTIPLIER
-    };
-    let size_x = effects.size_x * scale;
-    let size_y = effects.size_y * scale;
-    let style_y = match style {
-        StrokeTextStyle::Normal => 0.0,
-        StrokeTextStyle::Subscript => size_y * SUB_HEIGHT_OFFSET,
-        StrokeTextStyle::Superscript => -size_y * SUPER_HEIGHT_OFFSET,
-    };
-    for character in characters.chars() {
-        let (glyph, glyph_width) = glyph(character)
-            .or_else(|| glyph('?'))
-            .unwrap_or((&[], 0.0));
-        if character == ' ' {
-            *cursor += glyph_width * size_x;
-            continue;
-        }
-        let start_x = glyph.first().map_or(0.0, |value| {
-            (f64::from(*value) - f64::from(b'R')) * STROKE_SCALE
-        });
-        let mut previous: Option<Vec2> = None;
-        let mut index = 2usize;
-        while index + 1 < glyph.len() {
-            if glyph[index] == b' ' && glyph[index + 1] == b'R' {
-                previous = None;
-                index += 2;
-                continue;
-            }
-            let gx = (f64::from(glyph[index]) - f64::from(b'R')) * STROKE_SCALE - start_x;
-            let gy = (f64::from(glyph[index + 1]) - f64::from(b'R') + FONT_OFFSET) * STROKE_SCALE;
-            let point = Vec2 {
-                x: gx * size_x + *cursor,
-                y: gy * size_y + offset_y + style_y,
-            };
-            if let Some(start) = previous {
-                append_transformed_segment(
-                    operations,
-                    start,
-                    point,
-                    anchor,
-                    effects.italic,
-                    mirror,
-                    cos,
-                    sin,
-                    width_nm,
-                    layer,
-                    maximum,
-                )?;
-            }
-            previous = Some(point);
-            index += 2;
-        }
-        *cursor += glyph_width * size_x;
-    }
-    Ok(())
-}
-
-#[allow(
-    clippy::too_many_arguments,
-    reason = "one segment must share the complete text transform and output budget"
-)]
-fn append_transformed_segment(
-    operations: &mut Vec<BoardDimensionOperation>,
-    start: Vec2,
-    end: Vec2,
-    anchor: Vec2,
-    italic: bool,
-    mirror: bool,
-    cos: f64,
-    sin: f64,
-    width_nm: i64,
-    layer: &str,
-    maximum: usize,
-) -> Result<(), Error> {
-    let start = transform_stroke_point(start, anchor, italic, mirror, cos, sin);
-    let end = transform_stroke_point(end, anchor, italic, mirror, cos, sin);
-    push_operation(
-        operations,
-        BoardDimensionOperation::Geometry(PlotterOperation::ThickSegment(ThickSegment {
-            start_x: mm_to_nm(start.x)?,
-            start_y: mm_to_nm(start.y)?,
-            end_x: mm_to_nm(end.x)?,
-            end_y: mm_to_nm(end.y)?,
-            width_nm,
-            layer: Some(layer.to_owned()),
-            role: None,
-            layers: Vec::new(),
-            mask_margin_nm: None,
-            pad_size_x_nm: None,
-            pad_size_y_nm: None,
-        })),
-        maximum,
-    )
-}
-
-fn transform_stroke_point(
-    mut point: Vec2,
-    anchor: Vec2,
-    italic: bool,
-    mirror: bool,
-    cos: f64,
-    sin: f64,
-) -> Vec2 {
-    if italic {
-        point.x += point.y * ITALIC_TILT;
-    }
-    if mirror {
-        point.x = -point.x;
-    }
-    Vec2 {
-        x: point.x * cos - point.y * sin + anchor.x,
-        y: point.x * sin + point.y * cos + anchor.y,
-    }
-}
-
-fn glyph(character: char) -> Option<(&'static [u8], f64)> {
-    let index = (character as usize).checked_sub(0x20)?;
-    let start = usize::try_from(*NEWSTROKE_GLYPH_OFFSETS.get(index)?).ok()?;
-    let end = usize::try_from(*NEWSTROKE_GLYPH_OFFSETS.get(index + 1)?).ok()?;
-    let glyph = NEWSTROKE_GLYPH_DATA.as_bytes().get(start..end)?;
-    let width = f64::from(*NEWSTROKE_WIDTH_UNITS.get(index)?) * STROKE_SCALE;
-    Some((glyph, width))
-}
-
-fn stroke_markup(text: &str, max_nodes: usize) -> Result<Vec<TextMarkupNode>, Error> {
-    let mut node_budget = 0usize;
-    parse_text_markup(text, &mut node_budget, max_nodes).map_err(|error| {
-        Error::at(
-            ErrorPhase::Tree,
-            if error.kind == TextContourErrorKind::ResourceLimit {
-                ErrorKind::ResourceLimit
-            } else {
-                ErrorKind::UnexpectedToken
+    let remaining = maximum.saturating_sub(operations.len());
+    let output = realize_newstroke_a0(
+        NewstrokeRequest {
+            text: &text.text,
+            position_x_mm: text.at.x,
+            position_y_mm: text.at.y,
+            size_x_mm: effects.size_x,
+            size_y_mm: effects.size_y,
+            angle_degrees: text.angle,
+            horizontal_alignment: match horizontal.unwrap_or(BoardTextHAlign::Center) {
+                BoardTextHAlign::Left => TextHorizontalAlignment::Left,
+                BoardTextHAlign::Center => TextHorizontalAlignment::Center,
+                BoardTextHAlign::Right => TextHorizontalAlignment::Right,
             },
-            error.message,
-            Position::START,
-        )
-    })
-}
-
-fn stroke_markup_width(text: &str, nodes: &[TextMarkupNode]) -> f64 {
-    let mut width = 0.0;
-    let mut frames = vec![StrokeMarkupFrame {
-        nodes,
-        index: 0,
-        marker: None,
-        bar_start: 0.0,
-        style: StrokeTextStyle::Normal,
-    }];
-    while let Some(frame) = frames.last_mut() {
-        let Some(node) = frame.nodes.get(frame.index) else {
-            frames.pop();
-            continue;
-        };
-        frame.index += 1;
-        match node {
-            TextMarkupNode::Text(span) => {
-                let scale = if frame.style == StrokeTextStyle::Normal {
-                    1.0
-                } else {
-                    SUPER_SUB_SIZE_MULTIPLIER
-                };
-                width += text[span.clone()]
-                    .chars()
-                    .filter_map(glyph)
-                    .map(|(_, glyph_width)| glyph_width * scale)
-                    .sum::<f64>();
-            }
-            TextMarkupNode::Group { marker, children } => {
-                let style = child_stroke_style(frame.style, *marker);
-                frames.push(StrokeMarkupFrame {
-                    nodes: children,
-                    index: 0,
-                    marker: Some(*marker),
-                    bar_start: width,
-                    style,
-                });
-            }
+            vertical_alignment: match vertical.unwrap_or(BoardTextVAlign::Center) {
+                BoardTextVAlign::Top => TextVerticalAlignment::Top,
+                BoardTextVAlign::Center => TextVerticalAlignment::Center,
+                BoardTextVAlign::Bottom => TextVerticalAlignment::Bottom,
+            },
+            mirrored: effects.justify.iter().any(|token| token == "mirror"),
+            italic: effects.italic,
+            bold: effects.bold,
+            stroke_width_mm: Some(effects.effective_thickness()),
+        },
+        NewstrokeLimits {
+            max_text_bytes: text.text.len(),
+            max_markup_nodes,
+            max_polylines: remaining,
+            max_points: remaining.saturating_mul(2),
+        },
+    )
+    .map_err(map_newstroke_error)?;
+    let width_nm = mm_to_nm(output.effective_stroke_width_mm)?;
+    for polyline in output.polylines {
+        for segment in polyline.points.windows(2) {
+            push_operation(
+                operations,
+                BoardDimensionOperation::Geometry(PlotterOperation::ThickSegment(ThickSegment {
+                    start_x: mm_to_nm(segment[0].x_mm)?,
+                    start_y: mm_to_nm(segment[0].y_mm)?,
+                    end_x: mm_to_nm(segment[1].x_mm)?,
+                    end_y: mm_to_nm(segment[1].y_mm)?,
+                    width_nm,
+                    layer: Some(layer.to_owned()),
+                    role: None,
+                    layers: Vec::new(),
+                    mask_margin_nm: None,
+                    pad_size_x_nm: None,
+                    pad_size_y_nm: None,
+                })),
+                maximum,
+            )?;
         }
     }
-    width
+    Ok(())
+}
+
+fn map_newstroke_error(error: NewstrokeError) -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        if error.kind == NewstrokeErrorKind::ResourceLimit {
+            ErrorKind::ResourceLimit
+        } else {
+            ErrorKind::UnexpectedToken
+        },
+        error.message,
+        Position::START,
+    )
 }
 
 fn connector_end(
@@ -1253,8 +991,13 @@ fn text_box_corners(
     }
     let authored_angle = numeric_or(child(&form, "at"), 3, 0.0)?;
     let resolved = resolved_text(dimension, text_graphic, &effects, text, authored_angle);
-    let nodes = stroke_markup(&resolved.text, limits.max_parse_nodes)?;
-    let width = stroke_markup_width(&resolved.text, &nodes) * effects.size_x;
+    let width = newstroke_alignment_width_mm(
+        &resolved.text,
+        effects.size_x,
+        limits.max_text_bytes,
+        limits.max_parse_nodes,
+    )
+    .map_err(map_newstroke_error)?;
     let height = (22.0 / 21.0) * effects.size_y;
     let margin = TEXT_MARGIN_RATIO * effects.size_y;
     let (horizontal, vertical) = super::text::alignments(&effects.justify);

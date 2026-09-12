@@ -24,6 +24,9 @@ pub struct PcbPadCustomPrimitive {
 /// One typed footprint pad in board source order.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbPad {
+    pub owner: PcbFootprintMemberOwner,
+    /// Compatibility index for board consumers; zero for standalone records.
+    /// Prefer `owner` when distinguishing document scope.
     pub footprint_index: usize,
     pub number: String,
     pub kind: String,
@@ -34,6 +37,8 @@ pub struct PcbPad {
     pub size_x: f64,
     pub size_y: f64,
     pub drill: Option<PcbPadDrill>,
+    /// Drill plating when a drill is authored; `None` for undrilled pads.
+    pub plated: Option<bool>,
     pub layers: Vec<String>,
     pub net: PcbNetRef,
     pub uuid: Option<String>,
@@ -73,22 +78,35 @@ pub(super) fn pad_from_span(
 ) -> Result<PcbPad, Error> {
     let header = bounded_scalar_values(source, &indexed.span, limits.max_pad_header_scalars)?;
     let children = direct_children(source, &indexed.span, limits.max_pad_children, limits)?;
-    let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
+    let at = optional_vector(
+        source,
+        &children,
+        "at",
+        [0.0, 0.0, 0.0],
+        limits.max_pad_header_scalars,
+    )?;
     let size = optional_pair(source, &children, "size", [0.0, 0.0])?;
     let (rect_delta_x, rect_delta_y) = optional_complete_pair(source, &children, "rect_delta")?;
+    let kind = required_string(header.get(1), "Expected pad kind", &indexed.span)?;
+    let drill = physical::pad_drill_from_children(source, &children, limits)?;
+    let plated = drill.as_ref().map(|_| kind != "np_thru_hole");
     Ok(PcbPad {
+        owner: PcbFootprintMemberOwner::EmbeddedFootprint {
+            footprint_index: indexed.parent_index,
+        },
         footprint_index: indexed.parent_index,
         number: required_string(header.first(), "Expected pad number", &indexed.span)?,
-        kind: required_string(header.get(1), "Expected pad kind", &indexed.span)?,
+        kind,
         shape: required_string(header.get(2), "Expected pad shape", &indexed.span)?,
         at_x: at[0],
         at_y: at[1],
         angle: at[2],
         size_x: size[0],
         size_y: size[1],
-        drill: physical::pad_drill_from_children(source, &children, limits)?,
+        drill,
+        plated,
         layers: child_strings(source, &children, "layers", limits.max_layers)?,
-        net: child_net_ref(source, &children)?,
+        net: bounded_child_net_ref(source, &children, limits.max_pad_header_scalars)?,
         uuid: optional_uuid(source, &children)?,
         pin_function: optional_child_string(source, &children, "pinfunction")?,
         pin_type: optional_child_string(source, &children, "pintype")?,

@@ -12,7 +12,7 @@ mod dimension;
 mod footprint;
 mod graphics;
 mod layer_policy;
-mod stroke_font_widths;
+pub(crate) mod stroke_font_widths;
 mod stroke_text_bounds;
 mod table;
 mod text;
@@ -1243,6 +1243,7 @@ fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
         max_nets: limits.max_graphics,
         max_footprints: limits.max_graphics,
         max_footprint_children: limits.max_parse_nodes,
+        max_footprint_header_scalars: limits.max_parse_nodes,
         max_footprint_attributes: limits.max_parse_nodes.min(256),
         max_footprint_properties: limits.max_graphics,
         max_footprint_graphics: limits.max_graphics,

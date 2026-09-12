@@ -1,8 +1,5 @@
 //! Bounded Newstroke text extents used by PCB review viewports.
 
-use super::stroke_font_widths::{
-    NEWSTROKE_GLYPH_DATA, NEWSTROKE_GLYPH_OFFSETS, NEWSTROKE_WIDTH_UNITS,
-};
 use super::{
     BoardDimensionOperation, BoardFootprintOperation, BoardPlotDocument, BoardPlotRecord,
     BoardTableOperation, BoardTextBoxOperation, BoardTextHAlign, BoardTextOperation,
@@ -14,18 +11,11 @@ use crate::plotter_text_cache::{
     PlotterTextCacheResources, PlotterTextCacheSession, PlotterTextLayout,
 };
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
-use crate::text_markup::{TextMarkupMarker, TextMarkupNode, parse_text_markup};
+use crate::{
+    NewstrokeErrorKind, NewstrokeLimits, NewstrokeRequest, TextHorizontalAlignment,
+    TextVerticalAlignment, realize_newstroke_a0,
+};
 use crate::{PlotterOperation, PlotterText};
-use crate::{TextContourErrorKind, TextHorizontalAlignment, TextVerticalAlignment};
-
-const STROKE_SCALE: f64 = 1.0 / 21.0;
-const FONT_OFFSET: f64 = -8.0;
-const ITALIC_TILT: f64 = 1.0 / 8.0;
-const SUPER_SUB_SIZE_MULTIPLIER: f64 = 0.8;
-const SUPER_HEIGHT_OFFSET: f64 = 0.35;
-const SUB_HEIGHT_OFFSET: f64 = 0.15;
-const OVERBAR_POSITION_FACTOR: f64 = 1.23;
-const OVERBAR_TRIM_RATIO: f64 = 0.1;
 
 /// Independent ceilings for the board text extent pass.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1238,21 +1228,6 @@ impl BoundsBudget {
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum Style {
-    Normal,
-    Subscript,
-    Superscript,
-}
-
-struct Frame<'a> {
-    nodes: &'a [TextMarkupNode],
-    index: usize,
-    marker: Option<TextMarkupMarker>,
-    bar_start: f64,
-    style: Style,
-}
-
 fn include_text(
     operation: &BoardTextOperation,
     parent: ParentTransform,
@@ -1260,6 +1235,7 @@ fn include_text(
     budget: &mut BoundsBudget,
     bounds: &mut Option<[i64; 4]>,
 ) -> Result<(), Error> {
+    const NM_PER_MM: f64 = 1_000_000.0;
     if operation.text.is_empty()
         || !operation.font_face.is_empty()
         || operation.render_cache.is_some()
@@ -1268,159 +1244,73 @@ fn include_text(
         return Ok(());
     }
     budget.text(&operation.text)?;
-    let mut node_count = 0;
-    let nodes = parse_text_markup(&operation.text, &mut node_count, limits.max_markup_nodes)
-        .map_err(|error| {
-            Error::at(
-                ErrorPhase::Tree,
-                if error.kind == TextContourErrorKind::ResourceLimit {
-                    ErrorKind::ResourceLimit
-                } else {
-                    ErrorKind::UnexpectedToken
-                },
-                error.message,
-                Position::START,
-            )
-        })?;
-    let total_width = markup_width(&operation.text, &nodes) * operation.size_x_nm as f64;
-    let mut cursor = match operation.h_align {
-        BoardTextHAlign::Left => 0.0,
-        BoardTextHAlign::Center => -total_width / 2.0,
-        BoardTextHAlign::Right => -total_width,
-    };
-    let cap_top = -20.0 / 21.0;
-    let cap_bottom = 1.0 / 21.0;
-    let cap_center = (cap_top + cap_bottom) / 2.0;
-    let offset_y = match operation.v_align {
-        BoardTextVAlign::Center => (-cap_center - cap_bottom + 0.0024) * operation.size_y_nm as f64,
-        BoardTextVAlign::Top => (-cap_top + 0.0024) * operation.size_y_nm as f64,
-        BoardTextVAlign::Bottom => (-cap_bottom + 0.0024) * operation.size_y_nm as f64,
-    };
-    let mut frames = vec![Frame {
-        nodes: &nodes,
-        index: 0,
-        marker: None,
-        bar_start: cursor,
-        style: Style::Normal,
-    }];
-    while let Some(frame) = frames.last_mut() {
-        let Some(node) = frame.nodes.get(frame.index) else {
-            let closed = frames.pop().expect("frame presence was checked");
-            if closed.marker == Some(TextMarkupMarker::Overbar) {
-                let trim = operation.size_x_nm as f64 * OVERBAR_TRIM_RATIO;
-                let y = offset_y - operation.size_y_nm as f64 * OVERBAR_POSITION_FACTOR;
-                for x in [closed.bar_start + trim, cursor - trim] {
-                    include_point(operation, parent, x, y, false, budget, bounds)?;
-                }
-            }
-            continue;
-        };
-        frame.index += 1;
-        match node {
-            TextMarkupNode::Text(span) => include_chars(
-                operation,
-                parent,
-                &operation.text[span.clone()],
-                frame.style,
-                &mut cursor,
-                offset_y,
-                budget,
-                bounds,
-            )?,
-            TextMarkupNode::Group { marker, children } => {
-                let style = child_style(frame.style, *marker);
-                frames.push(Frame {
-                    nodes: children,
-                    index: 0,
-                    marker: Some(*marker),
-                    bar_start: cursor,
-                    style,
-                });
-            }
-        }
+    let remaining_points = limits.max_glyph_points.saturating_sub(budget.points);
+    let output = realize_newstroke_a0(
+        NewstrokeRequest {
+            text: &operation.text,
+            position_x_mm: operation.x as f64 / NM_PER_MM,
+            position_y_mm: operation.y as f64 / NM_PER_MM,
+            size_x_mm: operation.size_x_nm as f64 / NM_PER_MM,
+            size_y_mm: operation.size_y_nm as f64 / NM_PER_MM,
+            angle_degrees: operation.orient_deg,
+            horizontal_alignment: match operation.h_align {
+                BoardTextHAlign::Left => TextHorizontalAlignment::Left,
+                BoardTextHAlign::Center => TextHorizontalAlignment::Center,
+                BoardTextHAlign::Right => TextHorizontalAlignment::Right,
+            },
+            vertical_alignment: match operation.v_align {
+                BoardTextVAlign::Top => TextVerticalAlignment::Top,
+                BoardTextVAlign::Center => TextVerticalAlignment::Center,
+                BoardTextVAlign::Bottom => TextVerticalAlignment::Bottom,
+            },
+            mirrored: operation.mirror,
+            italic: operation.italic,
+            bold: operation.bold,
+            stroke_width_mm: Some(operation.pen_width_nm as f64 / NM_PER_MM),
+        },
+        NewstrokeLimits {
+            max_text_bytes: operation.text.len(),
+            max_markup_nodes: limits.max_markup_nodes,
+            max_polylines: remaining_points,
+            max_points: remaining_points,
+        },
+    )
+    .map_err(|error| {
+        Error::at(
+            ErrorPhase::Tree,
+            if error.kind == NewstrokeErrorKind::ResourceLimit {
+                ErrorKind::ResourceLimit
+            } else {
+                ErrorKind::UnexpectedToken
+            },
+            error.message,
+            Position::START,
+        )
+    })?;
+    for point in output
+        .polylines
+        .iter()
+        .flat_map(|polyline| &polyline.points)
+    {
+        include_realized_point(
+            point.x_mm * NM_PER_MM,
+            point.y_mm * NM_PER_MM,
+            parent,
+            budget,
+            bounds,
+        )?;
     }
     Ok(())
 }
 
-#[allow(
-    clippy::too_many_arguments,
-    reason = "the streaming glyph pass carries one operation, transform, cursor, and bounded sink"
-)]
-fn include_chars(
-    operation: &BoardTextOperation,
-    parent: ParentTransform,
-    characters: &str,
-    style: Style,
-    cursor: &mut f64,
-    offset_y: f64,
-    budget: &mut BoundsBudget,
-    bounds: &mut Option<[i64; 4]>,
-) -> Result<(), Error> {
-    let scale = if style == Style::Normal {
-        1.0
-    } else {
-        SUPER_SUB_SIZE_MULTIPLIER
-    };
-    let size_x = operation.size_x_nm as f64 * scale;
-    let size_y = operation.size_y_nm as f64 * scale;
-    let style_y = match style {
-        Style::Normal => 0.0,
-        Style::Subscript => size_y * SUB_HEIGHT_OFFSET,
-        Style::Superscript => -size_y * SUPER_HEIGHT_OFFSET,
-    };
-    for character in characters.chars() {
-        let (glyph, width) = glyph(character)
-            .or_else(|| glyph('?'))
-            .unwrap_or((&[], 0.0));
-        if character == ' ' {
-            *cursor += width * size_x;
-            continue;
-        }
-        let start_x = glyph.first().map_or(0.0, |value| {
-            (f64::from(*value) - f64::from(b'R')) * STROKE_SCALE
-        });
-        let mut index = 2;
-        while index + 1 < glyph.len() {
-            if glyph[index] == b' ' && glyph[index + 1] == b'R' {
-                index += 2;
-                continue;
-            }
-            let x = (f64::from(glyph[index]) - f64::from(b'R')) * STROKE_SCALE - start_x;
-            let y = (f64::from(glyph[index + 1]) - f64::from(b'R') + FONT_OFFSET) * STROKE_SCALE;
-            include_point(
-                operation,
-                parent,
-                x * size_x + *cursor,
-                y * size_y + offset_y + style_y,
-                operation.italic,
-                budget,
-                bounds,
-            )?;
-            index += 2;
-        }
-        *cursor += width * size_x;
-    }
-    Ok(())
-}
-
-fn include_point(
-    operation: &BoardTextOperation,
-    parent: ParentTransform,
-    mut x: f64,
+fn include_realized_point(
+    x: f64,
     y: f64,
-    italic: bool,
+    parent: ParentTransform,
     budget: &mut BoundsBudget,
     bounds: &mut Option<[i64; 4]>,
 ) -> Result<(), Error> {
     budget.point()?;
-    if italic {
-        x += y * ITALIC_TILT;
-    }
-    if operation.mirror {
-        x = -x;
-    }
-    let (x, y) = rotate(x, y, -operation.orient_deg);
-    let (x, y) = (x + operation.x as f64, y + operation.y as f64);
     let (x, y) = rotate(x, y, parent.angle);
     let x = rounded_i64(x + parent.x)?;
     let y = rounded_i64(y + parent.y)?;
@@ -1440,68 +1330,6 @@ fn rotate(x: f64, y: f64, angle: f64) -> (f64, f64) {
     let radians = angle.to_radians();
     let (sine, cosine) = radians.sin_cos();
     (x * cosine - y * sine, x * sine + y * cosine)
-}
-
-fn markup_width(text: &str, nodes: &[TextMarkupNode]) -> f64 {
-    let mut width = 0.0;
-    let mut frames = vec![Frame {
-        nodes,
-        index: 0,
-        marker: None,
-        bar_start: 0.0,
-        style: Style::Normal,
-    }];
-    while let Some(frame) = frames.last_mut() {
-        let Some(node) = frame.nodes.get(frame.index) else {
-            frames.pop();
-            continue;
-        };
-        frame.index += 1;
-        match node {
-            TextMarkupNode::Text(span) => {
-                let scale = if frame.style == Style::Normal {
-                    1.0
-                } else {
-                    SUPER_SUB_SIZE_MULTIPLIER
-                };
-                width += text[span.clone()]
-                    .chars()
-                    .filter_map(glyph)
-                    .map(|(_, value)| value * scale)
-                    .sum::<f64>();
-            }
-            TextMarkupNode::Group { marker, children } => {
-                let style = child_style(frame.style, *marker);
-                frames.push(Frame {
-                    nodes: children,
-                    index: 0,
-                    marker: Some(*marker),
-                    bar_start: width,
-                    style,
-                });
-            }
-        }
-    }
-    width
-}
-
-fn child_style(style: Style, marker: TextMarkupMarker) -> Style {
-    match marker {
-        TextMarkupMarker::Overbar => style,
-        TextMarkupMarker::Subscript => Style::Subscript,
-        TextMarkupMarker::Superscript if style == Style::Subscript => Style::Subscript,
-        TextMarkupMarker::Superscript => Style::Superscript,
-    }
-}
-
-fn glyph(character: char) -> Option<(&'static [u8], f64)> {
-    let index = (character as usize).checked_sub(0x20)?;
-    let start = usize::try_from(*NEWSTROKE_GLYPH_OFFSETS.get(index)?).ok()?;
-    let end = usize::try_from(*NEWSTROKE_GLYPH_OFFSETS.get(index + 1)?).ok()?;
-    Some((
-        NEWSTROKE_GLYPH_DATA.as_bytes().get(start..end)?,
-        f64::from(*NEWSTROKE_WIDTH_UNITS.get(index)?) * STROKE_SCALE,
-    ))
 }
 
 fn rounded_i64(value: f64) -> Result<i64, Error> {

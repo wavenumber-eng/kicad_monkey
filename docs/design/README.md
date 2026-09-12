@@ -76,6 +76,12 @@ Current design notes:
   outline extraction and deterministic FontTools parity evidence.
 - `rust-native-render-cache.html` - accepted native shaping, outline, curve
   decomposition, placement, and bounded KiCad cache-parity ladder.
+- `rust-native-source-read-newstroke.html` - review-ready issue #84 owned
+  resource reads, standalone-footprint typed members, and shared native
+  Newstroke polyline realization contract.
+- `rust-pcb-footprint-authoring.html` - issue #84 typed fresh-source PCB and
+  footprint authoring, source ownership, supported-version, resource encoding,
+  validation, and independent-reader acceptance contract.
 - `rust-board-plotter-phase5-slice.html` - accepted bounded native board
   text, text-box, table, five-style dimension, and embedded-footprint
   Plotter-IR parity with

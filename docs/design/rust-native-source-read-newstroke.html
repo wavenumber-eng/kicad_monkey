@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native source reads and Newstroke geometry</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust native source reads and Newstroke geometry</h1>
+
+  <p>Status: accepted issue #84 importer/Newstroke slice after independent
+  review. This boundary exposes
+  source-owned embedded resources, standalone-footprint members, and native
+  KiCad Newstroke centerlines. Canonical PCB mapping, workspace path
+  resolution, resource fetching, and application rendering remain downstream.</p>
+
+  <h2>Embedded-resource ownership and payload states</h2>
+  <p><code>EmbeddedFile</code> is a borrowed source declaration whose
+  <code>EmbeddedFileOwner</code> distinguishes the board, a board-embedded
+  footprint by stable source index, or the standalone footprint. Filename,
+  type, checksum, source range, and authored encoded-data size can be inspected
+  without decoding or copying the payload. Identical filenames under different
+  owners remain distinct lookup keys.</p>
+
+  <p><code>EmbeddedDataPresence</code> distinguishes a metadata-only declaration,
+  an explicitly authored empty <code>data</code> form, and nonempty encoded
+  data. <code>encoded_data()</code> exposes the borrowed authored bytes;
+  <code>decode()</code> performs bounded base64 and zstd decoding on demand.
+  Malformed encoding, decompression overflow, and checksum mismatch are errors
+  labelled with the resource name. They are never converted to absent data.
+  KiCad's current and legacy seeded MurmurHash checksum forms and SHA-256 are
+  accepted; an explicit empty payload does not require a checksum.</p>
+
+  <h2>Standalone-footprint member parity</h2>
+  <p><code>FootprintView</code> exposes local pads, graphics, text/reference/value,
+  text boxes, models, metadata, and embedded resources directly from a
+  <code>.kicad_mod</code>. These records reuse the PCB source decoders and retain
+  stable owner/index identity, source ordering, and source ranges. They do not
+  fabricate a board occurrence or apply top/bottom occurrence transforms.</p>
+
+  <p>Pad records retain number and UUID evidence, authored net evidence, shape
+  and custom polygons, local position/angle, layers, drills/slots/offset,
+  plating, mask/paste margins and ratios, thermal and zone policies, and
+  conditional-land fields. Footprint metadata retains local defaults,
+  component classes, private layers, net-tie groups, and jumper groups.
+  Unknown source forms remain governed by the existing source reader rather
+  than being silently emitted as supported typed values.</p>
+
+  <h2>Newstroke coordinate and placement contract</h2>
+  <p><code>realize_newstroke_a0</code> accepts and returns KiCad source
+  millimetres in a y-down coordinate system. It realizes the package's vendored
+  KiCad Newstroke table, not a TTF outline approximation. Horizontal and
+  vertical alignment establish the local baseline origin; italic shear is
+  applied in local coordinates, followed by optional X mirroring, negative
+  source-angle rotation, and translation. Unambiguously, source
+  <code>+90 degrees</code> maps local <code>+X</code> toward global
+  <code>-Y</code>. The returned bounds use placed millimetre coordinates;
+  actual cursor advance and the Python-compatible pre-alignment width are
+  reported separately because an unsupported glyph advances as
+  <code>?</code> but contributes no width to the legacy alignment calculation.
+  Bounds cover centerlines only; consumers expand them by half the effective
+  stroke width when stroke extents are required.</p>
+
+  <p>Each pen-down run is returned as one ordered
+  <code>NewstrokePolyline</code>. Newstroke <code>" R"</code> pen-up markers
+  split paths, so disconnected strokes are never joined. Authored thickness is
+  returned unchanged. Without it, normal text uses one eighth of the effective
+  X size and bold text one fifth, clamped to one quarter of the smaller nonzero
+  text dimension; a fully zero-sized request retains the existing 0.15 mm
+  fallback.</p>
+
+  <p>The supported source markup is <code>~{overbar}</code>,
+  <code>_{subscript}</code>, and <code>^{superscript}</code>, including the
+  existing nested-style rules. Unsupported codepoints are realized as
+  <code>?</code> and counted. This API deliberately retains the existing
+  single-line realization behavior: newline is an unsupported glyph and uses
+  that same fallback; it does not introduce multiline block layout.</p>
+
+  <h2>Usage shape</h2>
+  <pre><code>let output = realize_newstroke_a0(
+    NewstrokeRequest {
+        text: "R_{sense}",
+        position_x_mm: 10.0,
+        position_y_mm: 20.0,
+        size_x_mm: 1.0,
+        size_y_mm: 1.0,
+        angle_degrees: 90.0,
+        horizontal_alignment: TextHorizontalAlignment::Center,
+        vertical_alignment: TextVerticalAlignment::Center,
+        mirrored: false,
+        italic: false,
+        bold: false,
+        stroke_width_mm: None,
+    },
+    NewstrokeLimits::default(),
+)?;
+for path in &amp;output.polylines {
+    consume_centerline(&amp;path.points);
+}</code></pre>
+
+  <h2>Limits, evidence, and test ownership</h2>
+  <p>Newstroke input bytes, parsed markup nodes, retained polylines, and retained
+  points have independent inclusive ceilings. Invalid or derived-nonfinite
+  geometry and resource exhaustion fail without returning partial output.
+  Board bounds and dimension stroke geometry call the same realization engine,
+  removing the previous duplicate glyph traversals while retaining the TTF
+  render-cache path unchanged.</p>
+
+  <p><code>embedded_resource_slice</code> owns owner scoping, payload-state,
+  decoding, checksum, and malformed-data vectors.
+  <code>footprint_typed_slice</code> owns standalone/embedded local-member
+  parity and source identity. <code>newstroke_geometry</code> owns exact Python
+  realizer oracle coordinates, pen-up splits, placement, widths, markup,
+  fallback, and every public limit boundary. Existing board plotter, dimension,
+  and resource-limit suites own shared-engine regression coverage.</p>
+</body>
+</html>

@@ -27,7 +27,15 @@ pub(super) fn net_from_span(source: &str, span: &FormSpan) -> Result<PcbNet, Err
 }
 
 pub(super) fn property_from_span(source: &str, span: &FormSpan) -> Result<PcbProperty, Error> {
-    let values = scalar_values(source, span)?;
+    property_from_span_bounded(source, span, usize::MAX)
+}
+
+fn property_from_span_bounded(
+    source: &str,
+    span: &FormSpan,
+    maximum: usize,
+) -> Result<PcbProperty, Error> {
+    let values = bounded_scalar_values(source, span, maximum)?;
     let name = required_string(values.first(), "Expected property name", span)?;
     let token = values
         .get(1)
@@ -46,17 +54,35 @@ pub(super) fn footprint_from_span(
     indexed: &IndexedFootprint,
     limits: PcbLimits,
 ) -> Result<PcbFootprint, Error> {
-    let header = scalar_values(source, &indexed.span)?;
+    let header = bounded_scalar_values(source, &indexed.span, limits.max_footprint_header_scalars)?;
     let library_link = required_string(
         header.first(),
         "Expected footprint library link",
         &indexed.span,
     )?;
     let children = direct_children(source, &indexed.span, limits.max_footprint_children, limits)?;
-    let locked = has_flag(&header, "locked") || child_bool(source, &children, "locked")?;
-    let embedded_fonts = child_bool(source, &children, "embedded_fonts")?;
+    let locked = has_flag(&header, "locked")
+        || bounded_child_bool(
+            source,
+            &children,
+            "locked",
+            limits.max_footprint_header_scalars,
+        )?;
+    let embedded_fonts = bounded_child_bool(
+        source,
+        &children,
+        "embedded_fonts",
+        limits.max_footprint_header_scalars,
+    )?;
     let duplicate_pad_numbers_are_jumpers = child(&children, "duplicate_pad_numbers_are_jumpers")
-        .map(|_| child_bool(source, &children, "duplicate_pad_numbers_are_jumpers"))
+        .map(|_| {
+            bounded_child_bool(
+                source,
+                &children,
+                "duplicate_pad_numbers_are_jumpers",
+                limits.max_footprint_header_scalars,
+            )
+        })
         .transpose()?;
     let mut result = empty_footprint(
         indexed,
@@ -66,10 +92,10 @@ pub(super) fn footprint_from_span(
         duplicate_pad_numbers_are_jumpers,
     );
     for child in &children {
-        if apply_footprint_property(source, child, &mut result)? {
+        if apply_footprint_property(source, child, limits, &mut result)? {
             continue;
         }
-        if apply_footprint_placement(source, child, &mut result)? {
+        if apply_footprint_placement(source, child, limits, &mut result)? {
             continue;
         }
         if apply_footprint_metadata(source, child, limits, &mut result)? {
@@ -103,19 +129,26 @@ fn empty_footprint(
         description: String::new(),
         tags: String::new(),
         attributes: Vec::new(),
+        component_classes: Vec::new(),
+        private_layers: Vec::new(),
+        net_tie_pad_groups: Vec::new(),
         embedded_fonts,
         duplicate_pad_numbers_are_jumpers,
+        jumper_pad_groups: Vec::new(),
         solder_mask_margin: None,
         solder_paste_margin: None,
         solder_paste_margin_ratio: None,
         clearance: None,
         zone_connect: None,
+        thermal_width: None,
+        thermal_gap: None,
         property_count: indexed.property_count,
         graphic_count: indexed.graphic_count,
         text_count: indexed.text_count,
         text_box_count: indexed.text_box_count,
         pad_count: indexed.pad_count,
         model_count: indexed.model_count,
+        embedded_file_count: indexed.embedded_file_count,
         source_range: indexed.span.range.clone(),
     }
 }
@@ -123,12 +156,13 @@ fn empty_footprint(
 fn apply_footprint_property(
     source: &str,
     child: &FormSpan,
+    limits: PcbLimits,
     result: &mut PcbFootprint,
 ) -> Result<bool, Error> {
     if child.head.as_deref() != Some("property") {
         return Ok(false);
     }
-    let property = property_from_span(source, child)?;
+    let property = property_from_span_bounded(source, child, limits.max_footprint_header_scalars)?;
     if property.name == "Reference" && result.reference.is_none() {
         result.reference = Some(property.value);
     } else if property.name == "Value" && result.value.is_none() {
@@ -140,12 +174,13 @@ fn apply_footprint_property(
 fn apply_footprint_placement(
     source: &str,
     child: &FormSpan,
+    limits: PcbLimits,
     result: &mut PcbFootprint,
 ) -> Result<bool, Error> {
     match child.head.as_deref() {
         Some("layer") => result.layer = first_string(source, child)?,
         Some("at") => {
-            let values = scalar_values(source, child)?;
+            let values = bounded_scalar_values(source, child, limits.max_footprint_header_scalars)?;
             result.at_x = optional_f64(values.first(), child)?;
             result.at_y = optional_f64(values.get(1), child)?;
             result.angle = optional_f64(values.get(2), child)?;
@@ -177,6 +212,64 @@ fn apply_footprint_metadata(
                     .map(token_string)
                     .collect();
         }
+        Some("component_classes") => {
+            result.component_classes =
+                direct_children(source, child, limits.max_footprint_attributes, limits)?
+                    .into_iter()
+                    .filter(|span| span.head.as_deref() == Some("class"))
+                    .map(|span| {
+                        Ok(PcbComponentClassRef {
+                            name: first_string(source, &span)?.unwrap_or_default(),
+                            source_range: span.range,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, Error>>()?;
+        }
+        Some("private_layers") => {
+            result.private_layers =
+                bounded_scalar_values(source, child, limits.max_footprint_attributes)?
+                    .iter()
+                    .map(token_string)
+                    .collect();
+        }
+        Some("net_tie_pad_groups") => {
+            result.net_tie_pad_groups =
+                bounded_scalar_values(source, child, limits.max_footprint_attributes)?
+                    .iter()
+                    .filter_map(|token| {
+                        let raw = token_string(token);
+                        let pad_names = raw
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty())
+                            .map(str::to_owned)
+                            .collect::<Vec<_>>();
+                        (!pad_names.is_empty()).then(|| PcbPadNameGroup {
+                            pad_names,
+                            raw_token: Some(token.lexeme.to_owned()),
+                            source_range: (child.range.start + token.position.offset)
+                                ..(child.range.start + token.position.offset + token.lexeme.len()),
+                        })
+                    })
+                    .collect();
+        }
+        Some("jumper_pad_groups") => {
+            let spans = direct_children(source, child, limits.max_footprint_attributes, limits)?;
+            let mut groups = Vec::with_capacity(spans.len());
+            for span in spans {
+                let mut pad_names = span.head.clone().into_iter().collect::<Vec<_>>();
+                let values = bounded_scalar_values(source, &span, limits.max_footprint_attributes)?;
+                pad_names.extend(values.iter().map(token_string));
+                if !pad_names.is_empty() {
+                    groups.push(PcbPadNameGroup {
+                        pad_names,
+                        raw_token: None,
+                        source_range: span.range,
+                    });
+                }
+            }
+            result.jumper_pad_groups = groups;
+        }
         _ => return Ok(false),
     }
     Ok(true)
@@ -195,6 +288,8 @@ fn apply_footprint_fabrication(
         }
         Some("clearance") => result.clearance = first_f64(source, child)?,
         Some("zone_connect") => result.zone_connect = first_i64(source, child)?,
+        Some("thermal_width") => result.thermal_width = first_f64(source, child)?,
+        Some("thermal_gap") => result.thermal_gap = first_f64(source, child)?,
         _ => {}
     }
     Ok(())
@@ -205,9 +300,12 @@ pub(super) fn model_from_span(
     indexed: &IndexedNestedForm,
     limits: PcbLimits,
 ) -> Result<PcbModelReference, Error> {
-    let header = scalar_values(source, &indexed.span)?;
+    let header = bounded_scalar_values(source, &indexed.span, limits.max_model_children)?;
     let children = direct_children(source, &indexed.span, limits.max_model_children, limits)?;
     Ok(PcbModelReference {
+        owner: PcbFootprintMemberOwner::EmbeddedFootprint {
+            footprint_index: indexed.parent_index,
+        },
         footprint_index: indexed.parent_index,
         path: required_string(header.first(), "Expected model path", &indexed.span)?,
         offset: nested_xyz(source, &children, "offset", [0.0, 0.0, 0.0], limits)?,
@@ -247,7 +345,7 @@ pub(super) fn segment_from_span(
     span: &FormSpan,
     limits: PcbLimits,
 ) -> Result<PcbSegment, Error> {
-    let header = scalar_values(source, span)?;
+    let header = bounded_scalar_values(source, span, limits.max_object_children)?;
     let children = direct_children(source, span, limits.max_object_children, limits)?;
     let start = required_xy(source, &children, "start", span)?;
     let end = required_xy(source, &children, "end", span)?;
@@ -275,14 +373,14 @@ pub(super) fn graphic_from_span(
         .as_deref()
         .and_then(graphic_kind)
         .ok_or_else(|| source_error("Expected board graphic form", span.start))?;
-    let header = scalar_values(source, span)?;
+    let header = bounded_scalar_values(source, span, limits.max_object_children)?;
     let children = direct_children(source, span, limits.max_object_children, limits)?;
     let points = child(&children, "pts")
         .map(|points| points_from_span(source, points, limits))
         .transpose()?
         .unwrap_or_default();
     let (stroke_width, stroke_kind) = if let Some(stroke) = child(&children, "stroke") {
-        let fields = direct_children(source, stroke, 16, limits)?;
+        let fields = direct_children(source, stroke, 16.min(limits.max_object_children), limits)?;
         (
             optional_child_f64(source, &fields, "width")?,
             optional_child_string(source, &fields, "type")?,
@@ -540,28 +638,8 @@ pub(super) fn generated_from_span(
 
 pub(super) fn embedded_file_from_span(
     source: &str,
-    span: &FormSpan,
-    limits: PcbLimits,
+    indexed: &IndexedEmbeddedFile,
+    _limits: PcbLimits,
 ) -> Result<PcbEmbeddedFile, Error> {
-    let children = direct_children(source, span, 16, limits)?;
-    let encoded_data_bytes = child(&children, "data")
-        .map(|data| {
-            scalar_values(source, data).map(|tokens| {
-                tokens
-                    .iter()
-                    .map(token_string)
-                    .map(|part| part.trim_matches('|').len())
-                    .sum()
-            })
-        })
-        .transpose()?
-        .unwrap_or(0);
-    Ok(PcbEmbeddedFile {
-        name: optional_child_string(source, &children, "name")?.unwrap_or_default(),
-        file_type: optional_child_string(source, &children, "type")?
-            .unwrap_or_else(|| "other".to_owned()),
-        checksum: optional_child_string(source, &children, "checksum")?,
-        encoded_data_bytes,
-        source_range: span.range.clone(),
-    })
+    metadata_from_span(source, &indexed.span, indexed.owner)
 }

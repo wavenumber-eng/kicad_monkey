@@ -230,13 +230,26 @@ pub(super) fn index_embedded_files(
     index: &mut PcbIndex,
 ) -> Result<(), Error> {
     let children = direct_children(source, span, limits.max_embedded_files, limits)?;
+    let mut count = 0usize;
     for child in children
         .into_iter()
         .filter(|child| child.head.as_deref() == Some("file"))
     {
-        bounded_push(&mut index.embedded_files, child, limits.max_embedded_files)?;
+        count = count.checked_add(1).ok_or_else(limit_error)?;
+        bounded_push(
+            &mut index.embedded_files,
+            IndexedEmbeddedFile {
+                owner: PcbEmbeddedFileOwner::Board,
+                span: child,
+            },
+            limits.max_embedded_files,
+        )?;
     }
-    index.counts.embedded_files = index.embedded_files.len();
+    index.counts.embedded_files = index
+        .counts
+        .embedded_files
+        .checked_add(count)
+        .ok_or_else(limit_error)?;
     Ok(())
 }
 
@@ -277,7 +290,7 @@ pub(super) fn index_footprint(
             parent_index: footprint_index,
             span: child,
         };
-        index_footprint_child(indexed, limits, selection, index, &mut counts)?;
+        index_footprint_child(source, indexed, limits, selection, index, &mut counts)?;
     }
     index.footprints.push(IndexedFootprint {
         span: span.clone(),
@@ -287,6 +300,7 @@ pub(super) fn index_footprint(
         text_box_count: counts.text_boxes,
         pad_count: counts.pads,
         model_count: counts.models,
+        embedded_file_count: counts.embedded_files,
     });
     index.counts.footprint_properties = index.footprint_properties.len();
     index.counts.pads = index.pads.len();
@@ -306,9 +320,11 @@ struct FootprintChildCounts {
     text_boxes: usize,
     pads: usize,
     models: usize,
+    embedded_files: usize,
 }
 
 fn index_footprint_child(
+    source: &str,
     indexed: IndexedNestedForm,
     limits: PcbLimits,
     selection: PcbSelection,
@@ -337,14 +353,20 @@ fn index_footprint_child(
             selection.contains(PcbFamily::Models),
             limits.max_models,
         ),
-        Some(head) if physical::is_footprint_profile_head(head) => retain_nested(
-            &mut counts.graphics,
-            &mut index.footprint_graphics,
-            indexed,
-            selection.contains(PcbFamily::FootprintGraphics)
-                || selection.contains(PcbFamily::Profile),
-            limits.max_footprint_graphics,
-        ),
+        Some(head)
+            if graphic_kind(head).is_some() && !matches!(head, "fp_text" | "fp_text_box") =>
+        {
+            let retain = selection.contains(PcbFamily::FootprintGraphics)
+                || (selection.contains(PcbFamily::Profile)
+                    && physical::is_footprint_profile_head(head));
+            retain_nested(
+                &mut counts.graphics,
+                &mut index.footprint_graphics,
+                indexed,
+                retain,
+                limits.max_footprint_graphics,
+            )
+        }
         Some("fp_text") => retain_nested(
             &mut counts.texts,
             &mut index.footprint_texts,
@@ -359,8 +381,54 @@ fn index_footprint_child(
             selection.contains(PcbFamily::FootprintTextBoxes),
             limits.max_footprint_text_boxes,
         ),
+        Some("embedded_files") => index_footprint_embedded_files(
+            source,
+            &indexed.span,
+            indexed.parent_index,
+            limits,
+            selection,
+            index,
+            counts,
+        ),
         _ => Ok(()),
     }
+}
+
+fn index_footprint_embedded_files(
+    source: &str,
+    container: &FormSpan,
+    footprint_index: usize,
+    limits: PcbLimits,
+    selection: PcbSelection,
+    index: &mut PcbIndex,
+    counts: &mut FootprintChildCounts,
+) -> Result<(), Error> {
+    let files = direct_children(source, container, limits.max_embedded_files, limits)?;
+    for span in files
+        .into_iter()
+        .filter(|span| span.head.as_deref() == Some("file"))
+    {
+        counts.embedded_files = counts
+            .embedded_files
+            .checked_add(1)
+            .ok_or_else(limit_error)?;
+        if selection.contains(PcbFamily::FootprintEmbeddedFiles) {
+            bounded_push(
+                &mut index.embedded_files,
+                IndexedEmbeddedFile {
+                    owner: PcbEmbeddedFileOwner::EmbeddedFootprint { footprint_index },
+                    span,
+                },
+                limits.max_embedded_files,
+            )?;
+            index.counts.footprint_embedded_files = index
+                .counts
+                .footprint_embedded_files
+                .checked_add(1)
+                .ok_or_else(limit_error)?;
+        }
+    }
+    Ok(())
 }
 
 fn retain_nested(
