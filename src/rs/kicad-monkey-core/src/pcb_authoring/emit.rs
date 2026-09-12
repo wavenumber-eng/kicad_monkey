@@ -57,7 +57,17 @@ pub(super) fn board_text(board: &AuthoredPcb, limits: PcbAuthoringLimits) -> Res
     values.extend(board.arcs.iter().map(routing_arc));
     values.extend(board.zones.iter().map(zone));
     values.extend(board.rule_areas.iter().map(rule_areas::rule_area));
+    values.extend(board.groups.iter().map(group));
     build_document(Sexp::List(values), limits.max_output_bytes)
+}
+
+fn group(value: &AuthoredGroup) -> Sexp {
+    let mut fields = vec![quoted(&value.name), form("uuid", [quoted(&value.uuid)])];
+    if value.locked {
+        fields.push(form("locked", [atom("yes")]));
+    }
+    fields.push(form("members", value.members.iter().map(|id| quoted(id))));
+    form("group", fields)
 }
 
 pub(super) fn footprint_text(

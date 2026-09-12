@@ -718,6 +718,16 @@ pub struct AuthoredProperty {
     pub value: String,
 }
 
+/// A board-owned editor group. Members are UUIDs of board-root items or groups,
+/// not footprint children. This does not author design-block library links.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthoredGroup {
+    pub name: String,
+    pub uuid: String,
+    pub locked: bool,
+    pub members: Vec<String>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuthoredPcb {
     pub version: i64,
@@ -739,6 +749,7 @@ pub struct AuthoredPcb {
     pub arcs: Vec<AuthoredRoutingArc>,
     pub zones: Vec<AuthoredZone>,
     pub rule_areas: Vec<AuthoredRuleArea>,
+    pub groups: Vec<AuthoredGroup>,
     pub embedded_files: Vec<AuthoredEmbeddedFile>,
 }
 
@@ -764,6 +775,7 @@ impl Default for AuthoredPcb {
             arcs: Vec::new(),
             zones: Vec::new(),
             rule_areas: Vec::new(),
+            groups: Vec::new(),
             embedded_files: Vec::new(),
         }
     }

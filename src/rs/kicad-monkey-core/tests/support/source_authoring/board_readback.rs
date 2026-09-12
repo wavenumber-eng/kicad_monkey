@@ -1,6 +1,17 @@
 use super::*;
 
+fn assert_board_groups(view: &kicad_monkey_core::PcbView<'_>) {
+    let groups = view.groups().collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(groups.len(), 2);
+    assert_eq!(groups[0].name, "Routes \"A\"");
+    assert!(groups[0].locked);
+    assert_eq!(groups[0].uuid, Some(uuid(800)));
+    assert_eq!(groups[0].members, vec![uuid(300), uuid(301)]);
+    assert_eq!(groups[1].members, vec![uuid(800), uuid(100)]);
+}
+
 pub(super) fn assert_board_metadata_and_profile(view: &kicad_monkey_core::PcbView<'_>) {
+    assert_board_groups(view);
     let properties = view.properties().collect::<Result<Vec<_>, _>>().unwrap();
     assert_eq!(
         properties

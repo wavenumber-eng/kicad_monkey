@@ -291,6 +291,7 @@ pub(super) fn authored_board() -> AuthoredPcb {
             .map(|(index, (start, end))| profile_line(10 + index as u64, start, end))
             .collect(),
         footprints: vec![front, bottom],
+        groups: authored_groups(),
         segments: vec![AuthoredSegment {
             start: point(10.0, 20.0),
             end: point(20.0, 20.0),
@@ -315,6 +316,23 @@ pub(super) fn authored_board() -> AuthoredPcb {
         }],
         ..AuthoredPcb::default()
     }
+}
+
+fn authored_groups() -> Vec<kicad_monkey_core::AuthoredGroup> {
+    vec![
+        kicad_monkey_core::AuthoredGroup {
+            name: "Routes \"A\"".into(),
+            uuid: uuid(800),
+            locked: true,
+            members: vec![uuid(300), uuid(301)],
+        },
+        kicad_monkey_core::AuthoredGroup {
+            name: "Assembly".into(),
+            uuid: uuid(801),
+            locked: false,
+            members: vec![uuid(800), uuid(100)],
+        },
+    ]
 }
 
 pub(super) fn standalone_footprint() -> AuthoredStandaloneFootprint {

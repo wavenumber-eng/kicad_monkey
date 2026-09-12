@@ -2,6 +2,7 @@ use super::*;
 mod construction;
 mod custom_pads;
 mod footprints;
+mod groups;
 mod pads;
 mod padstacks;
 mod presentation;
@@ -50,6 +51,7 @@ pub(super) fn board(value: &AuthoredPcb, limits: PcbAuthoringLimits) -> Result<(
     for area in &value.rule_areas {
         state.rule_area(area, &layers)?;
     }
+    state.groups(value)?;
     state.resources(&value.embedded_files)?;
     validate_board_resource_namespace(value)?;
     validate_board_model_resource_associations(value)?;

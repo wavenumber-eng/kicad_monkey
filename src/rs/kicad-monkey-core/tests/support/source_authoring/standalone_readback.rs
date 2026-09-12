@@ -28,6 +28,7 @@ pub(super) fn assert_placed_custom_pad(pad: &kicad_monkey_core::PcbPad) {
     occurrence.at = point(13.0, 27.0);
     occurrence.angle_degrees = 90.0;
     board.footprints = vec![occurrence];
+    board.groups.clear();
     board.layers.push(AuthoredLayer {
         ordinal: 49,
         name: "F.Fab".to_owned(),

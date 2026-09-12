@@ -62,6 +62,19 @@ def _assert_custom_composition(pad) -> None:
 
 
 def _assert_board_metadata(board) -> None:
+    groups = {group.name: group for group in board.groups}
+    assert set(groups) == {'Routes "A"', "Assembly"}
+    routes = groups['Routes "A"']
+    assert routes.locked
+    assert routes.uuid == "00000000-0000-0000-0000-000000000320"
+    assert set(routes.members) == {
+        "00000000-0000-0000-0000-00000000012c",
+        "00000000-0000-0000-0000-00000000012d",
+    }
+    assert set(groups["Assembly"].members) == {
+        routes.uuid,
+        "00000000-0000-0000-0000-000000000064",
+    }
     assert board.get_property("REVISION") == 'A "prototype"'
     assert board.get_property("EMPTY") == ""
     pad = next(

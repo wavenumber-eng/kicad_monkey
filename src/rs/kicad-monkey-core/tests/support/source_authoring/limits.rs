@@ -1,6 +1,7 @@
 use super::*;
 
 pub(super) fn assert_metadata_loss_rejections() {
+    assert_group_loss_rejections();
     let mut board = authored_board();
     board.properties.push(board.properties[0].clone());
     assert_eq!(
@@ -31,6 +32,41 @@ pub(super) fn assert_metadata_loss_rejections() {
     assert_eq!(
         board.canonical_text(Default::default()).unwrap_err().kind,
         ErrorKind::InvalidBuildValue
+    );
+}
+
+fn assert_group_loss_rejections() {
+    for members in [
+        vec![],
+        vec![uuid(999)],
+        vec![uuid(102)],
+        vec![uuid(801)],
+        vec![uuid(300), uuid(300)],
+        vec![uuid(100)],
+    ] {
+        let mut board = authored_board();
+        board.groups[0].members = members;
+        assert_eq!(
+            board.canonical_text(Default::default()).unwrap_err().kind,
+            ErrorKind::InvalidBuildValue
+        );
+    }
+    let mut board = authored_board();
+    board.groups[0].uuid = uuid(300);
+    assert!(board.canonical_text(Default::default()).is_err());
+    let mut board = authored_board();
+    board.groups[0].members[0] = uuid(300).to_ascii_uppercase();
+    assert!(board.canonical_text(Default::default()).is_ok());
+    let limits = PcbAuthoringLimits {
+        pcb_limits: kicad_monkey_core::PcbLimits {
+            max_members: 1,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    assert_eq!(
+        board.canonical_text(limits).unwrap_err().kind,
+        ErrorKind::ResourceLimit
     );
 }
 pub(super) fn assert_custom_compatibility_and_rejections() {
@@ -413,6 +449,7 @@ pub(super) fn assert_case_insensitive_identity(board: &AuthoredPcb) {
     let mut mixed_case = board.clone();
     let uppercase_uuid = "ABCDEF01-2345-6789-ABCD-EF0123456789";
     mixed_case.footprints[0].uuid = uppercase_uuid.to_owned();
+    mixed_case.groups[1].members[1] = uppercase_uuid.to_owned();
     assert!(
         mixed_case
             .canonical_text(PcbAuthoringLimits::default())

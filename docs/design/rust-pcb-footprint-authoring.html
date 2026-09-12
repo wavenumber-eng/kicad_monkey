@@ -17,9 +17,35 @@
   remain a separate API.</p>
 
   <h2>Supported source envelope and ownership</h2>
-  <p>The first explicit source revision is <code>20241229</code>. Any other
-  authored revision is rejected before source construction; newer syntax is
-  promoted only with a concrete accepted vector. <code>AuthoredPcb</code> owns
+  <p>Read policy: accept modern KiCad 8, 9 and 10 source permissively. A source
+  document may retain syntax that a particular typed projection does not yet
+  expose; successful parsing is not a claim of complete semantic coverage.
+  Source-preserving replay and fresh typed authoring remain separate operations.
+  Unsupported authored semantics must never be silently discarded.</p>
+
+  <p>Fresh-write policy: target the selected released KiCad, currently
+  <strong>10.0.6</strong>, rather than the oldest readable format. Its board and
+  standalone-footprint file revision is <code>20260206</code>, as declared by
+  <a href="https://github.com/KiCad/kicad-source-mirror/blob/caf7377e9cb6fa1535ec3596dcb8c99bf44a996e/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.h">the
+  pinned 10.0.6 source</a>. Release version and file revision are distinct;
+  generator metadata continues to identify the actual producing tool.</p>
+
+  <p>Settled nightly features may be deliberately promoted before release.
+  Each exception records the feature, authoritative source commit, required
+  file revision, compatibility with the released reader, and a focused accepted
+  vector. This is not blanket nightly support. Never stamp a released file
+  revision over newer syntax that requires a higher revision. Line endings are
+  a candidate for this policy, not an assertion of current writer support.</p>
+
+  <p>Implementation checkpoint: the writer still emits and accepts only
+  <code>20241229</code>. Migration to the selected 10.0.6 target is deferred under
+  <a href="https://github.com/wavenumber-eng/kicad_monkey/issues/87">writer debt #87</a>
+  while Appz canonical import/export progresses;
+  changing the header alone is insufficient (net encoding, via types, island
+  flags and pad-to-die scaling also changed). Existing 10.0.5 upgrade evidence
+  does not qualify that new output target. The API ownership below is unchanged.</p>
+
+  <p><code>AuthoredPcb</code> owns
   the board envelope and board members. <code>AuthoredFootprint</code> owns only
   a reusable local definition; <code>AuthoredStandaloneFootprint</code> owns its
   document revision, generator fields, default layer, and local definition.
@@ -155,13 +181,22 @@
       layer-property forms, and untyped fill settings. Filled geometry is retained
       caller input, never a computed repour.</td></tr>
       <tr><td>Presentation/containers</td><td>General board/footprint Bezier artwork
-      (custom-pad curves are supported), groups, dimensions,
+      (custom-pad curves are supported), footprint-owned groups and design-block
+      group library links, dimensions,
       tables, images, and barcodes. Dimensions, tables, images, and barcodes are
       outside the original issue #84 writer family table. KiCad has native
-      Code39/Code128 objects; adding them requires the pending acceptance-scope
-      decision, not a claim that no source equivalent exists.</td></tr>
+      Code39/Code128 objects; their authoring is tracked in writer debt #87
+      alongside the released 10.0.6 target, not presumed impossible because
+      of the old writer revision.</td></tr>
     </tbody>
   </table>
+
+  <p><code>AuthoredPcb.groups</code> authors ordinary board-owned editor groups:
+  name, UUID, lock and member UUIDs. Nested groups are supported; members must
+  identify authored board-root objects or groups, not footprint children.
+  Empty groups, dangling references, repeated ownership and cycles are rejected
+  because KiCad drops or repairs them. This is source grouping, not a generic
+  application query/editor framework.</p>
 
   <p><code>AuthoredRuleArea</code> is board-frame source intent, not an
   electrical pour. Its type has no net, fill cache or thermal settings.
@@ -452,18 +487,17 @@ document.write_to(output)?;</code></pre>
   footprint clearance/zone defaults, occurrence placement metadata, and
   explicit empty-layer NPTH in board and standalone source. Presentation
   assertions also cover zero-width filled board and local graphics. The
-  L1_039/L1_040/L1_042 lanes check the corresponding facts after CLI upgrade;
-  these extensions require their own execution/review receipt and are not
-  qualified by the historical 10.0.5 result. The current focused checkpoint is
-  17 passing Rust tests and three passing Rack L1_040 checks on actual KiCad
-  10.0.5, including sparse custom pad/via-stack normalization. Full final gates,
-  combined review and the exact Appz candidate-pin proof remain pending.</p>
+  L1_039/L1_040/L1_042 lanes check the corresponding facts after CLI upgrade.</p>
 
-  <p>A subsequent checkpoint passed the full locked core suite, all four Rack
-  L1_039 through L1_042 lanes, and the native no-default-features check before
-  the final source <code>dnp</code> attribute addition. Post-addition verification,
-  strict Clippy cleanup and the WASM check remained in progress. These timed
-  checkpoints must not be read as final-candidate signoff.</p>
+  <p>The consumer-completion checkpoint passed the full locked core suite,
+  strict Clippy, native/WASM no-default-feature builds and Rack L1_039 through
+  L1_042, including source DNP, on installed KiCad 10.0.5. Appz exact-commit
+  probes passed 48 frozen inputs and three real boards; this proves source API
+  consumption, not full canonical import/export. The subsequent ordinary board
+  group addition passed the full core suite, focused authoring assertions,
+  strict Clippy, L1_039 independent read/save checks and independent review.
+  Writer-target migration remains debt #87. These checks qualify the actual
+  20241229 output, not future 20260206 emission or a public release.</p>
 
   <p><code>pcb_authoring_pad_via_slice</code> adds exact native readback for
   trapezoid/chamfer/slot geometry, local fabrication and connection policies,
