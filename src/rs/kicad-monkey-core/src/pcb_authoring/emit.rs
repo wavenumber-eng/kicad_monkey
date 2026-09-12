@@ -1,5 +1,10 @@
 use super::resource::ResourceEncoder;
 use super::*;
+mod custom_pads;
+mod text_effects;
+use text_effects::effects;
+mod padstacks;
+mod rule_areas;
 use crate::sexpr::{ErrorKind, Sexp, build_with_limit, parse_bytes};
 use crate::text_render_cache::{
     TextRenderCacheErrorKind, TextRenderCacheLimits, write_text_render_cache_a0,
@@ -21,6 +26,12 @@ pub(super) fn board_text(board: &AuthoredPcb, limits: PcbAuthoringLimits) -> Res
         layer_table(&board.layers),
         setup(&board.setup),
     ];
+    values.extend(board.properties.iter().map(|property| {
+        form(
+            "property",
+            [quoted(&property.name), quoted(&property.value)],
+        )
+    }));
     if !board.embedded_files.is_empty() {
         values.push(resources.files(&board.embedded_files)?);
     }
@@ -45,6 +56,7 @@ pub(super) fn board_text(board: &AuthoredPcb, limits: PcbAuthoringLimits) -> Res
     values.extend(board.segments.iter().map(segment));
     values.extend(board.arcs.iter().map(routing_arc));
     values.extend(board.zones.iter().map(zone));
+    values.extend(board.rule_areas.iter().map(rule_areas::rule_area));
     build_document(Sexp::List(values), limits.max_output_bytes)
 }
 
@@ -119,6 +131,15 @@ fn setup(value: &AuthoredSetup) -> Sexp {
             [atom("yes")],
         ));
     }
+    // Emit even the empty clause: both false is an explicit board policy,
+    // independent of per-via source overrides and old-version defaults.
+    children.push(form(
+        "tenting",
+        [("front", value.tenting_front), ("back", value.tenting_back)]
+            .into_iter()
+            .filter(|(_, enabled)| *enabled)
+            .map(|(side, _)| atom(side)),
+    ));
     if let Some(stackup) = &value.stackup {
         children.push(stackup_form(stackup));
     }
@@ -203,29 +224,10 @@ fn footprint_form(
             ]);
         }
         FootprintEnvelope::Occurrence(occurrence) => {
-            children.push(form("layer", [quoted(&occurrence.layer)]));
-            children.push(position_form("at", occurrence.at, occurrence.angle_degrees));
-            children.push(form("uuid", [quoted(&occurrence.uuid)]));
+            append_occurrence(occurrence, &mut children);
         }
     }
-    if let Some(description) = &value.description {
-        children.push(form("descr", [quoted(description)]));
-    }
-    if let Some(tags) = &value.tags {
-        children.push(form("tags", [quoted(tags)]));
-    }
-    if !value.attributes.is_empty() {
-        children.push(form("attr", value.attributes.iter().map(|item| atom(item))));
-    }
-    for (name, amount) in [
-        ("solder_mask_margin", value.solder_mask_margin_mm),
-        ("solder_paste_margin", value.solder_paste_margin_mm),
-        ("solder_paste_margin_ratio", value.solder_paste_margin_ratio),
-    ] {
-        if let Some(amount) = amount {
-            children.push(form(name, [float(amount)]));
-        }
-    }
+    append_footprint_metadata(value, &mut children);
     for property in &value.properties {
         children.push(footprint_property(property, occurrence, limits)?);
     }
@@ -242,6 +244,49 @@ fn footprint_form(
         children.push(resources.files(&value.embedded_files)?);
     }
     Ok(Sexp::List(children))
+}
+
+fn append_footprint_metadata(value: &AuthoredFootprint, children: &mut Vec<Sexp>) {
+    if let Some(description) = &value.description {
+        children.push(form("descr", [quoted(description)]));
+    }
+    if let Some(tags) = &value.tags {
+        children.push(form("tags", [quoted(tags)]));
+    }
+    if !value.attributes.is_empty() {
+        children.push(form("attr", value.attributes.iter().map(|item| atom(item))));
+    }
+    for (name, amount) in [
+        ("solder_mask_margin", value.solder_mask_margin_mm),
+        ("solder_paste_margin", value.solder_paste_margin_mm),
+        ("solder_paste_margin_ratio", value.solder_paste_margin_ratio),
+        ("clearance", value.clearance_mm),
+    ] {
+        if let Some(amount) = amount {
+            children.push(form(name, [float(amount)]));
+        }
+    }
+    if let Some(connection) = value.zone_connect {
+        children.push(form("zone_connect", [integer(connection.source_code())]));
+    }
+}
+
+fn append_occurrence(value: &AuthoredFootprintOccurrence, children: &mut Vec<Sexp>) {
+    if value.locked {
+        children.push(form("locked", [atom("yes")]));
+    }
+    children.push(form("layer", [quoted(&value.layer)]));
+    children.push(position_form("at", value.at, value.angle_degrees));
+    children.push(form("uuid", [quoted(&value.uuid)]));
+    for (name, value) in [
+        ("path", &value.placement_path),
+        ("sheetname", &value.placement_sheet_name),
+        ("sheetfile", &value.placement_sheet_file),
+    ] {
+        if let Some(value) = value {
+            children.push(form(name, [quoted(value)]));
+        }
+    }
 }
 
 fn footprint_property(
@@ -308,62 +353,6 @@ fn footprint_text_value(
         )?);
     }
     Ok(Sexp::List(children))
-}
-
-fn effects(value: &AuthoredTextEffects) -> Sexp {
-    let mut font = vec![atom("font")];
-    if let Some(face) = &value.face {
-        font.push(form("face", [quoted(face)]));
-    }
-    font.push(form(
-        "size",
-        [float(value.size_y_mm), float(value.size_x_mm)],
-    ));
-    if let Some(thickness) = value.thickness_mm {
-        font.push(form("thickness", [float(thickness)]));
-    }
-    if let Some(line_spacing) = value.line_spacing {
-        font.push(form("line_spacing", [float(line_spacing)]));
-    }
-    if value.bold {
-        font.push(form("bold", [atom("yes")]));
-    }
-    if value.italic {
-        font.push(atom("italic"));
-    }
-    if let Some(color) = value.color {
-        font.push(form(
-            "color",
-            [
-                integer(color.red),
-                integer(color.green),
-                integer(color.blue),
-                float(color.alpha),
-            ],
-        ));
-    }
-    let mut children = vec![atom("effects"), Sexp::List(font)];
-    let mut justification = Vec::with_capacity(3);
-    match value.horizontal_justify {
-        AuthoredTextHorizontalJustification::Left => justification.push(atom("left")),
-        AuthoredTextHorizontalJustification::Center => {}
-        AuthoredTextHorizontalJustification::Right => justification.push(atom("right")),
-    }
-    match value.vertical_justify {
-        AuthoredTextVerticalJustification::Top => justification.push(atom("top")),
-        AuthoredTextVerticalJustification::Center => {}
-        AuthoredTextVerticalJustification::Bottom => justification.push(atom("bottom")),
-    }
-    if value.mirrored {
-        justification.push(atom("mirror"));
-    }
-    if !justification.is_empty() {
-        children.push(form("justify", justification));
-    }
-    if let Some(href) = &value.href {
-        children.push(form("href", [quoted(href)]));
-    }
-    Sexp::List(children)
 }
 
 fn board_text_value(value: &AuthoredBoardText, limits: PcbAuthoringLimits) -> Result<Sexp, Error> {
@@ -586,6 +575,17 @@ fn pad(value: &AuthoredPad) -> Sexp {
         position_form("at", value.at, value.angle_degrees),
         form("size", [float(value.size_x_mm), float(value.size_y_mm)]),
     ];
+    for (head, text) in [
+        ("pinfunction", &value.pin_function),
+        ("pintype", &value.pin_type),
+    ] {
+        if let Some(text) = text {
+            children.push(form(head, [quoted(text)]));
+        }
+    }
+    if let Some(length) = value.die_length_mm {
+        children.push(form("die_length", [float(length)]));
+    }
     if let Some(drill) = &value.drill {
         children.push(drill_form(drill));
     }
@@ -594,8 +594,11 @@ fn pad(value: &AuthoredPad) -> Sexp {
         children.push(form("net", [integer(net.code), quoted(&net.name)]));
     }
     children.push(form("uuid", [quoted(&value.uuid)]));
-    append_pad_shape(value, &mut children);
+    append_shape(&value.shape, &mut children);
     append_pad_policies(value, &mut children);
+    if let Some(stack) = &value.padstack {
+        children.push(padstacks::padstack(stack));
+    }
     Sexp::List(children)
 }
 
@@ -610,8 +613,8 @@ fn drill_form(value: &AuthoredDrill) -> Sexp {
     form("drill", values)
 }
 
-fn append_pad_shape(value: &AuthoredPad, children: &mut Vec<Sexp>) {
-    match &value.shape {
+fn append_shape(shape: &AuthoredPadShape, children: &mut Vec<Sexp>) {
+    match shape {
         AuthoredPadShape::Trapezoid {
             delta_x_mm,
             delta_y_mm,
@@ -634,25 +637,27 @@ fn append_pad_shape(value: &AuthoredPad, children: &mut Vec<Sexp>) {
             ));
         }
         AuthoredPadShape::CustomPolygon { points } => {
-            children.push(form(
-                "options",
-                [
-                    form("clearance", [atom("outline")]),
-                    form("anchor", [atom("rect")]),
-                ],
-            ));
-            children.push(form(
-                "primitives",
-                [form(
-                    "gr_poly",
-                    [
-                        points_form(points),
-                        form("width", [float(0.0)]),
-                        form("fill", [atom("yes")]),
-                    ],
+            custom_pads::append_custom(
+                Some(AuthoredPadAnchor::Rect),
+                Some(AuthoredCustomPadClearance::Outline),
+                [custom_pads::polygon(
+                    points.iter().map(|point| point_form("xy", *point)),
+                    0.0,
+                    Some(AuthoredPadPrimitiveFill::Solid),
                 )],
-            ));
+                children,
+            );
         }
+        AuthoredPadShape::Custom {
+            anchor,
+            clearance,
+            primitives,
+        } => custom_pads::append_custom(
+            *anchor,
+            *clearance,
+            primitives.iter().map(custom_pads::primitive),
+            children,
+        ),
         _ => {}
     }
 }
@@ -707,6 +712,30 @@ fn via(value: &AuthoredVia) -> Sexp {
     if value.free {
         children.push(form("free", [atom("yes")]));
     }
+    if let Some(stack) = &value.padstack {
+        children.push(padstacks::viastack(stack));
+    }
+    if let Some(drill) = &value.backdrill {
+        children.push(form(
+            "backdrill",
+            [
+                form("size", [float(drill.size_mm)]),
+                form(
+                    "layers",
+                    [quoted(&drill.start_layer), quoted(&drill.end_layer)],
+                ),
+            ],
+        ));
+    }
+    append_via_policies(value, &mut children);
+    children.extend([
+        form("net", [integer(value.net_code)]),
+        form("uuid", [quoted(&value.uuid)]),
+    ]);
+    Sexp::List(children)
+}
+
+fn append_via_policies(value: &AuthoredVia, children: &mut Vec<Sexp>) {
     for (head, policy) in [
         ("tenting", &value.tenting),
         ("covering", &value.covering),
@@ -739,11 +768,6 @@ fn via(value: &AuthoredVia) -> Sexp {
             children.push(form(head, [yes_no(enabled)]));
         }
     }
-    children.extend([
-        form("net", [integer(value.net_code)]),
-        form("uuid", [quoted(&value.uuid)]),
-    ]);
-    Sexp::List(children)
 }
 
 fn front_back_policy(head: &str, value: &AuthoredFrontBackPolicy) -> Sexp {

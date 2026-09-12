@@ -15,7 +15,7 @@
   resolution, resource fetching, and application rendering remain downstream.</p>
 
   <h2>Embedded-resource ownership and payload states</h2>
-  <p><code>EmbeddedFile</code> is a borrowed source declaration whose
+  <p><code>EmbeddedFile</code> is owned declaration metadata whose
   <code>EmbeddedFileOwner</code> distinguishes the board, a board-embedded
   footprint by stable source index, or the standalone footprint. Filename,
   type, checksum, source range, and authored encoded-data size can be inspected
@@ -24,7 +24,8 @@
 
   <p><code>EmbeddedDataPresence</code> distinguishes a metadata-only declaration,
   an explicitly authored empty <code>data</code> form, and nonempty encoded
-  data. <code>encoded_data()</code> exposes the borrowed authored bytes;
+  data. <code>encoded_data()</code> returns the selected encoded data as an owned
+  string without decoding it;
   <code>decode()</code> performs bounded base64 and zstd decoding on demand.
   Malformed encoding, decompression overflow, and checksum mismatch are errors
   labelled with the resource name. They are never converted to absent data.
@@ -39,12 +40,57 @@
   fabricate a board occurrence or apply top/bottom occurrence transforms.</p>
 
   <p>Pad records retain number and UUID evidence, authored net evidence, shape
-  and custom polygons, local position/angle, layers, drills/slots/offset,
+  and typed custom-primitive composition, local position/angle, layers, drills/slots/offset,
   plating, mask/paste margins and ratios, thermal and zone policies, and
   conditional-land fields. Footprint metadata retains local defaults,
   component classes, private layers, net-tie groups, and jumper groups.
   Unknown source forms remain governed by the existing source reader rather
   than being silently emitted as supported typed values.</p>
+
+  <p><code>PcbPad.has_layers</code> distinguishes an omitted layer declaration
+  from an explicit empty <code>(layers)</code>; the existing layer vector remains
+  the authored list, not an inferred copper mask. This distinction is shared by
+  board-embedded and standalone pads and permits cut-only NPTH mapping without
+  guessing omitted source defaults. <code>PcbSetup.has_aux_axis_origin</code>
+  and <code>has_grid_origin</code> similarly distinguish explicitly authored zero
+  origins from their effective zero defaults.</p>
+
+  <p>Keepout records expose effective settings plus per-category
+  <code>has_*</code> declaration flags. Omitted pads and footprints are allowed,
+  as initialized by KiCad's keepout parser; the other three categories keep
+  their source defaults. Custom-pad primitive fill tokens remain unfiltered so
+  explicit <code>none</code> cannot become an omitted fill. Width assignments
+  follow source order across legacy <code>width</code> and nested
+  <code>stroke</code> forms; a style-only stroke does not reset a prior width.
+  These semantics were checked against
+  <a href="https://gitlab.com/kicad/code/kicad/-/blob/caf7377e9cb6fa1535ec3596dcb8c99bf44a996e/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.cpp">KiCad 10.0.6's PCB parser</a>
+  and its shared stroke parser. Geometry is not solved by these reads.</p>
+
+  <p>Custom primitive geometry distinguishes lines, three-point arcs, circles,
+  rectangles, ordered polygon elements (including arcs), and cubic curves.
+  Proxy bounds/vectors remain distinguishable from copper. The existing raw
+  kind, fill, width and source range remain available; incomplete or unsupported
+  geometry is not replaced with an invented shape. Embedded and standalone
+  pads use this same source decoder.</p>
+
+  <p><code>PcbPadstack</code> and <code>PcbViaStack</code> expose authored
+  front-inner-back/custom modes and ordered source layer rows. Pad rows retain
+  optional shape, size, land offset, corner/custom geometry and local
+  clearance/thermal/zone declarations; explicit inherited zone connection
+  <code>-1</code> is distinct from absence. Via rows retain circular diameter,
+  not arbitrary pad shape. These are source records, not a resolved stack:
+  omitted rows remain omitted and KiCad may materialize them during save.
+  Embedded and standalone pads share decoding and aggregate custom-geometry
+  limits. Pad pin-function/type and signed pad-to-die length, board-root
+  properties and effective setup tenting defaults are also exposed.</p>
+
+  <p>Read fidelity does not establish plot fidelity. The source plotter's
+  <code>copper::exposed_mask_layers</code> currently checks explicit per-via
+  tenting only; it does not inherit setup tenting defaults. That source-plotter
+  follow-up remains separate from the implemented reader/writer retention.
+  Newly exposed custom/padstack geometry likewise does not establish complete
+  effective padstack plotting. Downstream consumers must retain these limits
+  rather than modifying source intent to match a partial plot.</p>
 
   <h2>Newstroke coordinate and placement contract</h2>
   <p><code>realize_newstroke_a0</code> accepts and returns KiCad source
@@ -75,6 +121,15 @@
   <code>?</code> and counted. This API deliberately retains the existing
   single-line realization behavior: newline is an unsupported glyph and uses
   that same fallback; it does not introduce multiline block layout.</p>
+
+  <p>The consumer-completion inventory found no authored Newstroke multiline
+  requirement in the frozen 48 converter inputs or selected Yoshi, Taillight
+  and Speedy boards. The frozen-input result is a lexical negative screen;
+  the real-board result used public Python source records, not an exact-pin
+  native consumer. Speedy's seven trailing-LF strings use named Arial and
+  cached outlines, not Newstroke. Preserve those strings; do not trim them or
+  relabel fonts. Property/project expansion may introduce newlines later, so
+  resolved text still needs admission checks at actual native invocation.</p>
 
   <h2>Usage shape</h2>
   <pre><code>let output = realize_newstroke_a0(
@@ -113,5 +168,12 @@ for path in &amp;output.polylines {
   realizer oracle coordinates, pen-up splits, placement, widths, markup,
   fallback, and every public limit boundary. Existing board plotter, dimension,
   and resource-limit suites own shared-engine regression coverage.</p>
+
+  <p>At the current consumer-completion checkpoint, 17 focused Rust tests and
+  the three Rack L1_040 checks pass. The latter use actual KiCad 10.0.5 and
+  exercise source pad/via-stack save normalization. Ambiguous source behavior
+  is checked against the exact KiCad 10.0.6 commit cited above. Full final
+  gates, combined review and Appz consumption of a reviewed exact candidate
+  remain pending; these receipts are not whole-corpus native acceptance.</p>
 </body>
 </html>

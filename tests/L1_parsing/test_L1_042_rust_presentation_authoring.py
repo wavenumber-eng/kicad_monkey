@@ -89,6 +89,7 @@ def assert_presentation_semantics(
         10.0,
     )
     assert circle.layer == "B.SilkS"
+    assert circle.is_filled and circle.stroke.width == 0.0
 
     assert len(board.gr_texts) == 2
     ttf, native = board.gr_texts
@@ -248,6 +249,30 @@ def assert_presentation_semantics(
         None,
     )
     assert occurrence.fp_lines[0].layer == "B.SilkS"
+    if upgraded:
+        # KiCad retains a rectangle in this rotated footprint as a local
+        # polygon. Identity, actual corners, fill and zero width must survive.
+        rectangle = next(
+            item
+            for item in occurrence.fp_polys
+            if item.uuid == "00000000-0000-0000-0000-00000000006a"
+        )
+        assert rectangle.points == [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+    else:
+        rectangle = next(
+            item
+            for item in occurrence.fp_rects
+            if item.uuid == "00000000-0000-0000-0000-00000000006a"
+        )
+        assert (
+            rectangle.start_x,
+            rectangle.start_y,
+            rectangle.end_x,
+            rectangle.end_y,
+        ) == (-1.0, -1.0, 1.0, 1.0)
+    assert rectangle.is_filled
+    assert rectangle.stroke.width == 0.0
+    assert rectangle.layer == "B.SilkS"
     boxed_occurrence = next(item for item in board.footprints if item.fp_text_boxes)
     assert (
         boxed_occurrence.layer,
@@ -285,6 +310,8 @@ def assert_presentation_semantics(
     )
 
     footprint = KiCadFootprint.from_string(footprint_path.read_text(encoding="utf-8"))
+    assert footprint.fp_rects[0].is_filled
+    assert footprint.fp_rects[0].stroke.width == 0.0
     standalone_reference = footprint.properties[0]
     assert standalone_reference.effects.font.face == "Arial"
     assert standalone_reference.effects.justify == ["right", "top", "mirror"]

@@ -30,6 +30,18 @@ fn zones_expose_authored_and_filled_source_semantics() {
     assert_copper_fill(copper);
     assert_copper_geometry(copper);
     assert_keepout(&zones[1]);
+    let explicit = ZONES.replace(
+        "(keepout (tracks allowed) (vias not_allowed))",
+        "(keepout (tracks allowed) (vias not_allowed) (pads not_allowed) (footprints allowed) (copperpour allowed))",
+    );
+    let explicit_view = PcbView::parse(&explicit, PcbLimits::default()).expect("explicit board");
+    let explicit_zone = explicit_view.zones().nth(1).unwrap().unwrap();
+    let settings = explicit_zone.keepout.unwrap();
+    assert_eq!(settings.pads, "not_allowed");
+    assert_eq!(settings.footprints, "allowed");
+    assert_eq!(settings.copperpour, "allowed");
+    assert!(settings.has_tracks && settings.has_vias && settings.has_pads);
+    assert!(settings.has_footprints && settings.has_copperpour);
 }
 
 fn assert_copper_identity(copper: &PcbZone) {
@@ -93,9 +105,11 @@ fn assert_keepout(keepout: &PcbZone) {
     let settings = keepout.keepout.as_ref().expect("keepout");
     assert_eq!(settings.tracks, "allowed");
     assert_eq!(settings.vias, "not_allowed");
-    assert_eq!(settings.pads, "not_allowed");
+    assert_eq!(settings.pads, "allowed");
     assert_eq!(settings.copperpour, "not_allowed");
-    assert_eq!(settings.footprints, "not_allowed");
+    assert_eq!(settings.footprints, "allowed");
+    assert!(settings.has_tracks && settings.has_vias);
+    assert!(!settings.has_pads && !settings.has_footprints && !settings.has_copperpour);
 }
 
 #[test]

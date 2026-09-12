@@ -178,6 +178,56 @@ def test_python_reader_accepts_authored_zone_and_cache_chains(
     assert "(connect_pads yes" not in source
     assert "(filled_areas_thickness no)" in source
     assert_zone_semantics(authored_board, upgraded=False)
+    assert_rule_area_semantics(authored_board.with_name("native-rule-areas.kicad_pcb"))
+
+
+def assert_rule_area_semantics(board_path: Path, *, upgraded: bool = False) -> None:
+    board = KiCadPcb.from_file(board_path)
+    areas = sorted(board.zones, key=lambda area: area.uuid)
+    assert len(areas) == 4
+    expected_sources = [
+        None,
+        (False, "/Power stage"),
+        (True, 'Fast "IO"'),
+        (True, "Local group"),
+    ]
+    for index, (area, placement) in enumerate(
+        zip(areas, expected_sources, strict=True)
+    ):
+        assert area.uuid == f"00000000-0000-0000-0000-{300 + index:012x}"
+        assert area.layers == ["F.Cu", "B.Cu"]
+        assert area.locked is True
+        assert area.name == f"Rule {index}"
+        assert not area.filled_polygons
+        assert area.keepout is not None
+        assert (
+            area.keepout.tracks,
+            area.keepout.vias,
+            area.keepout.pads,
+            area.keepout.copperpour,
+            area.keepout.footprints,
+        ) == ("not_allowed", "allowed", "allowed", "not_allowed", "allowed")
+        if placement is None and upgraded:
+            # KiCad serializes disabled/empty placement defaults on every rule
+            # area. Fresh source absence is checked separately above.
+            assert area.placement is not None
+            assert (area.placement.enabled, area.placement.source) == (False, "")
+            assert area.placement.source_type.value == "sheetname"
+        elif placement is None:
+            assert area.placement is None
+        else:
+            assert area.placement is not None
+            assert (area.placement.enabled, area.placement.source) == placement
+            assert (
+                area.placement.source_type.value
+                == ["", "sheetname", "component_class", "group"][index]
+            )
+        assert [
+            [tuple(point) for point in polygon.points] for polygon in area.polygons
+        ] == [
+            [(1.0, 1.0), (9.0, 1.0), (9.0, 9.0), (1.0, 9.0)],
+            [(3.0, 3.0), (3.0, 5.0), (5.0, 5.0), (5.0, 3.0)],
+        ]
 
 
 def test_kicad_cli_refills_authored_zone_cache_chains_when_available(
@@ -220,3 +270,19 @@ def test_kicad_cli_refills_authored_zone_cache_chains_when_available(
     )
     assert completed.returncode == 0, completed.stderr
     assert "(connect_pads yes" in upgraded_solid.read_text(encoding="utf-8")
+
+    rule_board = authored_board.with_name("native-rule-areas.kicad_pcb")
+    upgraded_rules = tmp_path / rule_board.name
+    shutil.copy2(rule_board, upgraded_rules)
+    completed = subprocess.run(
+        [str(cli), "pcb", "upgrade", "--force", str(upgraded_rules)],
+        cwd=PACKAGE_ROOT,
+        env=kicad_cli_subprocess_env(cli),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=60,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert_rule_area_semantics(upgraded_rules, upgraded=True)

@@ -1,13 +1,29 @@
 //! Typed fresh-source authoring for KiCad PCB and footprint files.
 
+mod custom_pads;
 mod emit;
+mod padstacks;
 mod resource;
+mod rule_areas;
 mod validate;
+
+pub use rule_areas::{
+    AuthoredKeepout, AuthoredPlacementConstraint, AuthoredPlacementSource, AuthoredRestriction,
+    AuthoredRuleArea,
+};
 
 use crate::footprint::{FootprintDocument, FootprintLimits};
 use crate::pcb::{PcbDocument, PcbLimits};
 use crate::sexpr::Error;
 use crate::text_render_cache::TextRenderCache;
+pub use custom_pads::{
+    AuthoredCustomPadClearance, AuthoredPadAnchor, AuthoredPadPolygonPoint, AuthoredPadPrimitive,
+    AuthoredPadPrimitiveFill, AuthoredPadPrimitiveGeometry,
+};
+pub use padstacks::{
+    AuthoredPadstack, AuthoredPadstackLayer, AuthoredPadstackLayerSelector, AuthoredPadstackMode,
+    AuthoredPadstackZoneConnection, AuthoredViaStack, AuthoredViaStackLayer,
+};
 
 /// First explicitly supported PCB and footprint source format revision.
 pub const KICAD_SOURCE_VERSION_2024_12_29: i64 = 20_241_229;
@@ -88,6 +104,9 @@ pub struct AuthoredSetup {
     pub pad_to_paste_clearance_mm: f64,
     pub pad_to_paste_clearance_ratio: f64,
     pub allow_soldermask_bridges_in_footprints: bool,
+    /// Effective board defaults; via-local optional overrides remain separate.
+    pub tenting_front: bool,
+    pub tenting_back: bool,
     pub stackup: Option<AuthoredStackup>,
 }
 
@@ -310,6 +329,13 @@ pub enum AuthoredPadShape {
     CustomPolygon {
         points: Vec<AuthoredPoint>,
     },
+    /// Complete source composition. Prefer this over the legacy single-polygon
+    /// convenience when retaining an imported custom pad's policies.
+    Custom {
+        anchor: Option<AuthoredPadAnchor>,
+        clearance: Option<AuthoredCustomPadClearance>,
+        primitives: Vec<AuthoredPadPrimitive>,
+    },
 }
 
 impl AuthoredPadShape {
@@ -320,7 +346,7 @@ impl AuthoredPadShape {
             Self::Rect => "rect",
             Self::Trapezoid { .. } => "trapezoid",
             Self::RoundRect { .. } | Self::ChamferedRoundRect { .. } => "roundrect",
-            Self::CustomPolygon { .. } => "custom",
+            Self::CustomPolygon { .. } | Self::Custom { .. } => "custom",
         }
     }
 }
@@ -378,7 +404,13 @@ impl AuthoredZoneConnection {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuthoredPad {
+    pub padstack: Option<AuthoredPadstack>,
     pub number: String,
+    /// Board occurrence pin metadata; KiCad omits these in library footprints.
+    pub pin_function: Option<String>,
+    pub pin_type: Option<String>,
+    /// Signed, nonzero source length. Zero is KiCad's omitted default.
+    pub die_length_mm: Option<f64>,
     pub kind: AuthoredPadKind,
     pub shape: AuthoredPadShape,
     pub at: AuthoredPoint,
@@ -428,11 +460,21 @@ pub struct AuthoredFrontBackPolicy {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct AuthoredBackdrill {
+    pub size_mm: f64,
+    /// Source drill direction, which may run from B.Cu toward an inner layer.
+    pub start_layer: String,
+    pub end_layer: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct AuthoredVia {
+    pub padstack: Option<AuthoredViaStack>,
     pub kind: AuthoredViaKind,
     pub at: AuthoredPoint,
     pub size_mm: f64,
     pub drill_mm: f64,
+    pub backdrill: Option<AuthoredBackdrill>,
     pub start_layer: String,
     pub end_layer: String,
     pub free: bool,
@@ -482,6 +524,9 @@ pub struct AuthoredFootprint {
     pub solder_mask_margin_mm: Option<f64>,
     pub solder_paste_margin_mm: Option<f64>,
     pub solder_paste_margin_ratio: Option<f64>,
+    pub clearance_mm: Option<f64>,
+    /// Absent means inherit the zone's connection policy.
+    pub zone_connect: Option<AuthoredZoneConnection>,
     pub properties: Vec<AuthoredFootprintProperty>,
     pub texts: Vec<AuthoredFootprintText>,
     pub text_boxes: Vec<AuthoredTextBox>,
@@ -501,6 +546,8 @@ impl AuthoredFootprint {
             solder_mask_margin_mm: None,
             solder_paste_margin_mm: None,
             solder_paste_margin_ratio: None,
+            clearance_mm: None,
+            zone_connect: None,
             properties: Vec::new(),
             texts: Vec::new(),
             text_boxes: Vec::new(),
@@ -557,6 +604,11 @@ pub struct AuthoredFootprintOccurrence {
     pub at: AuthoredPoint,
     pub angle_degrees: f64,
     pub uuid: String,
+    pub locked: bool,
+    /// Schematic UUID path, not a filesystem path. Owned by this occurrence.
+    pub placement_path: Option<String>,
+    pub placement_sheet_name: Option<String>,
+    pub placement_sheet_file: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -659,6 +711,13 @@ pub struct AuthoredZone {
     pub filled_polygons: Vec<AuthoredZoneFilledPolygon>,
 }
 
+/// One board-root source property, independent of footprint graphical fields.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthoredProperty {
+    pub name: String,
+    pub value: String,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct AuthoredPcb {
     pub version: i64,
@@ -668,6 +727,7 @@ pub struct AuthoredPcb {
     pub paper: String,
     pub layers: Vec<AuthoredLayer>,
     pub setup: AuthoredSetup,
+    pub properties: Vec<AuthoredProperty>,
     pub nets: Vec<AuthoredNet>,
     pub profile: Vec<AuthoredGraphic>,
     pub graphics: Vec<AuthoredGraphic>,
@@ -678,6 +738,7 @@ pub struct AuthoredPcb {
     pub segments: Vec<AuthoredSegment>,
     pub arcs: Vec<AuthoredRoutingArc>,
     pub zones: Vec<AuthoredZone>,
+    pub rule_areas: Vec<AuthoredRuleArea>,
     pub embedded_files: Vec<AuthoredEmbeddedFile>,
 }
 
@@ -691,6 +752,7 @@ impl Default for AuthoredPcb {
             paper: "A4".to_owned(),
             layers: Vec::new(),
             setup: AuthoredSetup::default(),
+            properties: Vec::new(),
             nets: Vec::new(),
             profile: Vec::new(),
             graphics: Vec::new(),
@@ -701,6 +763,7 @@ impl Default for AuthoredPcb {
             segments: Vec::new(),
             arcs: Vec::new(),
             zones: Vec::new(),
+            rule_areas: Vec::new(),
             embedded_files: Vec::new(),
         }
     }

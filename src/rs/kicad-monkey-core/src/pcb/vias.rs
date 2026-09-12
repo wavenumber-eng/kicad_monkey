@@ -33,6 +33,7 @@ pub struct PcbVia {
     pub remove_unused_layers: Option<bool>,
     pub keep_end_layers: Option<bool>,
     pub start_end_only: Option<bool>,
+    pub padstack: Option<PcbViaStack>,
     pub source_range: Range<usize>,
 }
 
@@ -101,6 +102,7 @@ pub(super) fn via_from_span(
             "keep_end_layers",
         )?,
         start_end_only: manufacturing::optional_presence_bool(source, &children, "start_end_only")?,
+        padstack: padstacks::viastack(source, &children, limits)?,
         source_range: span.range.clone(),
     })
 }

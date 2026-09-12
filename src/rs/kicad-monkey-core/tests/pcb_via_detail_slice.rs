@@ -30,6 +30,25 @@ fn via_kind_dimensions_and_surface_treatments_match_python() {
     assert_eq!((plugging.front, plugging.back), (Some(false), None));
     assert_eq!(via.capping, Some(true));
     assert_eq!(via.filling, Some(false));
+    let source = r#"(kicad_pcb (via (size 1) (padstack (mode custom)
+      (layer "In1.Cu" (size 0.7)) (layer "B.Cu" (size 0.8)))))"#;
+    let stack = PcbView::parse(source, Default::default())
+        .unwrap()
+        .vias()
+        .next()
+        .unwrap()
+        .unwrap()
+        .padstack
+        .unwrap();
+    assert_eq!(stack.mode.as_deref(), Some("custom"));
+    assert_eq!(
+        stack
+            .layers
+            .iter()
+            .map(|row| (row.layer.as_str(), row.size))
+            .collect::<Vec<_>>(),
+        [("In1.Cu", Some(0.7)), ("B.Cu", Some(0.8))]
+    );
 }
 
 #[test]

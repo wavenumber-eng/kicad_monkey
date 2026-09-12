@@ -353,12 +353,8 @@ fn index_footprint_child(
             selection.contains(PcbFamily::Models),
             limits.max_models,
         ),
-        Some(head)
-            if graphic_kind(head).is_some() && !matches!(head, "fp_text" | "fp_text_box") =>
-        {
-            let retain = selection.contains(PcbFamily::FootprintGraphics)
-                || (selection.contains(PcbFamily::Profile)
-                    && physical::is_footprint_profile_head(head));
+        Some(head) if is_footprint_graphic(head) => {
+            let retain = retain_footprint_graphic(head, selection);
             retain_nested(
                 &mut counts.graphics,
                 &mut index.footprint_graphics,
@@ -392,6 +388,15 @@ fn index_footprint_child(
         ),
         _ => Ok(()),
     }
+}
+
+fn is_footprint_graphic(head: &str) -> bool {
+    graphic_kind(head).is_some() && !matches!(head, "fp_text" | "fp_text_box")
+}
+
+fn retain_footprint_graphic(head: &str, selection: PcbSelection) -> bool {
+    selection.contains(PcbFamily::FootprintGraphics)
+        || (selection.contains(PcbFamily::Profile) && physical::is_footprint_profile_head(head))
 }
 
 fn index_footprint_embedded_files(

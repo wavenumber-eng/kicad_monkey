@@ -1,3 +1,6 @@
+#[path = "support/source_authoring/presentation_readback.rs"]
+mod readback;
+
 use kicad_monkey_core::{
     AuthoredBoardText, AuthoredColor, AuthoredFootprint, AuthoredFootprintOccurrence,
     AuthoredFootprintProperty, AuthoredFootprintText, AuthoredGraphic, AuthoredGraphicGeometry,
@@ -143,6 +146,17 @@ fn footprint() -> AuthoredFootprint {
         fill: None,
         uuid: uuid(105),
     });
+    footprint.graphics.push(AuthoredGraphic {
+        geometry: AuthoredGraphicGeometry::Rect {
+            start: point(-1.0, -1.0),
+            end: point(1.0, 1.0),
+        },
+        layer: "B.SilkS".to_owned(),
+        stroke_width_mm: 0.0,
+        stroke_kind: "solid".to_owned(),
+        fill: Some("solid".to_owned()),
+        uuid: uuid(106),
+    });
     footprint
 }
 
@@ -182,9 +196,9 @@ fn board() -> AuthoredPcb {
                 end: point(12.0, 10.0),
             },
             layer: "B.SilkS".to_owned(),
-            stroke_width_mm: 0.2,
-            stroke_kind: "dash_dot".to_owned(),
-            fill: Some("none".to_owned()),
+            stroke_width_mm: 0.0,
+            stroke_kind: "solid".to_owned(),
+            fill: Some("solid".to_owned()),
             uuid: uuid(201),
         }],
         texts: vec![
@@ -236,6 +250,10 @@ fn board() -> AuthoredPcb {
                 at: point(30.0, 20.0),
                 angle_degrees: 135.0,
                 uuid: uuid(200),
+                locked: false,
+                placement_path: None,
+                placement_sheet_name: None,
+                placement_sheet_file: None,
             },
             AuthoredFootprintOccurrence {
                 footprint: boxed_footprint,
@@ -243,6 +261,10 @@ fn board() -> AuthoredPcb {
                 at: point(50.0, 20.0),
                 angle_degrees: 0.0,
                 uuid: uuid(300),
+                locked: false,
+                placement_path: None,
+                placement_sheet_name: None,
+                placement_sheet_file: None,
             },
         ],
         ..AuthoredPcb::default()
@@ -283,159 +305,39 @@ fn assert_close(actual: f64, expected: f64) {
 }
 
 #[test]
-#[allow(
-    clippy::cognitive_complexity,
-    clippy::too_many_lines,
-    reason = "one proof follows source presentation facts through every carrier"
-)]
 fn authored_board_and_footprint_presentation_round_trip_exactly() {
     let board_document = board()
         .to_document(PcbAuthoringLimits::default())
         .expect("presentation board");
     publish("native-presentation.kicad_pcb", board_document.source());
-    let board_view = board_document.view().expect("board view");
-    let board_graphics = board_view
-        .graphics()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("board graphics");
-    assert_eq!(
-        board_graphics
-            .iter()
-            .map(|graphic| graphic.kind)
-            .collect::<Vec<_>>(),
-        [
-            PcbGraphicKind::Circle,
-            PcbGraphicKind::Text,
-            PcbGraphicKind::Text,
-            PcbGraphicKind::TextBox,
-        ]
-    );
-    assert_eq!(board_graphics[0].layer.as_deref(), Some("B.SilkS"));
-    assert_eq!(board_graphics[1].text.as_deref(), Some("BOARD-TTF"));
-    assert_eq!(board_graphics[2].at.expect("native text position").x, 15.0);
-    assert_eq!(board_graphics[3].border, Some(false));
-
-    let board_properties = board_view
-        .footprint_properties()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("board footprint properties");
-    assert_eq!(board_properties[0].name, "Reference");
-    assert_eq!(board_properties[0].layer, "B.SilkS");
-    assert!(board_properties[0].unlocked);
-    assert_eq!(
-        board_properties[0].effects.font.face.as_deref(),
-        Some("Arial")
-    );
-    assert_eq!(board_properties[0].effects.font.line_spacing, Some(1.1));
-    assert_eq!(
-        board_properties[0].effects.justify,
-        ["right", "top", "mirror"]
-    );
-    let occurrence_cache = cache_from_range(
-        board_document.source(),
-        board_properties[0]
-            .render_cache_range
-            .clone()
-            .expect("occurrence cache"),
-    );
-    assert_eq!(
-        (
-            occurrence_cache.text.as_str(),
-            occurrence_cache.angle_degrees
-        ),
-        ("R1", 15.0)
-    );
-    let expected_board_points = [
-        (30.707_106_781_186_55, 15.878_679_656_440_358),
-        (31.957_106_781_186_553, 18.878_679_656_440_358),
-        (33.707_106_781_186_55, 21.378_679_656_440_358),
-        (31.207_106_781_186_553, 16.878_679_656_440_358),
-        (31.457_106_781_186_553, 17.378_679_656_440_358),
-        (31.707_106_781_186_553, 16.878_679_656_440_358),
-    ];
-    for (actual, expected) in occurrence_cache
-        .polygons
-        .iter()
-        .flat_map(|polygon| &polygon.contours)
-        .flat_map(|contour| &contour.points)
-        .zip(expected_board_points)
-    {
-        assert_close(actual.x, expected.0);
-        assert_close(actual.y, expected.1);
-    }
-    let board_texts = board_view
-        .footprint_texts()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("board footprint texts");
-    assert!(board_texts[0].knockout);
-    assert!(board_texts[0].unlocked);
-    assert_eq!(board_texts[0].effects.font.face, None);
-    let board_boxes = board_view
-        .footprint_text_boxes()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("board footprint boxes");
-    assert_eq!(board_boxes[0].margins, [0.1, 0.2, 0.3, 0.4]);
-    assert_eq!(
-        board_boxes[0]
-            .polygon_points
-            .iter()
-            .map(|point| (point.x, point.y))
-            .collect::<Vec<_>>(),
-        [(-3.0, -2.0), (3.0, -2.0), (3.0, 2.0), (-3.0, 2.0)]
-    );
-    assert_eq!(board_boxes[0].stroke_kind.as_deref(), Some("dash"));
-    assert_eq!(board_boxes[0].border, Some(true));
-
+    readback::assert_board_graphics(&board_document);
+    readback::assert_placed_presentation(&board_document);
     let footprint_document = standalone()
         .to_document(PcbAuthoringLimits::default())
         .expect("presentation footprint");
     publish("Demo_Presentation.kicad_mod", footprint_document.source());
-    let footprint_view = footprint_document.view().expect("footprint view");
-    let properties = footprint_view
-        .graphical_properties()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("properties");
-    let reference = &properties[0];
-    assert_eq!(
-        (reference.at_x, reference.at_y, reference.angle),
-        (1.0, 2.0, 15.0)
-    );
-    assert_eq!(reference.effects.font.size_x, 1.2);
-    assert_eq!(reference.effects.font.size_y, 0.8);
-    assert_eq!(reference.effects.font.color, None);
-    assert_eq!(reference.effects.href, None);
-    let reference_cache = cache_from_range(
-        footprint_document.source(),
-        reference
-            .render_cache_range
-            .clone()
-            .expect("reference cache"),
-    );
-    assert_eq!(reference_cache, cache("R1", 15.0));
-
-    let texts = footprint_view
-        .texts()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("texts");
-    assert_eq!(texts[0].text, "NATIVE~{A}");
-    assert_eq!(texts[0].angle, -30.0);
-    assert_eq!(texts[0].effects.font.face, None);
-    assert_eq!(texts[0].effects.justify, ["left", "bottom", "mirror"]);
-    assert!(texts[0].knockout);
-    assert!(texts[0].render_cache_range.is_none());
-
-    let boxes = footprint_view
-        .text_boxes()
-        .collect::<Result<Vec<_>, _>>()
-        .expect("text boxes");
-    assert_eq!((boxes[0].start_x, boxes[0].end_x), (-3.0, 3.0));
-    assert!(!boxes[0].locked);
-    assert_eq!(boxes[0].knockout, Some(false));
-    assert!(boxes[0].render_cache_range.is_none());
+    readback::assert_standalone_presentation(&footprint_document);
 }
 
 #[test]
 fn stale_or_newstroke_render_caches_and_invalid_effects_fail_before_emission() {
+    for (fill, width) in [
+        (None, 0.0),
+        (Some("none"), 0.0),
+        (Some("solid"), -0.1),
+        (Some("solid"), f64::NAN),
+    ] {
+        let mut invalid = board();
+        invalid.graphics[0].fill = fill.map(str::to_owned);
+        invalid.graphics[0].stroke_width_mm = width;
+        assert_eq!(
+            invalid
+                .canonical_text(PcbAuthoringLimits::default())
+                .expect_err("lossy or invalid graphic width")
+                .kind,
+            ErrorKind::InvalidBuildValue
+        );
+    }
     let mut stale_text = standalone();
     stale_text.footprint.properties[0]
         .render_cache
@@ -677,7 +579,7 @@ fn footprint_cache_validation_rejects_unresolved_or_wrong_realization_context() 
 #[test]
 fn presentation_points_obey_an_exact_aggregate_limit() {
     let exact = PcbAuthoringLimits {
-        max_points: 13,
+        max_points: 15,
         ..PcbAuthoringLimits::default()
     };
     standalone()
@@ -685,7 +587,7 @@ fn presentation_points_obey_an_exact_aggregate_limit() {
         .expect("exact presentation point limit");
     let error = standalone()
         .canonical_text(PcbAuthoringLimits {
-            max_points: 12,
+            max_points: 14,
             ..PcbAuthoringLimits::default()
         })
         .expect_err("one-under presentation point limit");

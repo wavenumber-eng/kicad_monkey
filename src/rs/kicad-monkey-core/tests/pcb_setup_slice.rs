@@ -25,6 +25,7 @@ fn setup_and_stackup_match_close_to_format_semantics() {
 }
 
 fn assert_setup(setup: &kicad_monkey_core::PcbSetup) {
+    assert!(setup.has_aux_axis_origin && setup.has_grid_origin);
     assert_eq!(
         (setup.aux_axis_origin.x, setup.aux_axis_origin.y),
         (10.0, 20.0)
@@ -97,5 +98,26 @@ fn absent_setup_and_stackup_use_python_defaults() {
         (0.0, 0.0)
     );
     assert_eq!((setup.grid_origin.x, setup.grid_origin.y), (0.0, 0.0));
+    assert!(!setup.has_aux_axis_origin && !setup.has_grid_origin);
     assert!(setup.stackup.is_none());
+
+    for (declarations, aux_present, grid_present) in [
+        ("(aux_axis_origin 0 0)", true, false),
+        ("(grid_origin 0 0)", false, true),
+        ("(aux_axis_origin 0 0) (grid_origin 0 0)", true, true),
+    ] {
+        let source = format!("(kicad_pcb (setup {declarations}))");
+        let setup = PcbView::parse(&source, PcbLimits::default())
+            .expect("board")
+            .setup()
+            .expect("decode")
+            .expect("setup");
+        assert_eq!(setup.has_aux_axis_origin, aux_present);
+        assert_eq!(setup.has_grid_origin, grid_present);
+        assert_eq!(
+            (setup.aux_axis_origin.x, setup.aux_axis_origin.y),
+            (0.0, 0.0)
+        );
+        assert_eq!((setup.grid_origin.x, setup.grid_origin.y), (0.0, 0.0));
+    }
 }

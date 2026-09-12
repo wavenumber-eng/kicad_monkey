@@ -13,9 +13,64 @@ import zstandard
 
 from kicad_cli_resolver import kicad_cli_subprocess_env, resolve_kicad_cli
 from kicad_monkey import KiCadFootprint, KiCadPcb
+from kicad_monkey.kicad_base import find_element, get_value, get_values
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _assert_board_tenting(board: KiCadPcb) -> None:
+    clause = find_element(board.setup_sexp, "tenting")
+    assert clause is not None
+    # KiCad 9 uses bare side flags; KiCad 10 saves nested explicit booleans.
+    assert "front" in clause or get_value(clause, "front", "no") == "yes"
+    assert "back" not in clause and get_value(clause, "back", "no") == "no"
+
+
+def _assert_custom_composition(pad) -> None:
+    assert pad.uuid == "00000000-0000-0000-0000-000000000194"
+    assert pad.die_length == -0.25
+    assert (pad.custom_options.anchor, pad.custom_options.clearance) == (
+        "circle",
+        "convexhull",
+    )
+    primitives = pad.custom_primitives
+    assert [item.primitive_type for item in primitives] == [
+        "gr_poly",
+        "gr_line",
+        "gr_arc",
+        "gr_circle",
+        "gr_rect",
+        "gr_curve",
+        "gr_poly",
+    ]
+    assert [item.width for item in primitives] == [0.01, 0.2, 0.1, 0.0, 0.1, 0.1, 0.0]
+    assert [primitives[index].is_filled for index in (0, 3, 4, 6)] == [
+        True,
+        True,
+        False,
+        True,
+    ]
+    assert primitives[0].points == [(-1.0, -0.5), (1.0, -0.5), (0.0, 1.0)]
+    assert primitives[5].points == [(-1.0, 0.0), (-0.5, 1.0), (0.5, 1.0), (1.0, 0.0)]
+    # These public source primitives round-trip non-polygon geometry verbatim.
+    arc = primitives[2].to_sexp()
+    assert get_values(arc, "start") == [1.0, 0.0]
+    assert get_values(arc, "mid") == [0.0, 1.0]
+    assert get_values(arc, "end") == [-1.0, 0.0]
+    assert get_values(primitives[4].to_sexp(), "radius") == [0.1]
+
+
+def _assert_board_metadata(board) -> None:
+    assert board.get_property("REVISION") == 'A "prototype"'
+    assert board.get_property("EMPTY") == ""
+    pad = next(
+        pad
+        for footprint in board.footprints
+        for pad in footprint.pads
+        if pad.uuid == "00000000-0000-0000-0000-000000000066"
+    )
+    assert (pad.pinfunction, pad.pintype, pad.die_length) == ("VDD", "power_in", 0.75)
 
 
 def _effective_surface_policy(pad, footprint, board) -> tuple[float, float, float]:
@@ -72,7 +127,9 @@ def test_python_reader_independently_accepts_authored_semantics(
 ) -> None:
     board_path, footprint_path = authored_sources
     board = KiCadPcb.from_file(board_path)
+    _assert_board_tenting(board)
     assert board.version == 20241229
+    _assert_board_metadata(board)
     assert [(net.ordinal, net.name) for net in board.nets] == [(1, "GND")]
     assert [
         (line.start_x, line.start_y, line.end_x, line.end_y, line.layer)
@@ -96,6 +153,20 @@ def test_python_reader_independently_accepts_authored_semantics(
     ]
     assert [item.properties[0].value for item in board.footprints] == ["U1", "U1"]
     assert board.footprints[0].uuid != board.footprints[1].uuid
+    assert all("dnp" in item.attr for item in board.footprints)
+    assert board.footprints[0].locked is True
+    assert board.footprints[0].path == (
+        "/00000000-0000-0000-0000-0000000002bc/00000000-0000-0000-0000-0000000002bd"
+    )
+    assert (board.footprints[0].sheetname, board.footprints[0].sheetfile) == (
+        "Power",
+        "power.kicad_sch",
+    )
+    assert (board.footprints[0].clearance, board.footprints[0].zone_connect) == (0.0, 2)
+    assert (board.footprints[1].clearance, board.footprints[1].zone_connect) == (
+        None,
+        None,
+    )
     assert (
         board.pad_to_mask_clearance,
         board.pad_to_paste_clearance,
@@ -240,6 +311,8 @@ def test_python_reader_independently_accepts_authored_semantics(
 
     footprint = KiCadFootprint.from_string(footprint_path.read_text(encoding="utf-8"))
     assert footprint.name == "Demo_Standalone"
+    assert footprint.attr == ["dnp"]
+    assert (footprint.clearance, footprint.zone_connect) == (0.12, 0)
     assert (
         footprint.solder_mask_margin,
         footprint.solder_paste_margin,
@@ -252,8 +325,12 @@ def test_python_reader_independently_accepts_authored_semantics(
     assert footprint.fp_texts[0].effects.font.size_x == 1.25
     assert footprint.fp_texts[0].effects.font.size_y == 0.75
     assert len(footprint.fp_rects) == 1
-    assert len(footprint.pads) == 1
+    assert len(footprint.pads) == 2
     assert footprint.pads[0].shape.value == "custom"
+    _assert_custom_composition(footprint.pads[0])
+    assert footprint.pads[1].pad_type.value == "np_thru_hole"
+    assert footprint.pads[1].layers == []
+    assert footprint.pads[1].drill_height == 1.6
     assert len(footprint.models) == 1
     assert footprint.models[0].path == "kicad-embed://native.step"
     assert footprint.models[0].offset == (1.0, 2.0, 3.0)
@@ -300,6 +377,7 @@ def test_kicad_cli_accepts_fresh_board_and_footprint_when_available(
         )
 
     upgraded_board = KiCadPcb.from_file(board)
+    _assert_board_tenting(upgraded_board)
     assert len(upgraded_board.gr_lines) == 8
     upgraded_resources = {item.name: item for item in upgraded_board.embedded_files}
     assert set(upgraded_resources) == {"board.step", "footprint.step"}
@@ -317,11 +395,13 @@ def test_kicad_cli_accepts_fresh_board_and_footprint_when_available(
         )
         == b"footprint-owned shared model"
     )
+    _assert_board_metadata(upgraded_board)
     assert [item.properties[0].value for item in upgraded_board.footprints] == [
         "U1",
         "U1",
     ]
     assert upgraded_board.footprints[0].uuid != upgraded_board.footprints[1].uuid
+    assert all("dnp" in item.attr for item in upgraded_board.footprints)
     assert (
         upgraded_board.pad_to_mask_clearance,
         upgraded_board.pad_to_paste_clearance,
@@ -333,6 +413,16 @@ def test_kicad_cli_accepts_fresh_board_and_footprint_when_available(
     upgraded_bottom = next(
         item for item in upgraded_board.footprints if item.layer == "B.Cu"
     )
+    assert upgraded_front.locked is True
+    assert upgraded_front.path == (
+        "/00000000-0000-0000-0000-0000000002bc/00000000-0000-0000-0000-0000000002bd"
+    )
+    assert (upgraded_front.sheetname, upgraded_front.sheetfile) == (
+        "Power",
+        "power.kicad_sch",
+    )
+    assert (upgraded_front.clearance, upgraded_front.zone_connect) == (0.0, 2)
+    assert (upgraded_bottom.clearance, upgraded_bottom.zone_connect) == (None, None)
     upgraded_front_numbered_pad = next(
         item for item in upgraded_front.pads if item.number == "1"
     )
@@ -398,6 +488,8 @@ def test_kicad_cli_accepts_fresh_board_and_footprint_when_available(
     upgraded_properties = {
         item.name: item.value for item in upgraded_footprint.properties
     }
+    assert (upgraded_footprint.clearance, upgraded_footprint.zone_connect) == (0.12, 0)
+    assert upgraded_footprint.attr == ["dnp"]
     assert upgraded_properties["Reference"] == "REF**"
     assert upgraded_properties["Value"] == "Demo_Standalone"
     assert (
@@ -411,7 +503,14 @@ def test_kicad_cli_accepts_fresh_board_and_footprint_when_available(
     ] == [("user", "ASSEMBLY", 1.25, 0.75)]
     assert upgraded_footprint.models[0].path == "kicad-embed://native.step"
     assert upgraded_footprint.embedded_files[0].name == "native.step"
-    upgraded_smd_pad = upgraded_footprint.pads[0]
+    upgraded_cut = next(
+        pad for pad in upgraded_footprint.pads if pad.pad_type.value == "np_thru_hole"
+    )
+    assert upgraded_cut.layers == []
+    assert (upgraded_cut.drill_width, upgraded_cut.drill_height) == (0.8, 1.6)
+    assert (upgraded_cut.drill_offset_x, upgraded_cut.drill_offset_y) == (0.1, -0.1)
+    upgraded_smd_pad = next(pad for pad in upgraded_footprint.pads if pad.number == "1")
+    _assert_custom_composition(upgraded_smd_pad)
     assert upgraded_smd_pad.solder_mask_margin == 0.04
     assert upgraded_smd_pad.solder_paste_margin == -0.02
     assert upgraded_smd_pad.solder_paste_margin_ratio == -0.1

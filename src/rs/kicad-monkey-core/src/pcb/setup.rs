@@ -4,7 +4,11 @@ use super::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbSetup {
+    /// Direct declaration presence, independent of the effective origin value.
+    pub has_aux_axis_origin: bool,
     pub aux_axis_origin: PcbPoint,
+    /// Distinguishes an authored zero origin from the absent-origin default.
+    pub has_grid_origin: bool,
     pub grid_origin: PcbPoint,
     pub allow_soldermask_bridges_in_footprints: bool,
     pub tenting_front: bool,
@@ -58,10 +62,12 @@ fn setup_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<P
     let aux = optional_pair(source, &children, "aux_axis_origin", [0.0, 0.0])?;
     let grid = optional_pair(source, &children, "grid_origin", [0.0, 0.0])?;
     Ok(PcbSetup {
+        has_aux_axis_origin: child(&children, "aux_axis_origin").is_some(),
         aux_axis_origin: PcbPoint {
             x: aux[0],
             y: aux[1],
         },
+        has_grid_origin: child(&children, "grid_origin").is_some(),
         grid_origin: PcbPoint {
             x: grid[0],
             y: grid[1],

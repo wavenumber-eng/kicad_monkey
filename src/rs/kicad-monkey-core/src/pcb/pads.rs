@@ -1,6 +1,8 @@
 //! Detailed embedded-footprint pad inputs for native readers and plotters.
 
 use super::*;
+mod custom;
+pub use custom::{PcbPadPolygonPoint, PcbPadPrimitiveGeometry};
 
 /// Custom-pad clearance and anchor policy.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10,12 +12,15 @@ pub struct PcbPadCustomOptions {
     pub source_range: Range<usize>,
 }
 
-/// One custom-pad primitive. Polygon geometry is typed; unsupported kinds are
-/// retained as named, source-evidenced records for deterministic deferral.
+/// One source-local custom-pad primitive, with policy declaration evidence.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbPadCustomPrimitive {
     pub kind: String,
+    /// Compatibility XY projection of `pts`; use geometry for complete polygons
+    /// containing arcs and for non-polygon primitives.
     pub points: Vec<PcbPoint>,
+    /// None marks an unsupported or incomplete geometry, not an empty shape.
+    pub geometry: Option<PcbPadPrimitiveGeometry>,
     pub width: Option<f64>,
     pub fill: Option<String>,
     pub source_range: Range<usize>,
@@ -39,6 +44,10 @@ pub struct PcbPad {
     pub drill: Option<PcbPadDrill>,
     /// Drill plating when a drill is authored; `None` for undrilled pads.
     pub plated: Option<bool>,
+    /// Whether a direct `(layers ...)` declaration is present, including an
+    /// explicitly empty `(layers)`. This is source evidence, not an effective
+    /// layer mask: absent declarations do not synthesize entries in `layers`.
+    pub has_layers: bool,
     pub layers: Vec<String>,
     pub net: PcbNetRef,
     pub uuid: Option<String>,
@@ -68,6 +77,7 @@ pub struct PcbPad {
     pub zone_layer_connections: Option<PcbZoneLayerConnections>,
     pub custom_options: Option<PcbPadCustomOptions>,
     pub custom_primitives: Vec<PcbPadCustomPrimitive>,
+    pub padstack: Option<PcbPadstack>,
     pub source_range: Range<usize>,
 }
 
@@ -78,18 +88,11 @@ pub(super) fn pad_from_span(
 ) -> Result<PcbPad, Error> {
     let header = bounded_scalar_values(source, &indexed.span, limits.max_pad_header_scalars)?;
     let children = direct_children(source, &indexed.span, limits.max_pad_children, limits)?;
-    let at = optional_vector(
-        source,
-        &children,
-        "at",
-        [0.0, 0.0, 0.0],
-        limits.max_pad_header_scalars,
-    )?;
-    let size = optional_pair(source, &children, "size", [0.0, 0.0])?;
+    let (at, size) = pad_placement(source, &children, limits)?;
     let (rect_delta_x, rect_delta_y) = optional_complete_pair(source, &children, "rect_delta")?;
     let kind = required_string(header.get(1), "Expected pad kind", &indexed.span)?;
-    let drill = physical::pad_drill_from_children(source, &children, limits)?;
-    let plated = drill.as_ref().map(|_| kind != "np_thru_hole");
+    let (drill, plated) = pad_drill_and_plating(source, &children, &kind, limits)?;
+    let custom = custom_pad_fields(source, &children, limits)?;
     Ok(PcbPad {
         owner: PcbFootprintMemberOwner::EmbeddedFootprint {
             footprint_index: indexed.parent_index,
@@ -105,6 +108,7 @@ pub(super) fn pad_from_span(
         size_y: size[1],
         drill,
         plated,
+        has_layers: child(&children, "layers").is_some(),
         layers: child_strings(source, &children, "layers", limits.max_layers)?,
         net: bounded_child_net_ref(source, &children, limits.max_pad_header_scalars)?,
         uuid: optional_uuid(source, &children)?,
@@ -171,10 +175,64 @@ pub(super) fn pad_from_span(
         zone_layer_connections: manufacturing::zone_layer_connections_from_children(
             source, &children, limits,
         )?,
-        custom_options: custom_options_from_children(source, &children, limits)?,
-        custom_primitives: custom_primitives_from_children(source, &children, limits)?,
+        custom_options: custom.options,
+        custom_primitives: custom.primitives,
+        padstack: custom.stack,
         source_range: indexed.span.range.clone(),
     })
+}
+
+struct CustomPadFields {
+    options: Option<PcbPadCustomOptions>,
+    primitives: Vec<PcbPadCustomPrimitive>,
+    stack: Option<PcbPadstack>,
+}
+
+fn pad_placement(
+    source: &str,
+    children: &[FormSpan],
+    limits: PcbLimits,
+) -> Result<([f64; 3], [f64; 2]), Error> {
+    Ok((
+        optional_vector(
+            source,
+            children,
+            "at",
+            [0.0, 0.0, 0.0],
+            limits.max_pad_header_scalars,
+        )?,
+        optional_pair(source, children, "size", [0.0, 0.0])?,
+    ))
+}
+
+#[derive(Default)]
+pub(super) struct CustomPadBudget {
+    points: usize,
+    primitives: usize,
+}
+
+fn custom_pad_fields(
+    source: &str,
+    children: &[FormSpan],
+    limits: PcbLimits,
+) -> Result<CustomPadFields, Error> {
+    let mut budget = CustomPadBudget::default();
+    Ok(CustomPadFields {
+        options: custom_options_from_children(source, children, limits)?,
+        primitives: custom_primitives_from_children(source, children, limits, &mut budget)?,
+        stack: padstacks::padstack(source, children, limits, &mut budget)?,
+    })
+}
+
+fn pad_drill_and_plating(
+    source: &str,
+    children: &[FormSpan],
+    kind: &str,
+    limits: PcbLimits,
+) -> Result<(Option<PcbPadDrill>, Option<bool>), Error> {
+    let drill = physical::pad_drill_from_children(source, children, limits)?;
+    let plated = drill.as_ref().map(|_| kind != "np_thru_hole");
+    Ok((drill, plated))
 }
 
 fn optional_complete_pair(
@@ -203,7 +261,7 @@ fn tolerant_optional_child_f64(
     Ok(first_string(source, span)?.and_then(|value| value.parse().ok()))
 }
 
-fn custom_options_from_children(
+pub(super) fn custom_options_from_children(
     source: &str,
     children: &[FormSpan],
     limits: PcbLimits,
@@ -220,19 +278,27 @@ fn custom_options_from_children(
     }))
 }
 
-fn custom_primitives_from_children(
+pub(super) fn custom_primitives_from_children(
     source: &str,
     children: &[FormSpan],
     limits: PcbLimits,
+    budget: &mut CustomPadBudget,
 ) -> Result<Vec<PcbPadCustomPrimitive>, Error> {
     let Some(primitives) = child(children, "primitives") else {
         return Ok(Vec::new());
     };
-    let forms = direct_children(source, primitives, limits.max_pad_custom_primitives, limits)?;
-    let mut point_count = 0usize;
+    let forms = direct_children(
+        source,
+        primitives,
+        limits
+            .max_pad_custom_primitives
+            .saturating_sub(budget.primitives),
+        limits,
+    )?;
+    budget.primitives += forms.len();
     forms
         .into_iter()
-        .map(|primitive| custom_primitive_from_span(source, primitive, limits, &mut point_count))
+        .map(|primitive| custom_primitive_from_span(source, primitive, limits, &mut budget.points))
         .collect()
 }
 
@@ -243,32 +309,41 @@ fn custom_primitive_from_span(
     point_count: &mut usize,
 ) -> Result<PcbPadCustomPrimitive, Error> {
     let fields = direct_children(source, &primitive, limits.max_pad_children, limits)?;
-    let mut points = Vec::new();
-    if let Some(container) = child(&fields, "pts") {
-        for point in direct_children(source, container, limits.max_pad_custom_point_forms, limits)?
-            .into_iter()
-            .filter(|point| point.head.as_deref() == Some("xy"))
-        {
-            let values = first_two_scalar_values(source, &point)?;
-            let [x, y] = values.as_slice() else {
-                continue;
-            };
-            if *point_count >= limits.max_pad_custom_points {
-                return Err(limit_error());
-            }
-            points.push(PcbPoint {
-                x: parse_f64(x, &point)?,
-                y: parse_f64(y, &point)?,
-            });
-            *point_count += 1;
-        }
-    }
+    let (points, geometry) =
+        custom::primitive_geometry(source, &primitive, &fields, limits, point_count)?;
     Ok(PcbPadCustomPrimitive {
         kind: primitive.head.clone().unwrap_or_default(),
         points,
-        width: optional_child_f64(source, &fields, "width")?,
-        fill: optional_child_string(source, &fields, "fill")?
-            .filter(|value| matches!(value.as_str(), "yes" | "solid" | "no")),
+        geometry,
+        width: custom_primitive_width(source, &fields, limits)?,
+        fill: optional_child_string(source, &fields, "fill")?,
         source_range: primitive.range,
     })
+}
+
+fn custom_primitive_width(
+    source: &str,
+    fields: &[FormSpan],
+    limits: PcbLimits,
+) -> Result<Option<f64>, Error> {
+    // Custom primitives use KiCad's PCB_SHAPE grammar: both legacy width and
+    // modern nested stroke are accepted. Only a width token updates the running
+    // stroke; a later style-only block does not reset a previous width.
+    let mut width = None;
+    for field in fields {
+        match field.head.as_deref() {
+            Some("width") => {
+                width = optional_child_f64(source, std::slice::from_ref(field), "width")?;
+            }
+            Some("stroke") => {
+                for child in direct_children(source, field, limits.max_object_children, limits)? {
+                    if child.head.as_deref() == Some("width") {
+                        width = optional_child_f64(source, std::slice::from_ref(&child), "width")?;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(width)
 }

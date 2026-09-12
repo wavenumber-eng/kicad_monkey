@@ -226,18 +226,7 @@ pub(crate) fn mmh3_128(bytes: &[u8], legacy_tail: bool) -> String {
 
     let mut tail = [0_u8; 16];
     tail[..remainder.len()].copy_from_slice(remainder);
-    let tail_length = if legacy_tail && !remainder.is_empty() {
-        let padding = 4 - (remainder.len() + 4) % 4;
-        (remainder.len() + padding) & 15
-    } else {
-        remainder.len()
-    };
-    let total_length = bytes.len() - remainder.len()
-        + if legacy_tail && !remainder.is_empty() {
-            remainder.len() + 4 - (remainder.len() + 4) % 4
-        } else {
-            remainder.len()
-        };
+    let (tail_length, total_length) = mmh3_tail_lengths(bytes.len(), remainder.len(), legacy_tail);
 
     let mut k1 = 0_u64;
     let mut k2 = 0_u64;
@@ -266,6 +255,16 @@ pub(crate) fn mmh3_128(bytes: &[u8], legacy_tail: bool) -> String {
     h1 = h1.wrapping_add(h2);
     h2 = h2.wrapping_add(h1);
     format!("{h1:016X}{h2:016X}")
+}
+
+#[cfg(feature = "embedded-resource-zstd")]
+fn mmh3_tail_lengths(length: usize, remainder: usize, legacy: bool) -> (usize, usize) {
+    if legacy && remainder != 0 {
+        let padded = remainder + 4 - (remainder + 4) % 4;
+        (padded & 15, length - remainder + padded)
+    } else {
+        (remainder, length)
+    }
 }
 
 #[cfg(feature = "embedded-resource-zstd")]
@@ -306,6 +305,54 @@ struct ParsedFields {
 }
 
 impl ParsedFields {
+    fn field_head<'a>(
+        &mut self,
+        token: &Token<'a>,
+        depth: usize,
+        field: &mut &'a str,
+    ) -> Result<(), Error> {
+        if depth == 1 && token.lexeme != "file" {
+            return Err(source_error("Expected embedded file form"));
+        }
+        if depth == 2 {
+            *field = token.lexeme;
+            if *field == "data" {
+                self.has_data = true;
+            }
+        }
+        Ok(())
+    }
+
+    fn scalar(
+        &mut self,
+        field: &str,
+        token: Token<'_>,
+        encoded_limit: Option<usize>,
+    ) -> Result<(), Error> {
+        match field {
+            "name" if self.name.is_empty() => self.name = token_text(token),
+            "type" if self.file_type.is_empty() => self.file_type = token_text(token),
+            "checksum" if self.checksum.is_none() => self.checksum = Some(token_text(token)),
+            "data" => self.data_token(&token, encoded_limit)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn data_token(&mut self, token: &Token<'_>, encoded_limit: Option<usize>) -> Result<(), Error> {
+        self.encoded_bytes = self
+            .encoded_bytes
+            .checked_add(encoded_token_len(token))
+            .ok_or_else(resource_limit_error)?;
+        if encoded_limit.is_some_and(|maximum| self.encoded_bytes > maximum) {
+            return Err(resource_limit_error());
+        }
+        if encoded_limit.is_some() {
+            self.encoded.push_str(&encoded_token_text(token));
+        }
+        Ok(())
+    }
+
     fn file_type_or_default(&self) -> &str {
         if self.file_type.is_empty() {
             "other"
@@ -343,39 +390,10 @@ fn parse_fields(form: &str, encoded_limit: Option<usize>) -> Result<ParsedFields
                 expecting_head = false;
             }
             _ if expecting_head => {
-                if depth == 1 && token.lexeme != "file" {
-                    return Err(source_error("Expected embedded file form"));
-                }
-                if depth == 2 {
-                    field = token.lexeme;
-                    if field == "data" {
-                        result.has_data = true;
-                    }
-                }
+                result.field_head(&token, depth, &mut field)?;
                 expecting_head = false;
             }
-            _ if depth == 2 && field == "name" && result.name.is_empty() => {
-                result.name = token_text(token);
-            }
-            _ if depth == 2 && field == "type" && result.file_type.is_empty() => {
-                result.file_type = token_text(token);
-            }
-            _ if depth == 2 && field == "checksum" && result.checksum.is_none() => {
-                result.checksum = Some(token_text(token));
-            }
-            _ if depth == 2 && field == "data" => {
-                let part_len = encoded_token_len(&token);
-                result.encoded_bytes = result
-                    .encoded_bytes
-                    .checked_add(part_len)
-                    .ok_or_else(resource_limit_error)?;
-                if encoded_limit.is_some_and(|maximum| result.encoded_bytes > maximum) {
-                    return Err(resource_limit_error());
-                }
-                if encoded_limit.is_some() {
-                    result.encoded.push_str(&encoded_token_text(&token));
-                }
-            }
+            _ if depth == 2 => result.scalar(field, token, encoded_limit)?,
             _ => {}
         }
     }
@@ -405,68 +423,79 @@ fn encoded_token_len(token: &Token<'_>) -> usize {
     let body = &token.lexeme[1..token.lexeme.len() - 1];
     let mut length = 0usize;
     let mut characters = body.chars().peekable();
-    while let Some(mut character) = characters.next() {
-        if character == '\r' {
-            if characters.peek() == Some(&'\n') {
-                characters.next();
-            }
-            character = '\n';
-        }
+    while let Some(character) = next_normalized_character(&mut characters) {
         if character != '\\' {
             length = length.saturating_add(character.len_utf8());
             continue;
         }
-        let Some(mut escaped) = characters.next() else {
+        let Some(escaped) = next_normalized_character(&mut characters) else {
             return length.saturating_add(1);
         };
-        if escaped == '\r' {
-            if characters.peek() == Some(&'\n') {
-                characters.next();
-            }
-            escaped = '\n';
-        }
-        match escaped {
-            '"' | '\\' | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' => {
-                length = length.saturating_add(1);
-            }
-            'x' => {
-                let mut value = 0_u8;
-                let mut digits = 0_u8;
-                for _ in 0..2 {
-                    let Some(digit) = characters
-                        .peek()
-                        .copied()
-                        .and_then(|item| item.to_digit(16))
-                    else {
-                        break;
-                    };
-                    characters.next();
-                    value = value.saturating_mul(16).saturating_add(digit as u8);
-                    digits += 1;
-                }
-                length = length.saturating_add(if digits == 0 {
-                    1
-                } else {
-                    char::from(value).len_utf8()
-                });
-            }
-            digit @ '0'..='7' => {
-                let mut value = u16::from(digit as u8 - b'0');
-                for _ in 1..3 {
-                    let Some(next @ '0'..='7') = characters.peek().copied() else {
-                        break;
-                    };
-                    characters.next();
-                    value = value * 8 + u16::from(next as u8 - b'0');
-                }
-                if let Ok(value) = u8::try_from(value) {
-                    length = length.saturating_add(char::from(value).len_utf8());
-                }
-            }
-            other => length = length.saturating_add(1 + other.len_utf8()),
-        }
+        length = length.saturating_add(encoded_escape_len(escaped, &mut characters));
     }
     length
+}
+
+fn next_normalized_character(
+    characters: &mut std::iter::Peekable<std::str::Chars<'_>>,
+) -> Option<char> {
+    let character = characters.next()?;
+    if character != '\r' {
+        return Some(character);
+    }
+    if characters.peek() == Some(&'\n') {
+        characters.next();
+    }
+    Some('\n')
+}
+
+fn encoded_escape_len(
+    escaped: char,
+    characters: &mut std::iter::Peekable<std::str::Chars<'_>>,
+) -> usize {
+    match escaped {
+        '"' | '\\' | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' => 1,
+        'x' => encoded_hex_len(characters),
+        digit @ '0'..='7' => encoded_octal_len(digit, characters),
+        other => 1 + other.len_utf8(),
+    }
+}
+
+fn encoded_hex_len(characters: &mut std::iter::Peekable<std::str::Chars<'_>>) -> usize {
+    let mut value = 0_u8;
+    let mut digits = 0_u8;
+    for _ in 0..2 {
+        let Some(digit) = characters
+            .peek()
+            .copied()
+            .and_then(|item| item.to_digit(16))
+        else {
+            break;
+        };
+        characters.next();
+        value = value.saturating_mul(16).saturating_add(digit as u8);
+        digits += 1;
+    }
+    if digits == 0 {
+        1
+    } else {
+        char::from(value).len_utf8()
+    }
+}
+
+fn encoded_octal_len(
+    digit: char,
+    characters: &mut std::iter::Peekable<std::str::Chars<'_>>,
+) -> usize {
+    let mut value = u16::from(digit as u8 - b'0');
+    for _ in 1..3 {
+        let Some(next @ '0'..='7') = characters.peek().copied() else {
+            break;
+        };
+        characters.next();
+        value = value * 8 + u16::from(next as u8 - b'0');
+    }
+    u8::try_from(value).map_or(0, |value| char::from(value).len_utf8())
 }
 
 #[cfg(feature = "embedded-resource-zstd")]
@@ -507,26 +536,9 @@ fn decode_base64(value: &str, maximum: usize) -> Result<Vec<u8>, Base64DecodeErr
     }
     let mut output = Vec::with_capacity(decoded_len);
     for (block_index, encoded) in bytes.as_chunks::<4>().0.iter().enumerate() {
-        let mut block = [0_u8; 4];
-        for (index, byte) in encoded.iter().copied().enumerate() {
-            block[index] = match byte {
-                b'A'..=b'Z' => byte - b'A',
-                b'a'..=b'z' => byte - b'a' + 26,
-                b'0'..=b'9' => byte - b'0' + 52,
-                b'+' => 62,
-                b'/' => 63,
-                b'=' => 64,
-                _ => return Err(Base64DecodeError::Invalid("base64 data is invalid")),
-            };
-        }
+        let block = decode_base64_block(encoded)?;
         let last = block_index + 1 == bytes.len() / 4;
-        if block[0] == 64
-            || block[1] == 64
-            || (!last && block[3] == 64)
-            || (block[2] == 64 && block[3] != 64)
-            || (block[2] == 64 && block[1] & 0x0f != 0)
-            || (block[3] == 64 && block[2] != 64 && block[2] & 0x03 != 0)
-        {
+        if !base64_padding_valid(block, last) || !base64_tail_bits_valid(block) {
             return Err(Base64DecodeError::Invalid("base64 padding is invalid"));
         }
         output.push((block[0] << 2) | (block[1] >> 4));
@@ -538,6 +550,37 @@ fn decode_base64(value: &str, maximum: usize) -> Result<Vec<u8>, Base64DecodeErr
         }
     }
     Ok(output)
+}
+
+#[cfg(feature = "embedded-resource-zstd")]
+fn decode_base64_block(encoded: &[u8; 4]) -> Result<[u8; 4], Base64DecodeError> {
+    let mut block = [0_u8; 4];
+    for (index, byte) in encoded.iter().copied().enumerate() {
+        block[index] = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' => 64,
+            _ => return Err(Base64DecodeError::Invalid("base64 data is invalid")),
+        };
+    }
+    Ok(block)
+}
+
+#[cfg(feature = "embedded-resource-zstd")]
+fn base64_padding_valid(block: [u8; 4], last: bool) -> bool {
+    !(block[0] == 64
+        || block[1] == 64
+        || (!last && block[3] == 64)
+        || (block[2] == 64 && block[3] != 64))
+}
+
+#[cfg(feature = "embedded-resource-zstd")]
+fn base64_tail_bits_valid(block: [u8; 4]) -> bool {
+    !((block[2] == 64 && block[1] & 0x0f != 0)
+        || (block[3] == 64 && block[2] != 64 && block[2] & 0x03 != 0))
 }
 
 fn source_error(message: &'static str) -> Error {

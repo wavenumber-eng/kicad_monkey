@@ -1,8 +1,13 @@
+#[path = "support/source_authoring/zones.rs"]
+mod fixtures;
+use fixtures::board;
+
 use kicad_monkey_core::{
-    AuthoredGraphic, AuthoredGraphicGeometry, AuthoredLayer, AuthoredNet, AuthoredNetRef,
-    AuthoredPcb, AuthoredPoint, AuthoredRoutingArc, AuthoredSegment, AuthoredZone,
-    AuthoredZoneFill, AuthoredZoneFilledPolygon, AuthoredZoneHatch, AuthoredZonePadConnection,
-    AuthoredZonePolygon, ErrorKind, PcbAuthoringLimits,
+    AuthoredGraphic, AuthoredGraphicGeometry, AuthoredKeepout, AuthoredLayer, AuthoredNet,
+    AuthoredNetRef, AuthoredPcb, AuthoredPlacementConstraint, AuthoredPlacementSource,
+    AuthoredPoint, AuthoredRestriction, AuthoredRoutingArc, AuthoredRuleArea, AuthoredSegment,
+    AuthoredZone, AuthoredZoneFill, AuthoredZoneFilledPolygon, AuthoredZoneHatch,
+    AuthoredZonePadConnection, AuthoredZonePolygon, ErrorKind, PcbAuthoringLimits,
 };
 
 fn point(x_mm: f64, y_mm: f64) -> AuthoredPoint {
@@ -62,141 +67,6 @@ fn arc_semantics(
     )
 }
 
-#[allow(
-    clippy::too_many_lines,
-    reason = "one complete zone fixture keeps source-ring relationships visible"
-)]
-fn board() -> AuthoredPcb {
-    let layers = [
-        (0, "F.Cu", "signal"),
-        (1, "In1.Cu", "power"),
-        (2, "In2.Cu", "power"),
-        (31, "B.Cu", "signal"),
-        (44, "Edge.Cuts", "user"),
-    ]
-    .into_iter()
-    .map(|(ordinal, name, kind)| AuthoredLayer {
-        ordinal,
-        name: name.to_owned(),
-        kind: kind.to_owned(),
-        user_name: None,
-    })
-    .collect();
-    let profile = [
-        ((0.0, 0.0), (30.0, 0.0)),
-        ((30.0, 0.0), (30.0, 30.0)),
-        ((30.0, 30.0), (0.0, 30.0)),
-        ((0.0, 30.0), (0.0, 0.0)),
-    ]
-    .into_iter()
-    .enumerate()
-    .map(|(index, (start, end))| AuthoredGraphic {
-        geometry: AuthoredGraphicGeometry::Line {
-            start: point(start.0, start.1),
-            end: point(end.0, end.1),
-        },
-        layer: "Edge.Cuts".to_owned(),
-        stroke_width_mm: 0.05,
-        stroke_kind: "default".to_owned(),
-        fill: None,
-        uuid: uuid(10 + index as u64),
-    })
-    .collect();
-    let zone = AuthoredZone {
-        net: AuthoredNetRef {
-            code: 1,
-            name: "GND".to_owned(),
-        },
-        layers: vec!["F.Cu".to_owned(), "In1.Cu".to_owned()],
-        locked: true,
-        uuid: uuid(100),
-        name: Some("GROUND POUR".to_owned()),
-        hatch: AuthoredZoneHatch::Edge,
-        hatch_pitch_mm: 0.5,
-        priority: 3,
-        pad_connection: AuthoredZonePadConnection::ThermalRelief,
-        connect_pads_clearance_mm: 0.2,
-        min_thickness_mm: 0.25,
-        filled_areas_thickness: Some(false),
-        fill: Some(AuthoredZoneFill {
-            thermal_gap_mm: 0.3,
-            thermal_bridge_width_mm: 0.4,
-            island_removal_mode: Some(2),
-            island_area_min_mm2: Some(1.0),
-        }),
-        outlines: vec![polygon(&[
-            (1.0, 1.0),
-            (29.0, 1.0),
-            (29.0, 29.0),
-            (1.0, 29.0),
-        ])],
-        filled_polygons: vec![
-            // One authoritative bridge/fracture-encoded point chain. The
-            // repeated (1,10)/(10,10) bridge preserves the hole; a second
-            // opposite-winding filled_polygon would instead be another outline.
-            filled(
-                "F.Cu",
-                false,
-                &[
-                    (29.0, 29.0),
-                    (1.0, 29.0),
-                    (1.0, 10.0),
-                    (10.0, 10.0),
-                    (10.0, 20.0),
-                    (20.0, 20.0),
-                    (20.0, 10.0),
-                    (10.0, 10.0),
-                    (1.0, 10.0),
-                    (1.0, 1.0),
-                    (29.0, 1.0),
-                ],
-            ),
-            filled("F.Cu", true, &[(3.0, 3.0), (4.0, 3.0), (3.5, 4.0)]),
-            filled(
-                "In1.Cu",
-                false,
-                &[(2.0, 2.0), (28.0, 2.0), (28.0, 28.0), (2.0, 28.0)],
-            ),
-        ],
-    };
-    AuthoredPcb {
-        layers,
-        nets: vec![AuthoredNet {
-            code: 1,
-            name: "GND".to_owned(),
-        }],
-        profile,
-        segments: vec![AuthoredSegment {
-            start: point(2.0, 2.0),
-            end: point(3.0, 2.0),
-            width_mm: 0.2,
-            layer: "F.Cu".to_owned(),
-            net_code: 0,
-            uuid: uuid(200),
-        }],
-        arcs: [
-            ((6.0, 4.0), (5.414_213_562, 5.414_213_562), (4.0, 6.0)),
-            ((12.0, 4.0), (8.585_786_438, 5.414_213_562), (10.0, 2.0)),
-            ((18.0, 4.0), (17.414_213_562, 2.585_786_438), (16.0, 2.0)),
-            ((24.0, 4.0), (20.585_786_438, 2.585_786_438), (22.0, 6.0)),
-        ]
-        .into_iter()
-        .enumerate()
-        .map(|(index, (start, mid, end))| AuthoredRoutingArc {
-            start: point(start.0, start.1),
-            mid: point(mid.0, mid.1),
-            end: point(end.0, end.1),
-            width_mm: 0.2,
-            layer: "In1.Cu".to_owned(),
-            net_code: 0,
-            uuid: uuid(201 + index as u64),
-        })
-        .collect(),
-        zones: vec![zone],
-        ..AuthoredPcb::default()
-    }
-}
-
 fn publish(name: &str, source: &str) {
     let Some(directory) = std::env::var_os("KM_ZONE_OUTPUT_DIR") else {
         return;
@@ -204,6 +74,30 @@ fn publish(name: &str, source: &str) {
     let directory = std::path::PathBuf::from(directory);
     std::fs::create_dir_all(&directory).expect("create zone oracle directory");
     std::fs::write(directory.join(name), source).expect("write zone source");
+}
+
+#[test]
+fn authored_rule_areas_preserve_restrictions_placement_and_outline_order() {
+    let mut input = rule_area_board();
+    let document = input
+        .to_document(PcbAuthoringLimits::default())
+        .expect("rule areas");
+    publish("native-rule-areas.kicad_pcb", document.source());
+    let view = document.view().expect("view");
+    let actual = view.zones().collect::<Result<Vec<_>, _>>().expect("zones");
+    assert_eq!(actual.len(), input.rule_areas.len());
+    for (area, expected) in actual.iter().zip(&input.rule_areas) {
+        assert_rule_area(area, expected);
+    }
+    let mut duplicate = input.clone();
+    duplicate.rule_areas[1].uuid = duplicate.rule_areas[0].uuid.clone();
+    assert!(
+        duplicate
+            .canonical_text(PcbAuthoringLimits::default())
+            .is_err()
+    );
+    input.rule_areas[0].layers = vec!["Unknown".to_owned()];
+    assert!(input.canonical_text(PcbAuthoringLimits::default()).is_err());
 }
 
 #[test]
@@ -447,4 +341,109 @@ fn invalid_zone_and_unconnected_route_values_fail_before_emission() {
             .expect_err("invalid zone source");
         assert_eq!(error.kind, ErrorKind::InvalidBuildValue);
     }
+}
+
+fn rule_area_board() -> AuthoredPcb {
+    let mut input = board();
+    input.zones.clear();
+    let placements = [
+        None,
+        Some((
+            false,
+            AuthoredPlacementSource::SheetName("/Power stage".to_owned()),
+        )),
+        Some((
+            true,
+            AuthoredPlacementSource::ComponentClass("Fast \"IO\"".to_owned()),
+        )),
+        Some((
+            true,
+            AuthoredPlacementSource::Group("Local group".to_owned()),
+        )),
+    ];
+    for (index, placement) in placements.into_iter().enumerate() {
+        input.rule_areas.push(AuthoredRuleArea {
+            layers: vec!["F.Cu".to_owned(), "B.Cu".to_owned()],
+            locked: true,
+            uuid: uuid(300 + index as u64),
+            name: Some(format!("Rule {index}")),
+            hatch: AuthoredZoneHatch::Edge,
+            hatch_pitch_mm: 0.5,
+            keepout: AuthoredKeepout {
+                tracks: AuthoredRestriction::NotAllowed,
+                vias: AuthoredRestriction::Allowed,
+                pads: AuthoredRestriction::Allowed,
+                copperpour: AuthoredRestriction::NotAllowed,
+                footprints: AuthoredRestriction::Allowed,
+            },
+            placement: placement
+                .map(|(enabled, source)| AuthoredPlacementConstraint { enabled, source }),
+            outlines: vec![
+                polygon(&[(1.0, 1.0), (9.0, 1.0), (9.0, 9.0), (1.0, 9.0)]),
+                polygon(&[(3.0, 3.0), (3.0, 5.0), (5.0, 5.0), (5.0, 3.0)]),
+            ],
+        });
+    }
+    input
+}
+
+fn assert_rule_area(area: &kicad_monkey_core::PcbZone, expected: &AuthoredRuleArea) {
+    assert_eq!(area.uuid.as_ref(), Some(&expected.uuid));
+    assert_eq!(area.layers, expected.layers);
+    assert!(area.locked);
+    assert_eq!(area.net.ordinal, Some(0));
+    assert!(!area.fill_enabled);
+    assert!(area.filled_polygons.is_empty());
+    assert_keepout(area);
+    assert_eq!(
+        area.placement
+            .as_ref()
+            .map(|p| (p.enabled, p.source_type.as_str(), p.source.as_str())),
+        expected.placement.as_ref().map(|p| {
+            let (kind, source) = p.source.source_pair();
+            (p.enabled, kind, source)
+        })
+    );
+    assert_eq!(
+        area.polygons
+            .iter()
+            .map(|p| p.points.iter().map(|v| (v.x, v.y)).collect::<Vec<_>>())
+            .collect::<Vec<_>>(),
+        expected
+            .outlines
+            .iter()
+            .map(|p| p
+                .points
+                .iter()
+                .map(|v| (v.x_mm, v.y_mm))
+                .collect::<Vec<_>>())
+            .collect::<Vec<_>>()
+    );
+}
+
+fn assert_keepout(area: &kicad_monkey_core::PcbZone) {
+    let keepout = area.keepout.as_ref().expect("keepout");
+    assert_eq!(
+        (
+            &*keepout.tracks,
+            &*keepout.vias,
+            &*keepout.pads,
+            &*keepout.copperpour,
+            &*keepout.footprints
+        ),
+        (
+            "not_allowed",
+            "allowed",
+            "allowed",
+            "not_allowed",
+            "allowed"
+        )
+    );
+    assert!(
+        keepout.has_tracks
+            && keepout.has_vias
+            && keepout.has_pads
+            && keepout.has_copperpour
+            && keepout.has_footprints
+    );
 }

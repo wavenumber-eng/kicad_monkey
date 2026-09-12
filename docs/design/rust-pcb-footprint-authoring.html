@@ -24,10 +24,22 @@
   a reusable local definition; <code>AuthoredStandaloneFootprint</code> owns its
   document revision, generator fields, default layer, and local definition.
   <code>AuthoredFootprintOccurrence</code> separately owns board layer,
-  position, angle, and occurrence UUID. A standalone root therefore cannot
+  position, angle, occurrence UUID, lock state, and optional schematic placement
+  path/sheet metadata. A standalone root therefore cannot
   pretend to carry a board occurrence UUID, document-envelope fields cannot be
   silently ignored by board placement, and repeated occurrences require distinct
   occurrence and member UUIDs.</p>
+
+  <p>UUID uniqueness compares identity values case-insensitively. Uppercase
+  and lowercase hexadecimal spellings cannot register the same identity twice;
+  unique caller spelling is preserved during emission.</p>
+
+  <p>Occurrence placement paths contain slash-separated UUIDs with a leading
+  slash; they are schematic references, not filesystem locations. Malformed
+  paths are rejected because KiCad can replace invalid UUID text with random
+  identities. Explicitly empty path, sheet-name, and sheet-file values are
+  rejected because KiCad drops them when saving. These fields never belong to
+  the reusable local definition.</p>
 
   <p><code>canonical_text()</code> validates typed values and emits through the
   package S-expression builder. <code>to_document()</code> additionally
@@ -40,7 +52,7 @@
   <p>The spike promotes explicit board thickness, paper, layer table, auxiliary
   and grid origins, physical stackup layers/material/electrical fields, outer
   profile and cutout graphics, nets, footprint occurrences, properties and
-  user text with Newstroke source effects, non-text local artwork, basic and custom polygon
+  user text with Newstroke source effects, non-text local artwork, basic and composite custom
   pads, round and slotted drills with offsets and plating implied by typed pad
   kind, board/footprint/pad mask-paste precedence and pad-local unused-layer
   policies, models, straight routes,
@@ -63,6 +75,24 @@
   first promoted token vocabularies reject values outside their documented
   KiCad spellings.</p>
 
+  <p><code>AuthoredPcb.properties</code> owns board-root
+  <code>AuthoredProperty { name, value }</code> strings, separate from graphical
+  footprint properties and companion project settings. Empty strings are
+  retained; duplicate exact names are rejected because KiCad stores this scope
+  in a map and discards later duplicates. Emission neither resolves variables
+  nor adds text-cache companion context; the existing unresolved-cache loss
+  boundary remains.</p>
+  <p>Pads expose optional <code>pin_function</code>, <code>pin_type</code> and
+  <code>die_length_mm</code>. Pin strings remain source vocabulary, not a new
+  schematic pin-type rule catalog. Empty strings and standalone/library pin
+  metadata are rejected because KiCad omits them on save. Pad-to-die length is
+  an independent signed source value, not an inherited clearance: finite
+  nonzero values, including negative values, are retained in both scopes;
+  explicit zero is rejected because KiCad omits that default. This follows
+  KiCad 10.0.6 <code>parsePAD</code>, <code>format(PAD*)</code> and the direct
+  <code>PAD::SetPadToDieLength</code> setter at
+  <code>caf7377e9cb6fa1535ec3596dcb8c99bf44a996e</code>.</p>
+
   <h2>Issue #84 support matrix</h2>
   <table>
     <thead>
@@ -74,18 +104,26 @@
       auxiliary/grid origins, outer profile and cutouts, and the explicitly typed
       setup fields.</td></tr>
       <tr><td>Identity and connectivity</td><td>Occurrence/member UUIDs, nets,
+      root source properties, pad pin-function/type and pad-to-die length,
       reusable footprint definitions, and independently identified placed
-      occurrences.</td></tr>
-      <tr><td>Land and drilled copper</td><td>Typed pads, custom polygons,
-      drills/slots/offset/plating evidence, vias, copper spans, board/footprint/
-      pad mask-paste settings, pad zone connection, the two typed unused-land
+      occurrences with lock and schematic path/sheet metadata.</td></tr>
+      <tr><td>Land and drilled copper</td><td>Typed pads, composite custom primitives,
+      drills/slots/offset/plating evidence, pad/via per-layer source stacks,
+      via backdrill size/span, vias, copper spans, board/footprint/
+      pad mask-paste settings, footprint clearance and zone-connection defaults,
+      pad zone connection, explicit empty-layer NPTH, the two typed unused-land
       modes, and the explicitly listed via treatments below.</td></tr>
       <tr><td>Routes and zones</td><td>Straight segments, three-point arcs,
       zone layers/net/name/lock/hatch/priority, pad connection and clearance,
       minimum thickness, thermal and island-removal settings, source outline
       rings, and caller-supplied per-layer filled-polygon cache chains.</td></tr>
+      <tr><td>Board rule areas</td><td>Separate <code>AuthoredRuleArea</code>
+      with explicit keepout settings, optional placement enablement and
+      sheet-name/component-class/group selectors, layers, lock, identity,
+      hatch and ordered exterior/interior outlines.</td></tr>
       <tr><td>Presentation</td><td>Board and footprint line/arc/rectangle/circle/
-      polygon graphics, properties, text, text boxes, the effects listed below,
+      polygon graphics, including zero-width solid-filled closed shapes,
+      properties, text, text boxes, the effects listed below,
       Newstroke source intent, and named-font render caches within the loss rules
       below.</td></tr>
       <tr><td>Resources and models</td><td>Owned/declaration-only/empty embedded
@@ -103,25 +141,39 @@
       <tr><th>Area</th><th>Not represented by the typed writer</th></tr>
     </thead>
     <tbody>
-      <tr><td>Board/setup</td><td>Board variants, top-level board property and
-      generated-item families, legacy-teardrop/embedded-font flags, plot
+      <tr><td>Board/setup</td><td>Board variants and generated-item families,
+      legacy-teardrop/embedded-font flags, plot
       parameters, and other setup/manufacturing fields outside
       <code>AuthoredSetup</code>.</td></tr>
       <tr><td>Footprints/occurrences</td><td>Component classes, private layers,
-      net-tie/jumper groups, footprint clearance/zone/thermal defaults, generated
-      item markers, and occurrence lock, placement path, sheet name, and sheet
-      file evidence.</td></tr>
+      net-tie/jumper groups, generated item markers, and legacy footprint
+      thermal fields that KiCad discards rather than applying.</td></tr>
       <tr><td>Pads/vias</td><td>Teardrop parameters, tertiary-drill,
-      backdrill/post-machining forms, and pad/via policies not named in the
+      pad-owned backdrill/post-machining forms, and pad/via policies not named in the
       promoted rows above.</td></tr>
-      <tr><td>Zones</td><td>Keepout/rule-area restrictions, placement enablement,
+      <tr><td>Zones</td><td>Footprint-owned zones/rule areas,
       layer-property forms, and untyped fill settings. Filled geometry is retained
       caller input, never a computed repour.</td></tr>
-      <tr><td>Presentation/containers</td><td>Bezier curves, groups, dimensions,
+      <tr><td>Presentation/containers</td><td>General board/footprint Bezier artwork
+      (custom-pad curves are supported), groups, dimensions,
       tables, images, and barcodes. Dimensions, tables, images, and barcodes are
-      outside issue #84's writer family table.</td></tr>
+      outside the original issue #84 writer family table. KiCad has native
+      Code39/Code128 objects; adding them requires the pending acceptance-scope
+      decision, not a claim that no source equivalent exists.</td></tr>
     </tbody>
   </table>
+
+  <p><code>AuthoredRuleArea</code> is board-frame source intent, not an
+  electrical pour. Its type has no net, fill cache or thermal settings.
+  Restrictions are emitted explicitly using <code>AuthoredRestriction</code>;
+  a placement source is a source string selector, not a canonical object ref.
+  <code>placement: None</code> omits the source clause, while
+  <code>enabled: false</code> retains a disabled authored selector. KiCad itself
+  writes disabled/empty placement defaults on saving a rule area without that
+  clause; fresh-source and KiCad-normalized readback are tested separately.
+  The first outline is exterior and subsequent outlines are holes, without
+  repouring, clipping or shape fusion. See the
+  <a href="https://github.com/KiCad/kicad-source-mirror/blob/caf7377e9cb6fa1535ec3596dcb8c99bf44a996e/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp#L2711-L2738">KiCad 10.0.6 rule-area writer</a>.</p>
 
   <p>The only authored source revision is <code>20241229</code>. The writer does
   not infer filled-polygon topology, perform canonical PCB A0 mapping, resolve
@@ -130,6 +182,13 @@
   unsupported, even when a separate KiCad Monkey reader exposes it.</p>
 
   <h2>Typed pad and via manufacturing tranche</h2>
+  <p>Footprint attributes retain the source <code>dnp</code> token in both
+  embedded and standalone ownership. The shared KiCad 10.0.6 footprint
+  <a href="https://gitlab.com/kicad/code/kicad/-/blob/caf7377e9cb6fa1535ec3596dcb8c99bf44a996e/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp#L1254">writer</a>
+  emits this attribute without an ownership restriction. This is source metadata,
+  not a population decision for downstream canonical PCB models; appz retains
+  its population-neutral boundary. Existing fresh and CLI readback assertions
+  cover the source token without suppressing any footprint members.</p>
   <p>Pad geometry now includes trapezoids and chamfered round rectangles in
   addition to the first-spike shapes. Typed pad policy fields cover local mask
   and paste margins, paste ratio, clearance, thermal bridge width/angle/gap,
@@ -141,6 +200,56 @@
   <p>Pad zone connection is a closed four-case enum: no connection, thermal
   relief, solid fill, or thermal relief for through-hole pads. These map to
   KiCad source values 0 through 3; out-of-domain integers are not constructible.</p>
+
+  <p><code>AuthoredFootprint::clearance_mm</code> and
+  <code>zone_connect</code> retain optional footprint defaults. An absent
+  connection inherits; explicit zero clearance remains a value in the supported
+  revision. Pad-local overrides remain independent. Legacy footprint
+  <code>thermal_width</code> and <code>thermal_gap</code> are deliberately not
+  authored: the <a href="https://gitlab.com/kicad/code/kicad/-/blob/caf7377e9cb6fa1535ec3596dcb8c99bf44a996e/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.cpp#L5047">KiCad
+  10.0.6 parser</a> consumes and discards them. The raw source reader may retain
+  that evidence, but it is not an effective thermal policy and cannot survive a
+  KiCad save as such. Downstream exporters own reporting this representability
+  loss; the source writer does not invent replacement pad rules.</p>
+
+  <p>A non-plated through-hole pad may explicitly author an empty layer list.
+  The writer emits <code>(layers)</code>, not an omitted declaration or inferred
+  copper/mask layers, while retaining the required drill and its source offset.
+  Empty lists remain unsupported for SMD and plated-through-hole pads; existing
+  drill and net-association checks still apply.</p>
+
+  <p><code>AuthoredSetup::tenting_front</code> and <code>tenting_back</code>
+  retain effective board defaults. The writer emits an explicit setup clause,
+  including an empty clause when both are false. Optional per-via settings
+  remain separate and override the corresponding board side. This source
+  policy is not inferred from plotted mask geometry.</p>
+
+  <p>This setup retention does not repair source plotting: current via mask
+  exposure checks explicit via tenting only and does not inherit board defaults.
+  The plotter follow-up is separately tracked from source reader/writer proof.</p>
+
+  <p><code>AuthoredPadstack</code> and <code>AuthoredViaStack</code> support
+  front-inner-back and custom source modes with typed <code>Inner</code> or
+  copper-layer selectors. Parent pad/via geometry owns F.Cu; source rows describe
+  Inner/B.Cu or specific remaining copper layers. Pad rows retain shape, size,
+  land offset and optional local clearance/thermal/zone settings, including
+  explicit inherited zone connection <code>-1</code>. Custom row geometry reuses
+  the primitive writer; custom clearance is pad-wide, so layer rows require
+  absent clearance policy. Via rows support circular diameters only.</p>
+  <p>Rows may be sparse. Absence uses KiCad's own defaults, and save may
+  materialize missing rows, including all 32 copper slots for standalone custom
+  pads. Fresh readback therefore pins authored rows, while post-save proof pins
+  the source-normalized meaning rather than demanding an unchanged row count.
+  Per-layer thermal bridge angle remains readable but fresh writing rejects it:
+  the verified KiCad 10.0.6 parser applies it to F.Cu instead of the selected row.
+  These are explicit source-loss boundaries, not a canonical padstack solver.</p>
+
+  <p><code>AuthoredVia::backdrill</code> optionally retains source diameter
+  and ordered copper-layer endpoints, including a bottom-to-inner direction.
+  This is not a fabrication constraint solver: KiCad's source form has no
+  maximum-stub or stop-reference-mode fields. Exporting such canonical facts
+  requires an explicit appz loss report or refusal, never silently treating an
+  endpoint as proof of those constraints.</p>
 
   <p><code>AuthoredVia</code> owns diameter, drill, position, net, UUID, ordered
   copper endpoints, free status, front/back tenting/covering/plugging facts,
@@ -167,12 +276,50 @@
   layers during canonicalization. Pad layer lists and forced pad/via layer lists
   must also be unique because KiCad deduplicates repeated entries.</p>
 
+  <h2>Custom-pad composition</h2>
+  <p><code>AuthoredPadShape::Custom</code> retains optional typed circle/rectangle
+  anchor and outline/convex-hull clearance policies plus ordered line,
+  three-point arc, circle, rectangle, polygon and cubic-curve primitives.
+  Polygon outlines retain ordered XY and three-point arc elements; rectangles
+  may carry a positive source corner radius. Coordinates remain pad-local,
+  including under bottom/rotated occurrences. No primitive union, tessellation
+  or downstream geometry conversion runs in this writer.</p>
+  <p>Every primitive has an explicit finite width. Closed primitives support
+  solid, unfilled or absent fill declarations. Absence uses KiCad's source
+  default: polygons fill, and zero-width circles/rectangles fill. Unfilled
+  strokes must be positive because KiCad repairs nonpositive widths. Line,
+  arc and curve fill declarations are rejected because KiCad's custom writer
+  discards them. Hatch fills and non-solid stroke styles are not promoted.
+  The compatibility <code>CustomPolygon</code> convenience delegates to the
+  same emitter with a rectangular anchor, outline clearance and one zero-width
+  solid polygon; new composition should use <code>Custom</code>.</p>
+  <p>The shared board/standalone reader exposes
+  <code>PcbPadPrimitiveGeometry</code> and preserves the legacy polygon XY
+  projection separately. Ordered polygon arcs and cubic control points are
+  retained, not flattened; proxy bounding-box/vector shapes are distinguished
+  from copper primitives. An incomplete or unsupported geometry returns
+  <code>None</code> alongside its source record, not a fabricated empty shape.
+  Raw fill tokens and ordered direct/nested width declaration decoding remain
+  source evidence. This read boundary does not expand the plotter's custom-pad
+  geometry support.</p>
+  <p>Source authority is KiCad 10.0.6 commit
+  <code>caf7377e9cb6fa1535ec3596dcb8c99bf44a996e</code>:
+  <a href="https://gitlab.com/kicad/code/kicad/-/blob/caf7377e9cb6fa1535ec3596dcb8c99bf44a996e/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.cpp">pad/shape parsing</a>
+  and <a href="https://gitlab.com/kicad/code/kicad/-/blob/caf7377e9cb6fa1535ec3596dcb8c99bf44a996e/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp">custom primitive formatting</a>.
+  Existing native and independent-oracle cases exercise the composition;
+  consumer mapping and full custom plotting remain separately qualified.</p>
+
   <h2>Presentation-source tranche</h2>
   <p>Fresh boards now own non-profile graphics, board text, and board text
   boxes. Footprint definitions own graphical Reference/Value properties, user
   text, text boxes, and local graphics independently of the occurrence
   transform. This preserves bottom-local layers and coordinates while a board
   occurrence separately owns its bottom/rotated placement.</p>
+
+  <p>Solid-filled circles, rectangles, and polygons may have zero stroke width
+  in board or footprint scope. Negative/nonfinite widths are rejected. Unfilled
+  graphics still require a positive width because KiCad replaces nonpositive
+  unfilled strokes with its default; no replacement width is invented here.</p>
 
   <p>Text effects distinguish an absent face (native Newstroke source intent)
   from a named outline-font face. Supported 20241229 effects include explicit
@@ -265,11 +412,15 @@ board.footprints.push(AuthoredFootprintOccurrence {
     at: AuthoredPoint { x_mm: 40.0, y_mm: 30.0 },
     angle_degrees: 90.0,
     uuid: occurrence_uuid,
+    locked: false,
+    placement_path: None,
+    placement_sheet_name: None,
+    placement_sheet_file: None,
 });
 let document = board.to_document(PcbAuthoringLimits::default())?;
 document.write_to(output)?;</code></pre>
 
-  <pre><code>let mut footprint = AuthoredStandaloneFootprint::new("Demo:Native", "F.Cu");
+  <pre><code>let mut footprint = AuthoredStandaloneFootprint::new("Demo_Native", "F.Cu");
 footprint.footprint.models.push(AuthoredModel {
     path: "kicad-embed://body.step".into(),
     offset_mm: [0.0; 3],
@@ -296,6 +447,23 @@ document.write_to(output)?;</code></pre>
   those upgraded files and reasserts the promoted source facts so a successful
   CLI exit cannot hide discarded input. The accepted local evidence used KiCad
   10.0.5.</p>
+
+  <p>The consumer-completion extensions add existing-test assertions for
+  footprint clearance/zone defaults, occurrence placement metadata, and
+  explicit empty-layer NPTH in board and standalone source. Presentation
+  assertions also cover zero-width filled board and local graphics. The
+  L1_039/L1_040/L1_042 lanes check the corresponding facts after CLI upgrade;
+  these extensions require their own execution/review receipt and are not
+  qualified by the historical 10.0.5 result. The current focused checkpoint is
+  17 passing Rust tests and three passing Rack L1_040 checks on actual KiCad
+  10.0.5, including sparse custom pad/via-stack normalization. Full final gates,
+  combined review and the exact Appz candidate-pin proof remain pending.</p>
+
+  <p>A subsequent checkpoint passed the full locked core suite, all four Rack
+  L1_039 through L1_042 lanes, and the native no-default-features check before
+  the final source <code>dnp</code> attribute addition. Post-addition verification,
+  strict Clippy cleanup and the WASM check remained in progress. These timed
+  checkpoints must not be read as final-candidate signoff.</p>
 
   <p><code>pcb_authoring_pad_via_slice</code> adds exact native readback for
   trapezoid/chamfer/slot geometry, local fabrication and connection policies,
@@ -346,6 +514,8 @@ document.write_to(output)?;</code></pre>
 
   <p>Known fail-closed cases include unsupported source revisions; hidden user
   footprint text; rotated embedded text boxes; standalone text-box locking;
+  malformed or explicitly empty occurrence placement metadata; zero-width
+  unfilled graphics; empty-layer SMD or plated-through-hole pads;
   Newstroke carriers with outline-font caches; cached unresolved board/project
   variables; wrapping-dependent text-box cache requests; source-revision-invalid
   color or hyperlink effects; standalone pad net evidence; conflicting effective

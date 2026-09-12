@@ -8,11 +8,17 @@ use super::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PcbZoneKeepout {
+    /// Effective source settings; declaration flags distinguish omitted defaults.
     pub tracks: String,
     pub vias: String,
     pub pads: String,
     pub copperpour: String,
     pub footprints: String,
+    pub has_tracks: bool,
+    pub has_vias: bool,
+    pub has_pads: bool,
+    pub has_copperpour: bool,
+    pub has_footprints: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -280,16 +286,23 @@ fn keepout_from_children(
         return Ok(None);
     };
     let values = direct_children(source, keepout, limits.max_object_children, limits)?;
-    let setting = |head| {
+    let setting = |head, default: &str| {
         optional_child_string(source, &values, head)
-            .map(|value| value.unwrap_or_else(|| "not_allowed".to_owned()))
+            .map(|value| value.unwrap_or_else(|| default.to_owned()))
     };
+    // KiCad 10.0.6 parseZONE's T_keepout branch initializes pads/footprints
+    // to allowed for older source files where those two tokens are absent.
     Ok(Some(PcbZoneKeepout {
-        tracks: setting("tracks")?,
-        vias: setting("vias")?,
-        pads: setting("pads")?,
-        copperpour: setting("copperpour")?,
-        footprints: setting("footprints")?,
+        tracks: setting("tracks", "not_allowed")?,
+        vias: setting("vias", "not_allowed")?,
+        pads: setting("pads", "allowed")?,
+        copperpour: setting("copperpour", "not_allowed")?,
+        footprints: setting("footprints", "allowed")?,
+        has_tracks: child(&values, "tracks").is_some(),
+        has_vias: child(&values, "vias").is_some(),
+        has_pads: child(&values, "pads").is_some(),
+        has_copperpour: child(&values, "copperpour").is_some(),
+        has_footprints: child(&values, "footprints").is_some(),
     }))
 }
 
