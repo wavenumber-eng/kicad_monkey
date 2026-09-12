@@ -185,6 +185,38 @@ fn typed_iterators_decode_nested_pads_and_models() {
     assert_eq!(model.offset, [1.0, 2.0, 3.0]);
     assert_eq!(model.scale, [1.5, 2.5, 3.5]);
     assert_eq!(model.rotate, [10.0, 20.0, 30.0]);
+    assert_eq!((model.hidden, model.opacity), (None, None));
+    assert_model_visibility_and_offset_units();
+}
+
+fn assert_model_visibility_and_offset_units() {
+    for (hide, expected) in [
+        ("hide", Some(true)),
+        ("(hide yes)", Some(true)),
+        ("(hide no)", Some(false)),
+    ] {
+        let source = SOURCE.replace(
+            "(rotate (xyz 10 20 30))",
+            &format!("(rotate (xyz 10 20 30)) {hide} (opacity 0.4)"),
+        );
+        let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+        let model = view.models().next().unwrap().unwrap();
+        assert_eq!((model.hidden, model.opacity), (expected, Some(0.4)));
+    }
+    let legacy = SOURCE.replace("(offset (xyz 1 2 3))", "(at (xyz 1 2 3))");
+    let view = PcbView::parse(&legacy, PcbLimits::default()).unwrap();
+    let offset = view.models().next().unwrap().unwrap().offset;
+    for (actual, expected) in offset.into_iter().zip([25.4, 50.8, 76.2]) {
+        assert!((actual - expected).abs() < 1e-12);
+    }
+    for suffix in ["hide (hide no)", "(at (xyz 1 2 3))"] {
+        let source = SOURCE.replace(
+            "(rotate (xyz 10 20 30))",
+            &format!("(rotate (xyz 10 20 30)) {suffix}"),
+        );
+        let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+        assert!(view.models().next().unwrap().is_err());
+    }
 }
 
 #[test]
@@ -553,7 +585,82 @@ fn assert_graphic_physical_facts_across_scopes() {
     assert_eq!(rows[0].net.as_ref().unwrap().ordinal, Some(0));
     assert_eq!(rows[1].layers, Some(Vec::new()));
     assert_eq!(rows[1].net, None);
+    assert_legacy_graphic_fill_defaults();
     assert_polygon_limits_and_malformed_arc(&board);
+}
+
+fn assert_legacy_graphic_fill_defaults() {
+    for (shape, extra, layer, expected) in [
+        (
+            "gr_poly (pts (xy 0 0) (xy 1 0) (xy 0 1))",
+            "(width 0.2)",
+            "F.Cu",
+            "solid",
+        ),
+        (
+            "gr_poly (pts (xy 0 0) (xy 1 0) (xy 0 1))",
+            "(width 0)",
+            "Edge.Cuts",
+            "none",
+        ),
+        (
+            "gr_rect (start 0 0) (end 1 1)",
+            "(width 0)",
+            "F.Cu",
+            "solid",
+        ),
+        ("gr_circle (center 0 0) (end 1 0)", "", "F.Cu", "solid"),
+        (
+            "gr_circle (center 0 0) (end 1 0)",
+            "(width 0.2)",
+            "F.Cu",
+            "none",
+        ),
+        (
+            "gr_rect (start 0 0) (end 1 1)",
+            "(width 0.0000001)",
+            "F.Cu",
+            "solid",
+        ),
+        ("gr_line (start 0 0) (end 1 1)", "(width 0)", "F.Cu", "none"),
+    ] {
+        for explicit in [None, Some("none"), Some("solid"), Some("hatch")] {
+            let fill = explicit
+                .map(|token| format!("(fill {token})"))
+                .unwrap_or_default();
+            let source = format!("(kicad_pcb ({shape} {extra} (layer \"{layer}\") {fill}))");
+            let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+            let graphic = view.graphics().next().unwrap().unwrap();
+            assert_eq!(graphic.fill.as_deref(), explicit);
+            assert_eq!(
+                graphic.effective_fill_for_layer(layer),
+                explicit.unwrap_or(expected)
+            );
+        }
+    }
+    for ambiguous in [
+        "(fill)",
+        "(fill (solid))",
+        "(width)",
+        "(stroke (width))",
+    ] {
+        let source =
+            format!("(kicad_pcb (gr_rect (start 0 0) (end 1 1) (layer F.Cu) {ambiguous}))");
+        let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+        assert!(view.graphics().next().unwrap().is_err(), "{ambiguous}");
+    }
+    for (declarations, width, fill) in [
+        ("(width 0.2) (stroke (width 0))", 0.0, "solid"),
+        ("(stroke (width 0)) (width 0.2)", 0.2, "none"),
+        ("(width 0.2) (stroke (type solid))", 0.0, "solid"),
+        ("(stroke (type solid)) (width 0.2)", 0.2, "none"),
+    ] {
+        let source = format!("(kicad_pcb (gr_rect (start 0 0) (end 1 1) (layer F.Cu) {declarations}))");
+        let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+        let graphic = view.graphics().next().unwrap().unwrap();
+        assert_eq!(graphic.stroke_width.unwrap_or(0.0), width);
+        assert_eq!(graphic.effective_fill_for_layer("F.Cu"), fill);
+    }
 }
 
 fn assert_polygon_limits_and_malformed_arc(board: &str) {

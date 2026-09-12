@@ -42,6 +42,34 @@ fn zones_expose_authored_and_filled_source_semantics() {
     assert_eq!(settings.copperpour, "allowed");
     assert!(settings.has_tracks && settings.has_vias && settings.has_pads);
     assert!(settings.has_footprints && settings.has_copperpour);
+    assert_placement_declaration_fidelity();
+}
+
+fn assert_placement_declaration_fidelity() {
+    for (declaration, enabled, present) in [
+        ("(enabled yes)", true, true),
+        ("(enabled no)", false, true),
+        ("(enabled no) (enabled yes)", true, true),
+        ("(enabled yes) (enabled no)", false, true),
+        ("", false, false),
+    ] {
+        let source = format!(
+            "(kicad_pcb (zone (keepout) (placement {declaration} (sheetname \"/TOP_LEVEL_IO/\"))))"
+        );
+        let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+        let placement = view.zones().next().unwrap().unwrap().placement.unwrap();
+        assert_eq!(
+            (placement.enabled, placement.has_enabled),
+            (enabled, present)
+        );
+        assert_eq!(placement.source_type, PcbZonePlacementSource::SheetName);
+        assert_eq!(placement.source, "/TOP_LEVEL_IO/");
+    }
+    for declaration in ["(enabled)", "(enabled perhaps)"] {
+        let source = format!("(kicad_pcb (zone (placement {declaration})))");
+        let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+        assert!(view.zones().next().unwrap().is_err());
+    }
 }
 
 fn assert_copper_identity(copper: &PcbZone) {
@@ -72,6 +100,7 @@ fn assert_copper_fill(copper: &PcbZone) {
 
     let placement = copper.placement.as_ref().expect("placement");
     assert!(placement.enabled);
+    assert!(placement.has_enabled);
     assert_eq!(
         placement.source_type,
         PcbZonePlacementSource::ComponentClass
@@ -172,6 +201,20 @@ fn zone_collection_limits_are_lazy_and_fail_closed() {
                 .kind,
             ErrorKind::ResourceLimit
         );
+    }
+    // The current XY carrier must not silently shorten legal arc outlines, or
+    // claim an unknown future element was converted. Applies to both roles.
+    for carrier in ["polygon", "filled_polygon"] {
+        for element in [
+            "(arc (start 1 0) (mid 2 1) (end 1 2))",
+            "(future_point 1 2)",
+        ] {
+            let source = format!(
+                "(kicad_pcb (zone ({carrier} (pts (xy 0 0) (xy 1 0) {element} (xy 0 2)))))"
+            );
+            let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+            assert!(view.zones().next().unwrap().is_err());
+        }
     }
 }
 

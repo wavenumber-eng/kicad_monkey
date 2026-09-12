@@ -422,6 +422,9 @@ pub struct PcbModelReference {
     pub offset: [f64; 3],
     pub scale: [f64; 3],
     pub rotate: [f64; 3],
+    /// Authored hide state; absent remains distinct from explicit false.
+    pub hidden: Option<bool>,
+    pub opacity: Option<f64>,
     pub source_range: Range<usize>,
 }
 
@@ -501,6 +504,30 @@ pub struct PcbGraphic {
     pub border: Option<bool>,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,
+}
+
+impl PcbGraphic {
+    /// Resolve omitted shape fill using KiCad 10.0.6 `parsePCB_SHAPE` defaults.
+    ///
+    /// The caller supplies the resolved concrete layer; plural source selectors
+    /// are intentionally not expanded here. Authored tokens (including hatch
+    /// modes) are returned unchanged, and `self.fill` remains source evidence.
+    /// This does not resolve the separate fallback width for unfilled shapes.
+    pub fn effective_fill_for_layer(&self, layer: &str) -> &str {
+        if let Some(fill) = self.fill.as_deref() {
+            return fill;
+        }
+        // KiCad starts STROKE_PARAMS at zero and parses millimetres into integer
+        // nanometres before deciding whether the legacy shape implies filling.
+        let zero_width = (self.stroke_width.unwrap_or(0.0) * 1_000_000.0).round() == 0.0;
+        if (matches!(self.kind, PcbGraphicKind::Rect | PcbGraphicKind::Circle) && zero_width)
+            || (self.kind == PcbGraphicKind::Poly && layer != "Edge.Cuts")
+        {
+            "solid"
+        } else {
+            "none"
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

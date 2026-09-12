@@ -302,15 +302,49 @@ pub(super) fn model_from_span(
 ) -> Result<PcbModelReference, Error> {
     let header = bounded_scalar_values(source, &indexed.span, limits.max_model_children)?;
     let children = direct_children(source, &indexed.span, limits.max_model_children, limits)?;
+    let bare_hide = has_flag(header.get(1..).unwrap_or_default(), "hide");
+    let hide_rows: Vec<_> = children
+        .iter()
+        .filter(|field| field.head.as_deref() == Some("hide"))
+        .collect();
+    if hide_rows.len() > 1 || (bare_hide && !hide_rows.is_empty()) {
+        return Err(source_error(
+            "Ambiguous duplicate model hide declarations",
+            indexed.span.start,
+        ));
+    }
+    let hidden = if let Some(row) = hide_rows.first() {
+        Some(match first_string(source, row)?.as_deref() {
+            None | Some("yes") => true,
+            Some("no") => false,
+            _ => return Err(source_error("Expected yes/no for model hide", row.start)),
+        })
+    } else {
+        bare_hide.then_some(true)
+    };
+    if child(&children, "at").is_some() && child(&children, "offset").is_some() {
+        return Err(source_error(
+            "Mixed legacy and modern model offset declarations",
+            indexed.span.start,
+        ));
+    }
+    let offset = if child(&children, "at").is_some() {
+        // KiCad parse3DModel: pre-v5 `at` is inches; modern `offset` is mm.
+        nested_xyz(source, &children, "at", [0.0; 3], limits)?.map(|value| value * 25.4)
+    } else {
+        nested_xyz(source, &children, "offset", [0.0; 3], limits)?
+    };
     Ok(PcbModelReference {
         owner: PcbFootprintMemberOwner::EmbeddedFootprint {
             footprint_index: indexed.parent_index,
         },
         footprint_index: indexed.parent_index,
         path: required_string(header.first(), "Expected model path", &indexed.span)?,
-        offset: nested_xyz(source, &children, "offset", [0.0, 0.0, 0.0], limits)?,
+        offset,
         scale: nested_xyz(source, &children, "scale", [1.0, 1.0, 1.0], limits)?,
         rotate: nested_xyz(source, &children, "rotate", [0.0, 0.0, 0.0], limits)?,
+        hidden,
+        opacity: optional_child_f64(source, &children, "opacity")?,
         source_range: indexed.span.range.clone(),
     })
 }
@@ -386,15 +420,46 @@ pub(super) fn graphic_from_span(
             PcbPolygonPoint::Arc { .. } => None,
         })
         .collect();
-    let (stroke_width, stroke_kind) = if let Some(stroke) = child(&children, "stroke") {
-        let fields = direct_children(source, stroke, 16.min(limits.max_object_children), limits)?;
-        (
-            optional_child_f64(source, &fields, "width")?,
-            optional_child_string(source, &fields, "type")?,
-        )
-    } else {
-        (None, None)
-    };
+    // KiCad applies width/stroke declarations in authored order. A modern
+    // stroke block starts its width at zero even if it only specifies a style.
+    let mut stroke_width = None;
+    let mut stroke_kind = None;
+    for declaration in &children {
+        match declaration.head.as_deref() {
+            Some("width") => {
+                stroke_width = Some(required_f64(
+                    first_scalar_value(source, declaration)?.as_ref(),
+                    "Expected legacy graphic width value",
+                    declaration,
+                )?);
+            }
+            Some("stroke") => {
+                let fields = direct_children(
+                    source,
+                    declaration,
+                    16.min(limits.max_object_children),
+                    limits,
+                )?;
+                let width = optional_child_f64(source, &fields, "width")?;
+                if child(&fields, "width").is_some() && width.is_none() {
+                    return Err(source_error(
+                        "Expected graphic stroke width value",
+                        declaration.start,
+                    ));
+                }
+                stroke_width = width;
+                stroke_kind = optional_child_string(source, &fields, "type")?;
+            }
+            _ => {}
+        }
+    }
+    let fill = optional_child_string(source, &children, "fill")?;
+    if child(&children, "fill").is_some() && fill.is_none() {
+        return Err(source_error(
+            "Present graphic fill requires a supported scalar token; refusing omitted-fill inference",
+            span.start,
+        ));
+    }
     let border = if has_flag(&header, "border") {
         Some(true)
     } else if let Some(field) = child(&children, "border") {
@@ -425,7 +490,7 @@ pub(super) fn graphic_from_span(
         solder_mask_margin: optional_child_f64(source, &children, "solder_mask_margin")?,
         stroke_width,
         stroke_kind,
-        fill: optional_child_string(source, &children, "fill")?,
+        fill,
         border,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),

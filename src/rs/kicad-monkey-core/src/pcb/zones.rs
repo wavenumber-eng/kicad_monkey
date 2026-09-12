@@ -41,6 +41,9 @@ impl PcbZonePlacementSource {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PcbZonePlacement {
     pub enabled: bool,
+    /// True only when `(enabled yes|no)` was authored. An absent declaration
+    /// must not be interpreted as an explicitly disabled placement rule.
+    pub has_enabled: bool,
     pub source_type: PcbZonePlacementSource,
     pub source: String,
 }
@@ -311,9 +314,18 @@ fn placement_from_children(
     children: &[FormSpan],
     limits: PcbLimits,
 ) -> Result<Option<PcbZonePlacement>, Error> {
-    let Some(placement) = child(children, "placement") else {
+    let mut placements = children
+        .iter()
+        .filter(|field| field.head.as_deref() == Some("placement"));
+    let Some(placement) = placements.next() else {
         return Ok(None);
     };
+    if placements.next().is_some() {
+        return Err(source_error(
+            "Repeated placement stanzas require ordered interpretation",
+            placement.start,
+        ));
+    }
     let values = direct_children(source, placement, limits.max_object_children, limits)?;
     let (source_type, source_value) = if let Some(value) = child(&values, "sheetname") {
         (
@@ -333,9 +345,29 @@ fn placement_from_children(
     } else {
         (PcbZonePlacementSource::SheetName, String::new())
     };
+    let mut has_enabled = false;
+    let mut enabled_value = false;
+    for field in values
+        .iter()
+        .filter(|field| field.head.as_deref() == Some("enabled"))
+    {
+        has_enabled = true;
+        // KiCad applies repeated enabled declarations in source order. Do not
+        // mistake a later active value for an earlier explicitly disabled one.
+        enabled_value = match first_string(source, field)?.as_deref() {
+            Some("yes") => true,
+            Some("no") => false,
+            _ => {
+                return Err(source_error(
+                    "Expected placement enabled yes or no",
+                    field.start,
+                ));
+            }
+        };
+    }
     Ok(Some(PcbZonePlacement {
-        enabled: optional_child_string(source, &values, "enabled")?
-            .is_some_and(|value| value == "yes"),
+        enabled: enabled_value,
+        has_enabled,
         source_type,
         source: source_value,
     }))
@@ -403,7 +435,10 @@ fn polygon_points_from_children(
     let mut decoded = Vec::with_capacity(point_spans.len());
     for point in point_spans {
         if point.head.as_deref() != Some("xy") {
-            continue;
+            return Err(source_error(
+                "Zone outline and filled-polygon readers currently require XY elements; arc or unknown elements are not omitted",
+                point.start,
+            ));
         }
         let values = bounded_scalar_values(source, &point, 2)?;
         decoded.push(PcbPoint {

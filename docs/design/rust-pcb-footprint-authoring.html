@@ -92,6 +92,16 @@
   the selected output revision before promotion. Existing document replay/edit
   retains source forms; consumers must not treat the XY-only compatibility view
   as a lossless rewrite path.</p>
+  <p><code>PcbGraphic.effective_fill_for_layer</code> resolves omitted legacy
+  fill using the KiCad 10.0.6 shape parser rules: zero-width rectangles/circles
+  and polygons outside <code>Edge.Cuts</code> imply solid fill. The caller
+  supplies a resolved concrete layer; the helper does not expand plural
+  selectors, alter authored optional fill evidence, resolve unfilled stroke
+  fallback widths, or reinterpret explicit hatch/other fill tokens. The graphic
+  reader resolves legacy top-level <code>width</code> and modern
+  <code>stroke</code> declarations in source order, including the modern
+  block's default zero width. Present empty or nested-only fill/width values
+  fail explicitly rather than being mistaken for omitted defaults.</p>
   <p>Source reading is also separate from the existing public board plotter.
   Its polygon rendering still uses the XY-only compatibility projection, and
   rounded rectangles and plural layer selectors are not fully rendered there.
@@ -546,6 +556,14 @@ document.write_to(output)?;</code></pre>
   source model before and after a KiCad CLI upgrade, without depending on source
   member order.</p>
 
+  <p>The public zone reader keeps <code>PcbZonePlacement.has_enabled</code>
+  separate from its boolean value: omitted enablement is not an explicitly
+  disabled placement rule. Present enablement accepts only released KiCad
+  <code>yes</code>/<code>no</code> syntax. The current zone polygon DTO carries
+  XY coordinates only. Authored or filled zone contours containing arcs or
+  unknown elements fail explicitly instead of being shortened; ordered zone
+  arc support remains an importer/exporter coverage gap. Graphic/pad polygon
+  readers have their separate ordered arc-capable carrier.</p>
   <p>Authored zones retain source outline rings, per-layer filled-polygon cache
   chains, exact point order, and explicit island markers without classifying
   downstream topology. KiCad holes are bridge/fracture-encoded within one
