@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head><meta charset="utf-8"><title>Native PCB SVG foundation</title><link rel="stylesheet" href="styles.css"></head>
+<body><main>
+<h1>Native PCB SVG foundation</h1>
+<p>The native <code>pcb-svg</code> and <code>toon</code> command adapters are under
+development and are not registered yet. Their shared Rust infrastructure retains
+one typed, source-bound board plotter artifact. Physical rendering uses
+<code>kicad-monkey-svg</code> directly; equal viewport and presentation requests
+reuse the completed artifact. Layer geometry remains available through the typed
+plotter document rather than being recovered from serialized SVG.</p>
+<h2>Configuration authority</h2>
+<p><code>src/tsp/kicad_cruncher/main.tsp</code> governs the existing
+<code>kicad_cruncher.pcb_svg.config.a0</code> shape. From the repository root, run
+<code>node packages/kicad_cruncher/scripts/generate-svg-contracts.mjs</code> to
+generate JSON Schema, TypeScript editor types and Rust data types; append
+<code>--check</code> to detect stale artifacts. Open style extensions and authored
+presence are retained: an omitted property, an empty list/object, and explicit
+null where allowed remain distinct.</p>
+<p>Generated Rust types represent data; Serde decoding alone does not enforce all
+JSON Schema constraints. Runtime schema validation must precede native config
+decoding and merging before either command adapter is exposed. This foundation
+does not yet provide an accepted native config-loading boundary.</p>
+<h2>Models and fitting</h2>
+<p>Native commands support embedded models only. This intentionally differs from
+the existing Python SVG command's external STEP lookup. The reader uses public
+owner-scoped Monkey APIs, handles all visible attachments, decodes and hashes a
+resource once, and shares equal model content. External references, unsupported
+embedded extensions and failed payloads produce named diagnostics.</p>
+<p>PCB Autodoc's geometry-based designator fitter is the authority for the coming
+Rust fitting module. Altium Cruncher is a secondary integration reference. Both
+commands will use the same fitter and virtual layer providers.</p>
+<h2>Current checks and remaining integration</h2>
+<p>Focused checks cover physical artifact reuse versus side/style changes, config
+extension and presence preservation, and embedded-only diagnostics. The retained
+Python SVG command now defaults to fast HLR detail and fast mesh shadow.</p>
+<p>Native Geometer dependencies/discovery, complete config validation, remaining
+virtual layers, the Autodoc fitter, command dispatch and visual acceptance are
+still required. No native Toon availability or release is claimed by this slice.</p>
+</main></body></html>

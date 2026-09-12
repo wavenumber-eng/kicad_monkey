@@ -1732,7 +1732,10 @@ def _assembly_projection_options(
             if style.get("projection_algorithm") is None
             else str(style.get("projection_algorithm"))
         ),
-        outline_algorithm=str(style.get("outline_algorithm", "mesh-shadow") or "mesh-shadow"),
+        outline_algorithm=(
+            str(style["outline_algorithm"]) if style.get("outline_algorithm") else None
+        ),
+        fast=_fast_projection_controls(style),
         curve_mode=curve_mode,
         samples_per_curve=_style_int(styles, "assembly_hlr", "samples_per_curve", 24),
         round_digits=_style_int(styles, "assembly_hlr", "round_digits", 3),
@@ -1745,6 +1748,15 @@ def _assembly_projection_options(
         hlr_angle_tolerance=_optional_style_float(style, "hlr_angle_tolerance"),
         edge_flags=edge_flags or None,
     )
+
+
+def _fast_projection_controls(style: dict[str, object]) -> dict[str, object] | None:
+    value = style.get("fast")
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("assembly_hlr.fast must be an object")
+    return value
 
 
 def _optional_style_float(style: dict[str, object], key: str) -> float | None:

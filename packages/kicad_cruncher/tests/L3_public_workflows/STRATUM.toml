@@ -5,6 +5,7 @@ enabled = true
 concerns = ["cli", "contracts", "release"]
 
 objectives = [
+    "SVG HLR defaults use fast detail and fast mesh shadow with compatible controls and distinct cache identities",
     "Stable public commands run against redistributable KiCad fixtures",
     "Generated outputs have expected schemas, README guidance, and artifact shapes",
     "Workflow tests do not require a private corpus",
@@ -250,3 +251,20 @@ test_missing_exact_footprint_key_preserves_existing_destination = "Reject a miss
 test_each_post_conversion_failure_preserves_existing_destination = "Inject filter and validation failures"
 test_reuse_rejects_invalid_existing_footprint_without_mutating_it = "Fail closed when reused output needs repair"
 test_symbol_conversion_requires_exact_key_and_reports_reusable_result = "Select and reuse an exact symbol key"
+
+[[subtests]]
+id = "L3_013"
+file = "test_L3_013_fast_svg_projection.py"
+name = "Fast SVG HLR boundary"
+description = "Check fast defaults, legacy-control validation, and projection cache identity"
+concerns = ["contracts"]
+test_case_type = "unit"
+test_cases = "Explicit fast and legacy Geometer option dictionaries"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_pcb_svg_projection"
+
+[subtests.objectives]
+fast_defaults = "Default detail and outline use fast and fast-mesh-shadow"
+legacy_controls = "Incompatible legacy controls fail before per-model warning handling"
+cache_identity = "Fast candidate settings affect projection reuse"

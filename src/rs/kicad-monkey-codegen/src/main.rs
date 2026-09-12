@@ -11,6 +11,8 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
+mod config_projection;
+
 const SCHEMAS: [(&str, &str); 40] = [
     ("BoardPlotDocument.json", "board_plot_document.rs"),
     ("BoardPlotRequest.json", "board_plot_request.rs"),
@@ -453,6 +455,10 @@ const SCHEMATIC_REQUEST_U64_FIELDS: [&str; 15] = [
 ];
 
 fn main() -> Result<()> {
+    let arguments: Vec<String> = env::args().skip(1).collect();
+    if arguments.first().is_some_and(|value| value == "--standalone") {
+        return generate_standalone(&arguments[1..]);
+    }
     let check = env::args().skip(1).any(|argument| argument == "--check");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let schema_root = root.join("contracts/generated/schema");
@@ -503,6 +509,32 @@ fn main() -> Result<()> {
         } else {
             fs::write(&path, content).with_context(|| format!("write {}", path.display()))?;
         }
+    }
+    Ok(())
+}
+
+/// Generate a downstream-owned contract without modifying Monkey's catalog.
+fn generate_standalone(arguments: &[String]) -> Result<()> {
+    if !(arguments.len() == 2 || (arguments.len() == 3 && arguments[2] == "--check")) {
+        bail!("usage: kicad-monkey-codegen --standalone SCHEMA OUTPUT [--check]");
+    }
+    let schema_path = PathBuf::from(&arguments[0]);
+    let output = PathBuf::from(&arguments[1]);
+    let mut schema: Value = serde_json::from_slice(&fs::read(&schema_path)?)?;
+    let published = schema.clone();
+    project_for_typify(&mut schema);
+    let generated = config_projection::preserve_config_presence(
+        &published, generate("Cruncher PCB SVG config", schema)?,
+    )?;
+    if arguments.len() == 3 {
+        if fs::read_to_string(&output)? != generated {
+            bail!("stale generated Rust file {}", output.display());
+        }
+    } else {
+        if let Some(parent) = output.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(output, generated)?;
     }
     Ok(())
 }

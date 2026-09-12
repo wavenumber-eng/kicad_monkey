@@ -183,7 +183,10 @@ _PCB_SVG_CONFIG_COMMENTS = {
     ),
     ("global", "styles", "assembly_hlr", "outline_algorithm"): enum_help(
         "Outline algorithm",
-        ("mesh-shadow", "hlr"),
+        ("fast-mesh-shadow", "mesh-shadow", "hlr"),
+    ),
+    ("global", "styles", "assembly_hlr", "projection_algorithm"): enum_help(
+        "Detail algorithm", ("fast", "poly", "exact"),
     ),
     ("assembly",): "Default assembly projection and designator color policy.",
     ("assembly", "default_projection"): enum_help(
@@ -685,7 +688,8 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
             "round_digits": 3,
             "include_visible": True,
             "include_outline": True,
-            "outline_algorithm": "mesh-shadow",
+            "projection_algorithm": "fast",
+            "outline_algorithm": "fast-mesh-shadow",
             "union_polygons": True,
         },
     }

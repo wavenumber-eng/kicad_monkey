@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -18,7 +19,8 @@ _CacheKey = tuple[object, ...]
 class _AssemblyProjectionOptions:
     side: _ProjectionSide
     projection_algorithm: str | None = None
-    outline_algorithm: str = "mesh-shadow"
+    outline_algorithm: str | None = None
+    fast: Mapping[str, object] | None = None
     curve_mode: _CurveMode = "native_arcs"
     samples_per_curve: int = 24
     round_digits: int = 3
@@ -30,6 +32,10 @@ class _AssemblyProjectionOptions:
     mesh_relative: bool | None = None
     hlr_angle_tolerance: float | None = None
     edge_flags: Mapping[str, bool] | None = None
+
+    def __post_init__(self) -> None:
+        # Validate before the caller's recoverable per-model error handling.
+        _apply_backend_options({}, self)
 
 
 @dataclass(frozen=True)
@@ -78,6 +84,7 @@ class _AssemblyProjectionCache:
             str(options.side),
             str(options.projection_algorithm or ""),
             str(options.outline_algorithm or ""),
+            json.dumps(dict(options.fast or {}), sort_keys=True, allow_nan=False),
             str(options.curve_mode),
             int(max(2, options.samples_per_curve)),
             int(max(0, options.round_digits)),
@@ -209,10 +216,8 @@ class _AssemblyProjectionCache:
             "include_visible": bool(options.include_visible),
             "include_outline": bool(options.include_outline),
             "union_outline_polygons": bool(options.union_polygons),
-            "outline_algorithm": str(options.outline_algorithm or "mesh-shadow"),
         }
-        if options.projection_algorithm:
-            hlr_options["projection_algorithm"] = str(options.projection_algorithm)
+        _apply_backend_options(hlr_options, options)
         if options.mesh_linear_deflection is not None:
             hlr_options["mesh_linear_deflection"] = float(options.mesh_linear_deflection)
         if options.mesh_angular_deflection is not None:
@@ -300,6 +305,33 @@ class _AssemblyProjectionCache:
                 )
             )
         return tuple(deduped)
+
+
+def _apply_backend_options(
+    target: dict[str, object], options: _AssemblyProjectionOptions,
+) -> None:
+    """Match Altium's explicit fast defaults and legacy-control validation."""
+    algorithm = str(options.projection_algorithm or "fast").strip().lower()
+    if algorithm not in {"fast", "poly", "exact"}:
+        raise ValueError("assembly_hlr.projection_algorithm must be fast, poly, or exact")
+    legacy_controls = (
+        not options.include_visible or not options.include_outline or bool(options.edge_flags)
+    )
+    if algorithm == "fast" and legacy_controls:
+        raise ValueError(
+            "Fast HLR uses assembly_hlr.fast candidate controls; legacy include_visible, "
+            "include_outline and edge_* controls require projection_algorithm poly/exact."
+        )
+    target["projection_algorithm"] = algorithm
+    if algorithm == "fast":
+        target["curve_mode"] = "polyline"
+        target["outline_algorithm"] = "fast-mesh-shadow"
+    if options.outline_algorithm:
+        target["outline_algorithm"] = options.outline_algorithm
+    if options.fast is not None:
+        if algorithm != "fast":
+            raise ValueError("assembly_hlr.fast requires projection_algorithm fast")
+        target["fast"] = dict(options.fast)
 
 
 def _matrix4_for_geometer(matrix: object) -> list[list[float]]:
