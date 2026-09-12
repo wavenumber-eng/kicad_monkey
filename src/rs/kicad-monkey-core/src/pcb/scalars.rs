@@ -211,13 +211,13 @@ pub(super) fn optional_child_point(
     }))
 }
 
-pub(super) fn points_from_span(
+pub(super) fn polygon_points_from_span(
     source: &str,
     span: &FormSpan,
     limits: PcbLimits,
-) -> Result<Vec<PcbPoint>, Error> {
-    direct_children(source, span, limits.max_graphic_points, limits)
-        .map_err(|error| {
+) -> Result<Vec<PcbPolygonPoint>, Error> {
+    let forms =
+        direct_children(source, span, limits.max_graphic_points, limits).map_err(|error| {
             if error.kind == ErrorKind::ResourceLimit {
                 Error::at(
                     ErrorPhase::Tree,
@@ -228,17 +228,45 @@ pub(super) fn points_from_span(
             } else {
                 error
             }
-        })?
-        .into_iter()
-        .filter(|point| point.head.as_deref() == Some("xy"))
-        .map(|point| {
-            let values = first_two_scalar_values(source, &point)?;
-            Ok(PcbPoint {
-                x: required_f64(values.first(), "Expected point x", &point)?,
-                y: required_f64(values.get(1), "Expected point y", &point)?,
-            })
-        })
-        .collect()
+        })?;
+    let mut output = Vec::with_capacity(forms.len());
+    let mut coordinate_count = 0usize;
+    for form in forms {
+        let charge = match form.head.as_deref() {
+            Some("xy") => 1,
+            Some("arc") => 3,
+            _ => {
+                return Err(source_error(
+                    "Expected polygon xy or arc element",
+                    form.start,
+                ));
+            }
+        };
+        coordinate_count = coordinate_count.saturating_add(charge);
+        if coordinate_count > limits.max_graphic_points {
+            return Err(Error::at(
+                ErrorPhase::Tree,
+                ErrorKind::ResourceLimit,
+                "PCB graphic points exceed max_graphic_points",
+                form.start,
+            ));
+        }
+        if charge == 1 {
+            let values = first_two_scalar_values(source, &form)?;
+            output.push(PcbPolygonPoint::Xy(PcbPoint {
+                x: required_f64(values.first(), "Expected point x", &form)?,
+                y: required_f64(values.get(1), "Expected point y", &form)?,
+            }));
+        } else {
+            let fields = direct_children(source, &form, limits.max_object_children, limits)?;
+            output.push(PcbPolygonPoint::Arc {
+                start: required_point(source, &fields, "start", &form)?,
+                mid: required_point(source, &fields, "mid", &form)?,
+                end: required_point(source, &fields, "end", &form)?,
+            });
+        }
+    }
+    Ok(output)
 }
 
 pub(super) fn optional_pair(

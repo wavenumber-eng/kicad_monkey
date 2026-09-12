@@ -257,6 +257,10 @@ mod tests {
             resolve_pad_copper_layer(&custom, "In2.Cu").unwrap().size.x,
             0.0
         );
+        assert_ambiguous_stacks_are_rejected();
+    }
+
+    fn assert_ambiguous_stacks_are_rejected() {
         for stack in [
             r#"(padstack (mode custom) (layer "F.Cu" (size 1 1)))"#,
             r#"(padstack (mode custom) (layer "B.Cu") (layer "B.Cu"))"#,

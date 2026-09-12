@@ -459,6 +459,17 @@ pub enum PcbGraphicKind {
     TextBox,
 }
 
+/// Ordered source polygon elements; embedded arcs are not tessellated or omitted.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PcbPolygonPoint {
+    Xy(PcbPoint),
+    Arc {
+        start: PcbPoint,
+        mid: PcbPoint,
+        end: PcbPoint,
+    },
+}
+
 /// A producer-neutral typed view of one board graphic carrier.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbGraphic {
@@ -469,8 +480,20 @@ pub struct PcbGraphic {
     pub mid: Option<PcbPoint>,
     pub end: Option<PcbPoint>,
     pub center: Option<PcbPoint>,
+    /// Compatibility projection containing only authored XY elements. Use
+    /// `polygon_points` for complete polygon geometry, including embedded arcs.
     pub points: Vec<PcbPoint>,
+    pub polygon_points: Vec<PcbPolygonPoint>,
     pub layer: Option<String>,
+    /// Plural source selector, distinct from the singular `layer` field.
+    /// `Some([])` preserves an explicitly empty `(layers)` form.
+    pub layers: Option<Vec<String>>,
+    /// Authored association; absent and explicit unconnected net zero differ.
+    pub net: Option<PcbNetRef>,
+    /// Source rectangle corner radius in millimetres.
+    pub radius: Option<f64>,
+    /// Local solder-mask opening margin in millimetres, without rule resolution.
+    pub solder_mask_margin: Option<f64>,
     pub stroke_width: Option<f64>,
     pub stroke_kind: Option<String>,
     pub fill: Option<String>,

@@ -375,10 +375,17 @@ pub(super) fn graphic_from_span(
         .ok_or_else(|| source_error("Expected board graphic form", span.start))?;
     let header = bounded_scalar_values(source, span, limits.max_object_children)?;
     let children = direct_children(source, span, limits.max_object_children, limits)?;
-    let points = child(&children, "pts")
-        .map(|points| points_from_span(source, points, limits))
+    let polygon_points = child(&children, "pts")
+        .map(|points| polygon_points_from_span(source, points, limits))
         .transpose()?
         .unwrap_or_default();
+    let points = polygon_points
+        .iter()
+        .filter_map(|point| match point {
+            PcbPolygonPoint::Xy(point) => Some(*point),
+            PcbPolygonPoint::Arc { .. } => None,
+        })
+        .collect();
     let (stroke_width, stroke_kind) = if let Some(stroke) = child(&children, "stroke") {
         let fields = direct_children(source, stroke, 16.min(limits.max_object_children), limits)?;
         (
@@ -406,7 +413,16 @@ pub(super) fn graphic_from_span(
         end: optional_child_point(source, &children, "end")?,
         center: optional_child_point(source, &children, "center")?,
         points,
+        polygon_points,
         layer: optional_child_string(source, &children, "layer")?,
+        layers: child(&children, "layers")
+            .map(|_| child_strings(source, &children, "layers", limits.max_object_children))
+            .transpose()?,
+        net: child(&children, "net")
+            .map(|_| bounded_child_net_ref(source, &children, limits.max_object_children))
+            .transpose()?,
+        radius: optional_child_f64(source, &children, "radius")?,
+        solder_mask_margin: optional_child_f64(source, &children, "solder_mask_margin")?,
         stroke_width,
         stroke_kind,
         fill: optional_child_string(source, &children, "fill")?,
@@ -563,10 +579,15 @@ fn dimension_text_from_span(
         end: None,
         center: None,
         points: Vec::new(),
+        polygon_points: Vec::new(),
         layer: Some(
             optional_child_string(source, &children, "layer")?
                 .unwrap_or_else(|| "F.SilkS".to_owned()),
         ),
+        layers: None,
+        net: None,
+        radius: None,
+        solder_mask_margin: None,
         stroke_width: None,
         stroke_kind: None,
         fill: None,

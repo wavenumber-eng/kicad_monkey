@@ -497,6 +497,86 @@ fn remaining_board_carriers_are_typed_in_source_order() {
     assert_eq!(graphics[4].center.expect("center").x, 10.0);
     assert_eq!(graphics[5].points.len(), 3);
     assert_eq!(graphics[6].points.len(), 4);
+    assert_graphic_physical_facts_across_scopes();
+}
+
+fn assert_graphic_physical_facts_across_scopes() {
+    use kicad_monkey_core::{FootprintLimits, FootprintView, PcbPolygonPoint};
+    let graphic = r#"(gr_poly (pts (xy 0 0)
+      (arc (start 0 0) (mid 1 1) (end 2 0)) (xy 2 -1))
+      (stroke (width 0) (type solid)) (fill solid) (layer "F.Cu")
+      (net "GND") (solder_mask_margin 0.08))"#;
+    let board = format!("(kicad_pcb (version 20260206) {graphic})");
+    let footprint = format!(
+        "(footprint \"Art\" {})",
+        graphic.replace("gr_poly", "fp_poly")
+    );
+    let embedded = format!("(kicad_pcb (version 20260206) {footprint})");
+    let board_view = PcbView::parse(&board, PcbLimits::default()).unwrap();
+    let footprint_view = FootprintView::parse(&footprint, FootprintLimits::default()).unwrap();
+    let embedded_view = PcbView::parse(&embedded, PcbLimits::default()).unwrap();
+    for value in [
+        board_view.graphics().next().unwrap().unwrap(),
+        footprint_view.graphics().next().unwrap().unwrap(),
+        embedded_view
+            .footprint_graphics()
+            .next()
+            .unwrap()
+            .unwrap()
+            .graphic,
+    ] {
+        assert_eq!(value.points.len(), 2); // Compatibility XY-only projection.
+        assert_eq!(value.polygon_points.len(), 3);
+        let PcbPolygonPoint::Arc { start, mid, end } = value.polygon_points[1] else {
+            panic!("ordered arc was lost")
+        };
+        assert_eq!((start.x, mid.y, end.x), (0.0, 1.0, 2.0));
+        let net = value.net.unwrap();
+        assert_eq!((net.ordinal, net.name.as_deref()), (None, Some("GND")));
+        assert_eq!(value.solder_mask_margin, Some(0.08));
+        assert_eq!(value.layers, None);
+        assert_eq!(value.radius, None);
+    }
+    let extras = PcbView::parse(
+        r#"(kicad_pcb
+      (gr_rect (start 0 0) (end 2 3) (radius 0.25) (layers "F.Cu" "B.Cu") (net 0))
+      (gr_line (start 0 0) (end 1 1) (layers)))"#,
+        PcbLimits::default(),
+    )
+    .unwrap();
+    let rows = extras.graphics().collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(rows[0].radius, Some(0.25));
+    assert_eq!(
+        rows[0].layers.as_deref(),
+        Some(["F.Cu".into(), "B.Cu".into()].as_slice())
+    );
+    assert_eq!(rows[0].net.as_ref().unwrap().ordinal, Some(0));
+    assert_eq!(rows[1].layers, Some(Vec::new()));
+    assert_eq!(rows[1].net, None);
+    assert_polygon_limits_and_malformed_arc(&board);
+}
+
+fn assert_polygon_limits_and_malformed_arc(board: &str) {
+    for (maximum, succeeds) in [(5, true), (4, false)] {
+        let limited = PcbView::parse(
+            board,
+            PcbLimits {
+                max_graphic_points: maximum,
+                ..PcbLimits::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(limited.graphics().next().unwrap().is_ok(), succeeds);
+    }
+    let malformed = board.replace("(mid 1 1)", "");
+    assert!(
+        PcbView::parse(&malformed, PcbLimits::default())
+            .unwrap()
+            .graphics()
+            .next()
+            .unwrap()
+            .is_err()
+    );
 }
 
 #[test]

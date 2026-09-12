@@ -1,15 +1,7 @@
 use super::*;
 
-/// Ordered KiCad polygon outline elements, without tessellating embedded arcs.
-#[derive(Clone, Debug, PartialEq)]
-pub enum PcbPadPolygonPoint {
-    Xy(PcbPoint),
-    Arc {
-        start: PcbPoint,
-        mid: PcbPoint,
-        end: PcbPoint,
-    },
-}
+/// Compatibility name for the shared source polygon element type.
+pub type PcbPadPolygonPoint = PcbPolygonPoint;
 
 /// Source-local geometry. Proxy shapes are not copper primitives.
 #[derive(Clone, Debug, PartialEq)]

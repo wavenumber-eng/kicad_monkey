@@ -75,6 +75,30 @@
   unchanged.</p>
 
   <h2>First promoted families</h2>
+  <p>The public board, embedded-footprint and standalone-footprint graphic
+  readers preserve optional source net association, plural layer selectors
+  (including an explicitly empty list), rectangle radius and local solder-mask
+  margin. <code>PcbGraphic.polygon_points</code> carries ordered
+  <code>PcbPolygonPoint::Xy</code> and <code>Arc</code> elements, without flattening.
+  The existing <code>points</code> field is only an XY compatibility projection
+  and is not complete polygon geometry. The same polygon element type is shared
+  by pad primitives; <code>PcbPadPolygonPoint</code> remains a compatibility alias.
+  These facts follow the released KiCad 10.0.6 <code>parsePCB_SHAPE</code> and
+  <code>parseOutlinePoints</code> source at commit
+  <code>caf7377e9cb6fa1535ec3596dcb8c99bf44a996e</code>. Read coverage is not fresh
+  writer coverage: <code>AuthoredGraphic</code> currently cannot author nets,
+  polygon-embedded arcs, rounded rectangles, plural layers or shape-local mask
+  margins. Those explicit writer gaps belong to issue #87 and require checking
+  the selected output revision before promotion. Existing document replay/edit
+  retains source forms; consumers must not treat the XY-only compatibility view
+  as a lossless rewrite path.</p>
+  <p>Source reading is also separate from the existing public board plotter.
+  Its polygon rendering still uses the XY-only compatibility projection, and
+  rounded rectangles and plural layer selectors are not fully rendered there.
+  Those pre-existing renderer limitations remain source-library integration
+  debt under issue #84; these reader tests do not prove rendering parity. Native
+  consumers requiring complete geometry must use the typed outline and inspect
+  the optional physical fields.</p>
   <p>The spike promotes explicit board thickness, paper, layer table, auxiliary
   and grid origins, physical stackup layers/material/electrical fields, outer
   profile and cutout graphics, nets, footprint occurrences, properties and
