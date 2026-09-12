@@ -38,7 +38,9 @@ pub struct PcbResolvedPadCopperLayer<'a> {
 ///
 /// The sparse source DTO cannot recover arbitrary mutation order. Explicit
 /// front rows, duplicate rows, nonstandard front/inner/back aliases, missing
-/// modes, and row-level thermal angles are rejected instead of guessed.
+/// modes, and unsupported selectors are rejected instead of guessed. Row-level
+/// thermal angles stay authored facts; the released reader does not apply them
+/// to their rows (see `explicit_row`).
 /// This helper targets modern, conventionally ordered source. It is not proof
 /// of pre-7 file migration or arbitrary reordered-field parity; those need a
 /// version-aware, ordered source interpretation beyond this sparse DTO.
@@ -71,11 +73,6 @@ pub fn resolve_pad_copper_layer<'a>(
         if row.layer == "F.Cu" {
             return Err(unsupported(
                 "Explicit F.Cu padstack rows require ordered source interpretation",
-            ));
-        }
-        if row.thermal_bridge_angle.is_some() {
-            return Err(unsupported(
-                "Per-row thermal angle has ambiguous released KiCad parser semantics",
             ));
         }
         let valid = if mode == "front_inner_back" {
@@ -173,6 +170,10 @@ fn explicit_row(row: &PcbPadstackLayer) -> PcbResolvedPadCopperLayer<'_> {
         custom_primitives: &row.custom_primitives,
         clearance: row.clearance,
         thermal_bridge_width: row.thermal_bridge_width,
+        // KiCad 10.0.6 parsePadstack calls SetThermalSpokeAngle without curLayer,
+        // temporarily writing F.Cu. parsePAD then assigns the root angle/default
+        // after reading the stack, overwriting that write. Non-front rows retain
+        // their shape defaults, not the authored row thermal_bridge_angle token.
         thermal_bridge_angle: if matches!(shape, "oval" | "rect" | "roundrect")
             || row.chamfer_ratio.is_some_and(|ratio| ratio > 0.0)
             || !row.chamfer_corners.is_empty()
@@ -258,13 +259,41 @@ mod tests {
             0.0
         );
         assert_ambiguous_stacks_are_rejected();
+        assert_authored_row_angles_follow_released_reader();
+    }
+
+    fn assert_authored_row_angles_follow_released_reader() {
+        for (mode, inner) in [("custom", "In1.Cu"), ("front_inner_back", "Inner")] {
+            let mut source = pad(&format!(
+                r#"(padstack (mode {mode})
+                    (layer "{inner}" (shape circle) (size 1 1) (thermal_bridge_angle 13))
+                    (layer "B.Cu" (shape rect) (size 1 2) (thermal_bridge_angle 27)))"#
+            ));
+            source.shape = "circle".into();
+            source.thermal_bridge_angle = Some(61.0);
+            for (root_override, expected_front) in [(Some(61.0), 61.0), (None, 45.0)] {
+                source.thermal_bridge_angle = root_override;
+                for (layer, expected) in
+                    [("F.Cu", expected_front), ("In1.Cu", 45.0), ("B.Cu", 90.0)]
+                {
+                    assert_eq!(
+                        resolve_pad_copper_layer(&source, layer)
+                            .unwrap()
+                            .thermal_bridge_angle,
+                        expected
+                    );
+                }
+            }
+            let rows = &source.padstack.as_ref().unwrap().layers;
+            assert_eq!(rows[0].thermal_bridge_angle, Some(13.0));
+            assert_eq!(rows[1].thermal_bridge_angle, Some(27.0));
+        }
     }
 
     fn assert_ambiguous_stacks_are_rejected() {
         for stack in [
             r#"(padstack (mode custom) (layer "F.Cu" (size 1 1)))"#,
             r#"(padstack (mode custom) (layer "B.Cu") (layer "B.Cu"))"#,
-            r#"(padstack (mode custom) (layer "B.Cu" (thermal_bridge_angle 90)))"#,
         ] {
             assert!(resolve_pad_copper_layer(&pad(stack), "F.Cu").is_err());
         }

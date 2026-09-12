@@ -311,7 +311,9 @@
   pads. Fresh readback therefore pins authored rows, while post-save proof pins
   the source-normalized meaning rather than demanding an unchanged row count.
   Per-layer thermal bridge angle remains readable but fresh writing rejects it:
-  the verified KiCad 10.0.6 parser applies it to F.Cu instead of the selected row.
+  the verified KiCad 10.0.6 parser temporarily applies it to F.Cu instead of the
+  selected row, then overwrites F.Cu with the root angle or root-shape default
+  after reading the pad. A fresh writer cannot promise the requested row angle.
   These are explicit source-loss boundaries, not a canonical padstack solver.</p>
   <p><code>resolve_pad_copper_layer</code> supplies a borrowed effective copper
   shape/policy view for native consumers. The raw <code>PcbPadstack</code> remains
@@ -323,9 +325,16 @@
   custom anchors default to circle; new row anchors default to rectangle.
   The helper neither selects present copper nor inherits footprint/design-rule
   policy, flips board sides, realizes geometry, or constructs another model.
-  It rejects explicit front rows, duplicate rows, unsupported selector aliases,
-  and row thermal angles where sparse facts cannot faithfully describe ordered
-  parser mutations. Zero-sized explicit rows remain zero-sized facts for the
+  It rejects explicit front rows, duplicate rows, and unsupported selector aliases
+  where sparse facts cannot faithfully describe ordered parser mutations.
+  Authored row thermal angles are readable without blocking effective shape
+  resolution: released 10.0.6 leaves non-front rows at their shape-default angle
+  and retains the root override/default on F.Cu. The raw row values remain
+  untouched for source evidence. This behavior follows
+  <a href="https://github.com/KiCad/kicad-source-mirror/blob/10.0.6/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.cpp">parsePadstack and parsePAD</a>,
+  <a href="https://github.com/KiCad/kicad-source-mirror/blob/10.0.6/pcbnew/padstack.h">SetThermalSpokeAngle's default F.Cu target</a>, and
+  <a href="https://github.com/KiCad/kicad-source-mirror/blob/10.0.6/pcbnew/padstack.cpp">ThermalSpokeAngle's per-shape fallback</a>.
+  Zero-sized explicit rows remain zero-sized facts for the
   consumer to report or handle, not invented positive-area lands. This API
   targets modern source semantics; pre-7 custom-circle thermal-angle migration
   and arbitrary reordered pad fields are not an effective-parity claim.</p>
