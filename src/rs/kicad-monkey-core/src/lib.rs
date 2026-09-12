@@ -138,11 +138,11 @@ pub use pcb::{
     PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet, PcbNetRef, PcbPad,
     PcbPadCustomOptions, PcbPadCustomPrimitive, PcbPadDrill, PcbPadNameGroup, PcbPadPolygonPoint,
     PcbPadPrimitiveGeometry, PcbPadstack, PcbPadstackLayer, PcbPoint, PcbPostMachiningProperties,
-    PcbProfileOwner, PcbProfilePrimitive, PcbProperty, PcbRoutingArc, PcbSegment, PcbSelection,
-    PcbSetup, PcbStackup, PcbStackupLayer, PcbTable, PcbTableCell, PcbTeardropParameters, PcbVia,
-    PcbViaStack, PcbViaStackLayer, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout,
-    PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement, PcbZonePlacementSource,
-    PcbZonePolygon,
+    PcbProfileOwner, PcbProfilePrimitive, PcbProperty, PcbResolvedPadCopperLayer, PcbRoutingArc,
+    PcbSegment, PcbSelection, PcbSetup, PcbStackup, PcbStackupLayer, PcbTable, PcbTableCell,
+    PcbTeardropParameters, PcbVia, PcbViaStack, PcbViaStackLayer, PcbView, PcbZone,
+    PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerConnections, PcbZoneLayerProperty,
+    PcbZonePlacement, PcbZonePlacementSource, PcbZonePolygon, resolve_pad_copper_layer,
 };
 pub use pcb_authoring::{
     AuthoredBackdrill, AuthoredBoardText, AuthoredChamferCorner, AuthoredColor,

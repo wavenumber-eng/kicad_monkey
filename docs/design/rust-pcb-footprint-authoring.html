@@ -278,6 +278,22 @@
   Per-layer thermal bridge angle remains readable but fresh writing rejects it:
   the verified KiCad 10.0.6 parser applies it to F.Cu instead of the selected row.
   These are explicit source-loss boundaries, not a canonical padstack solver.</p>
+  <p><code>resolve_pad_copper_layer</code> supplies a borrowed effective copper
+  shape/policy view for native consumers. The raw <code>PcbPadstack</code> remains
+  sparse authored evidence. Resolution follows released KiCad 10.0.6
+  <code>PAD</code>/<code>PADSTACK</code> defaults and const layer lookup: explicit
+  non-front rows start with empty layer defaults, not root copies; absent custom
+  rows fall back to the root. The front/inner/back lookup can use the Inner row
+  for an absent back row. Offset/delta reset to zero on explicit rows. Root
+  custom anchors default to circle; new row anchors default to rectangle.
+  The helper neither selects present copper nor inherits footprint/design-rule
+  policy, flips board sides, realizes geometry, or constructs another model.
+  It rejects explicit front rows, duplicate rows, unsupported selector aliases,
+  and row thermal angles where sparse facts cannot faithfully describe ordered
+  parser mutations. Zero-sized explicit rows remain zero-sized facts for the
+  consumer to report or handle, not invented positive-area lands. This API
+  targets modern source semantics; pre-7 custom-circle thermal-angle migration
+  and arbitrary reordered pad fields are not an effective-parity claim.</p>
 
   <p><code>AuthoredVia::backdrill</code> optionally retains source diameter
   and ordered copper-layer endpoints, including a bottom-to-inner direction.

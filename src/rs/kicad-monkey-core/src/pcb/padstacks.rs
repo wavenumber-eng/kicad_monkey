@@ -1,6 +1,9 @@
-//! Authored per-layer pad/via source records; no effective geometry resolution.
+//! Sparse authored pad/via records and bounded effective pad copper facts.
+//! Source declarations remain unchanged by the separate borrowed resolver.
 
 use super::*;
+mod resolve;
+pub use resolve::{PcbResolvedPadCopperLayer, resolve_pad_copper_layer};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbPadstack {

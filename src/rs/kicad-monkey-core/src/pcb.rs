@@ -52,7 +52,10 @@ pub use manufacturing::{
 pub use pads::{
     PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive, PcbPadPolygonPoint, PcbPadPrimitiveGeometry,
 };
-pub use padstacks::{PcbPadstack, PcbPadstackLayer, PcbViaStack, PcbViaStackLayer};
+pub use padstacks::{
+    PcbPadstack, PcbPadstackLayer, PcbResolvedPadCopperLayer, PcbViaStack, PcbViaStackLayer,
+    resolve_pad_copper_layer,
+};
 pub use physical::{
     PcbFootprintTransform, PcbHole, PcbHoleOwner, PcbHoleShape, PcbPadDrill, PcbProfileOwner,
     PcbProfilePrimitive,
