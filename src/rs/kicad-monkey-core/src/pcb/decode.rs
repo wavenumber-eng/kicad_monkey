@@ -420,8 +420,8 @@ pub(super) fn graphic_from_span(
             PcbPolygonPoint::Arc { .. } => None,
         })
         .collect();
-    // KiCad applies width/stroke declarations in authored order. A modern
-    // stroke block starts its width at zero even if it only specifies a style.
+    // KiCad applies width/stroke declarations in authored order to one stroke
+    // object. Each block updates only fields it explicitly contains.
     let mut stroke_width = None;
     let mut stroke_kind = None;
     for declaration in &children {
@@ -447,8 +447,12 @@ pub(super) fn graphic_from_span(
                         declaration.start,
                     ));
                 }
-                stroke_width = width;
-                stroke_kind = optional_child_string(source, &fields, "type")?;
+                if width.is_some() {
+                    stroke_width = width;
+                }
+                if let Some(kind) = optional_child_string(source, &fields, "type")? {
+                    stroke_kind = Some(kind);
+                }
             }
             _ => {}
         }

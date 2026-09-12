@@ -638,12 +638,7 @@ fn assert_legacy_graphic_fill_defaults() {
             );
         }
     }
-    for ambiguous in [
-        "(fill)",
-        "(fill (solid))",
-        "(width)",
-        "(stroke (width))",
-    ] {
+    for ambiguous in ["(fill)", "(fill (solid))", "(width)", "(stroke (width))"] {
         let source =
             format!("(kicad_pcb (gr_rect (start 0 0) (end 1 1) (layer F.Cu) {ambiguous}))");
         let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
@@ -652,15 +647,22 @@ fn assert_legacy_graphic_fill_defaults() {
     for (declarations, width, fill) in [
         ("(width 0.2) (stroke (width 0))", 0.0, "solid"),
         ("(stroke (width 0)) (width 0.2)", 0.2, "none"),
-        ("(width 0.2) (stroke (type solid))", 0.0, "solid"),
+        ("(width 0.2) (stroke (type solid))", 0.2, "none"),
         ("(stroke (type solid)) (width 0.2)", 0.2, "none"),
+        ("(stroke (width 0.2)) (stroke (type solid))", 0.2, "none"),
     ] {
-        let source = format!("(kicad_pcb (gr_rect (start 0 0) (end 1 1) (layer F.Cu) {declarations}))");
+        let source =
+            format!("(kicad_pcb (gr_rect (start 0 0) (end 1 1) (layer F.Cu) {declarations}))");
         let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
         let graphic = view.graphics().next().unwrap().unwrap();
         assert_eq!(graphic.stroke_width.unwrap_or(0.0), width);
         assert_eq!(graphic.effective_fill_for_layer("F.Cu"), fill);
     }
+    let source = "(kicad_pcb (gr_rect (start 0 0) (end 1 1) (layer F.Cu) (stroke (type dash)) (stroke (width 0.2))))";
+    let view = PcbView::parse(source, PcbLimits::default()).unwrap();
+    let graphic = view.graphics().next().unwrap().unwrap();
+    assert_eq!(graphic.stroke_kind.as_deref(), Some("dash"));
+    assert_eq!(graphic.stroke_width, Some(0.2));
 }
 
 fn assert_polygon_limits_and_malformed_arc(board: &str) {

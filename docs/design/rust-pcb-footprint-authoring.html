@@ -99,8 +99,9 @@
   selectors, alter authored optional fill evidence, resolve unfilled stroke
   fallback widths, or reinterpret explicit hatch/other fill tokens. The graphic
   reader resolves legacy top-level <code>width</code> and modern
-  <code>stroke</code> declarations in source order, including the modern
-  block's default zero width. Present empty or nested-only fill/width values
+  <code>stroke</code> declarations in source order. Stroke blocks update only
+  authored width/style fields; absent fields retain prior values. Initial
+  width is zero. Present empty or nested-only fill/width values
   fail explicitly rather than being mistaken for omitted defaults.</p>
   <p>Source reading is also separate from the existing public board plotter.
   Its polygon rendering still uses the XY-only compatibility projection, and
