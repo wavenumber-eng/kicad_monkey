@@ -584,8 +584,27 @@ fn graphic_geometry(value: &AuthoredGraphicGeometry) -> (&'static str, Vec<Sexp>
             "circle",
             vec![point_form("center", *center), point_form("end", *end)],
         ),
-        AuthoredGraphicGeometry::Polygon { points } => ("poly", vec![points_form(points)]),
+        AuthoredGraphicGeometry::Polygon { points } => {
+            ("poly", vec![graphic_polygon_points_form(points)])
+        }
     }
+}
+
+fn graphic_polygon_points_form(points: &[AuthoredPolygonPoint]) -> Sexp {
+    form(
+        "pts",
+        points.iter().map(|point| match point {
+            AuthoredPolygonPoint::Xy(point) => point_form("xy", *point),
+            AuthoredPolygonPoint::Arc { start, mid, end } => form(
+                "arc",
+                [
+                    point_form("start", *start),
+                    point_form("mid", *mid),
+                    point_form("end", *end),
+                ],
+            ),
+        }),
+    )
 }
 
 fn pad(value: &AuthoredPad) -> Sexp {

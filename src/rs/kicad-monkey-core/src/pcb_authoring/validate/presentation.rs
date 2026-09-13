@@ -334,7 +334,14 @@ impl Validation {
                     return Err(invalid("graphic polygons require at least three points"));
                 }
                 for point in points {
-                    self.point(*point)?;
+                    match point {
+                        AuthoredPolygonPoint::Xy(point) => self.point(*point)?,
+                        AuthoredPolygonPoint::Arc { start, mid, end } => {
+                            self.point(*start)?;
+                            self.point(*mid)?;
+                            self.point(*end)?;
+                        }
+                    }
                 }
             }
         }

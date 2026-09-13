@@ -117,6 +117,22 @@ pub struct AuthoredNet {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum AuthoredPolygonPoint {
+    Xy(AuthoredPoint),
+    Arc {
+        start: AuthoredPoint,
+        mid: AuthoredPoint,
+        end: AuthoredPoint,
+    },
+}
+
+impl From<AuthoredPoint> for AuthoredPolygonPoint {
+    fn from(value: AuthoredPoint) -> Self {
+        Self::Xy(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum AuthoredGraphicGeometry {
     Line {
         start: AuthoredPoint,
@@ -136,7 +152,7 @@ pub enum AuthoredGraphicGeometry {
         end: AuthoredPoint,
     },
     Polygon {
-        points: Vec<AuthoredPoint>,
+        points: Vec<AuthoredPolygonPoint>,
     },
 }
 

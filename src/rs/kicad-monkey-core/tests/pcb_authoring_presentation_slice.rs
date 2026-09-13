@@ -5,11 +5,12 @@ use kicad_monkey_core::{
     AuthoredBoardText, AuthoredColor, AuthoredFootprint, AuthoredFootprintOccurrence,
     AuthoredFootprintProperty, AuthoredFootprintScalarProperty, AuthoredFootprintText,
     AuthoredGraphic, AuthoredGraphicGeometry, AuthoredLayer, AuthoredNet, AuthoredNetRef,
-    AuthoredPcb, AuthoredPoint, AuthoredStandaloneFootprint, AuthoredTextBox,
+    AuthoredPcb, AuthoredPoint, AuthoredPolygonPoint, AuthoredStandaloneFootprint, AuthoredTextBox,
     AuthoredTextBoxGeometry, AuthoredTextEffects, AuthoredTextHorizontalJustification,
     AuthoredTextVerticalJustification, ErrorKind, FootprintLimits, FootprintView,
-    PcbAuthoringLimits, PcbGraphicKind, PcbLimits, PcbView, TextContour, TextPoint,
-    TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon, read_text_render_cache_a0,
+    PcbAuthoringLimits, PcbGraphicKind, PcbLimits, PcbPolygonPoint, PcbView, TextContour,
+    TextPoint, TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon,
+    read_text_render_cache_a0,
 };
 
 fn point(x_mm: f64, y_mm: f64) -> AuthoredPoint {
@@ -359,7 +360,15 @@ fn copper_graphic_net_roundtrips_by_name_and_requires_the_board_binding() {
     });
     value.graphics.push(AuthoredGraphic {
         geometry: AuthoredGraphicGeometry::Polygon {
-            points: vec![point(1.0, 1.0), point(3.0, 1.0), point(2.0, 2.0)],
+            points: vec![
+                point(1.0, 1.0).into(),
+                AuthoredPolygonPoint::Arc {
+                    start: point(1.0, 1.0),
+                    mid: point(2.0, 0.5),
+                    end: point(3.0, 1.0),
+                },
+                point(2.0, 2.0).into(),
+            ],
         },
         layer: "F.Cu".to_owned(),
         net: Some(AuthoredNetRef {
@@ -381,16 +390,18 @@ fn copper_graphic_net_roundtrips_by_name_and_requires_the_board_binding() {
         .graphics()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
+    let copper = graphics
+        .iter()
+        .find(|graphic| graphic.uuid.as_deref() == Some(copper_uuid.as_str()))
+        .unwrap();
     assert_eq!(
-        graphics
-            .iter()
-            .find(|graphic| graphic.uuid.as_deref() == Some(copper_uuid.as_str()))
-            .unwrap()
-            .net
-            .as_ref()
-            .and_then(|net| net.name.as_deref()),
+        copper.net.as_ref().and_then(|net| net.name.as_deref()),
         Some("GND")
     );
+    assert!(matches!(
+        copper.polygon_points[1],
+        PcbPolygonPoint::Arc { .. }
+    ));
 
     let mut mismatched = value.clone();
     mismatched
