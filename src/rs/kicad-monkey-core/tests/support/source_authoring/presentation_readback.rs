@@ -127,6 +127,7 @@ pub(super) fn assert_standalone_presentation(
     assert_eq!(reference.effects.font.size_y, 0.8);
     assert_eq!(reference.effects.font.color, None);
     assert_eq!(reference.effects.href, None);
+    assert!(reference.knockout);
     let reference_cache = cache_from_range(
         footprint_document.source(),
         reference

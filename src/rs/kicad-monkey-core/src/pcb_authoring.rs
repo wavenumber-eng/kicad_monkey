@@ -246,6 +246,7 @@ pub struct AuthoredFootprintProperty {
     pub at: AuthoredPoint,
     pub angle_degrees: f64,
     pub layer: String,
+    pub knockout: bool,
     pub hidden: bool,
     pub unlocked: bool,
     pub effects: AuthoredTextEffects,

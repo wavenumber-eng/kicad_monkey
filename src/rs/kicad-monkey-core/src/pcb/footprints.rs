@@ -15,6 +15,7 @@ pub struct PcbFootprintProperty {
     pub at: PcbPoint,
     pub angle: f64,
     pub layer: String,
+    pub knockout: bool,
     pub hidden: bool,
     pub unlocked: bool,
     pub graphical: bool,
@@ -404,6 +405,7 @@ pub(super) fn footprint_property_from_span(
         limits.max_object_children,
     )?;
     let graphical = child(&children, "at").is_some() && child(&children, "layer").is_some();
+    let (layer, knockout) = text_layer(source, &children, limits.max_object_children)?;
     let effects = text_effects_from_children(source, &children, limits)?.unwrap_or_default();
     let hidden =
         has_flag(&header, "hide") || child_bool(source, &children, "hide")? || effects.hidden;
@@ -421,8 +423,8 @@ pub(super) fn footprint_property_from_span(
         )?,
         at: PcbPoint { x: at[0], y: at[1] },
         angle: at[2],
-        layer: optional_child_string(source, &children, "layer")?
-            .unwrap_or_else(|| "F.SilkS".to_owned()),
+        layer,
+        knockout,
         hidden,
         unlocked: has_flag(&header, "unlocked") || child_bool(source, &children, "unlocked")?,
         graphical,

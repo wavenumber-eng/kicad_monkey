@@ -113,6 +113,7 @@ pub(super) fn board_footprint(
         } else {
             "F.SilkS".to_owned()
         },
+        knockout: false,
         hidden: false,
         unlocked: false,
         effects: text_effects(),
@@ -352,6 +353,7 @@ pub(super) fn standalone_footprint() -> AuthoredStandaloneFootprint {
             at: point(0.0, -2.0),
             angle_degrees: 0.0,
             layer: "F.SilkS".to_owned(),
+            knockout: false,
             hidden: false,
             unlocked: false,
             effects: text_effects(),
@@ -364,6 +366,7 @@ pub(super) fn standalone_footprint() -> AuthoredStandaloneFootprint {
             at: point(0.0, 2.0),
             angle_degrees: 0.0,
             layer: "F.Fab".to_owned(),
+            knockout: false,
             hidden: true,
             unlocked: false,
             effects: text_effects(),

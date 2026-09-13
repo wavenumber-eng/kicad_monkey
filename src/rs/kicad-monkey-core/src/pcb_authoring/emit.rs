@@ -315,7 +315,7 @@ fn footprint_property(
         quoted(&value.name),
         quoted(&value.value),
         position_form("at", value.at, value.angle_degrees),
-        form("layer", [quoted(&value.layer)]),
+        text_layer(&value.layer, value.knockout),
     ];
     if value.hidden {
         children.push(form("hide", [atom("yes")]));

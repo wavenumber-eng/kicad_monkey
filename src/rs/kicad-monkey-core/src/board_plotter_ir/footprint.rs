@@ -333,7 +333,7 @@ fn append_properties(
                 native_context: NativeCacheContext::Simple {
                     unlocked: property.unlocked,
                 },
-                knockout: false,
+                knockout: property.knockout,
             },
             &mut operation,
             budget,
