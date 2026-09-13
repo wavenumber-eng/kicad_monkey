@@ -382,7 +382,8 @@ fn require_footprint_layer(
 ) -> Result<(), Error> {
     if let Some(layers) = board_layers
         && !layers.contains_key(layer)
-        && canonical_layer_ordinal(layer).is_some_and(|ordinal| ordinal > 31)
+        && canonical_layer_ordinal(layer).is_some()
+        && canonical_copper_order(layer).is_none()
     {
         // KiCad permits footprint presentation members on a known user layer
         // even when that layer is not enabled in the owning board table.

@@ -339,6 +339,15 @@ fn authored_board_and_footprint_presentation_round_trip_exactly() {
     assert!(source.contains("(layer \"User.7\")"));
     assert!(source.contains("(layer \"User.7\" knockout)"));
 
+    let mut disabled_standard_presentation_layer = board();
+    disabled_standard_presentation_layer.footprints[0].footprint.graphics[0].layer =
+        "F.Mask".to_owned();
+    disabled_standard_presentation_layer.footprints[0].footprint.properties[0].layer =
+        "F.Mask".to_owned();
+    disabled_standard_presentation_layer
+        .canonical_text(PcbAuthoringLimits::default())
+        .expect("footprint presentation may use a known disabled standard layer");
+
     let mut invalid_board_layer = board();
     invalid_board_layer.graphics[0].layer = "User.7".to_owned();
     assert_eq!(
