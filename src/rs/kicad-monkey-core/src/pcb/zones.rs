@@ -92,6 +92,10 @@ pub struct PcbZone {
     pub thermal_bridge_width: f64,
     pub island_removal_mode: Option<i64>,
     pub island_area_min: Option<f64>,
+    /// Explicit fill children whose semantics are not represented by the
+    /// promoted typed fields. Consumers that rewrite zones must reject or
+    /// deliberately map these tokens rather than assuming a solid fill.
+    pub unmodeled_fill_settings: Vec<String>,
     pub keepout: Option<PcbZoneKeepout>,
     pub placement: Option<PcbZonePlacement>,
     pub layer_properties: Vec<PcbZoneLayerProperty>,
@@ -158,6 +162,7 @@ pub(super) fn zone_from_span(
         .map(|item| direct_children(source, item, limits.max_object_children, limits))
         .transpose()?
         .unwrap_or_default();
+    let unmodeled_fill_settings = unmodeled_fill_settings(source, &fill_children)?;
 
     let collections = zone_collections(source, &children, limits)?;
 
@@ -187,6 +192,7 @@ pub(super) fn zone_from_span(
             .unwrap_or(0.5),
         island_removal_mode: optional_child_i64(source, &fill_children, "island_removal_mode")?,
         island_area_min: optional_child_f64(source, &fill_children, "island_area_min")?,
+        unmodeled_fill_settings,
         keepout: keepout_from_children(source, &children, limits)?,
         placement: placement_from_children(source, &children, limits)?,
         layer_properties: collections.layer_properties,
@@ -194,6 +200,26 @@ pub(super) fn zone_from_span(
         filled_polygons: collections.filled_polygons,
         source_range: span.range.clone(),
     })
+}
+
+fn unmodeled_fill_settings(source: &str, children: &[FormSpan]) -> Result<Vec<String>, Error> {
+    let mut result = Vec::new();
+    for child in children {
+        let Some(head) = child.head.as_deref() else {
+            continue;
+        };
+        match head {
+            "thermal_gap" | "thermal_bridge_width" | "island_removal_mode" | "island_area_min" => {}
+            "mode" => {
+                let mode = first_string(source, child)?.unwrap_or_default();
+                if mode != "polygon" {
+                    result.push(format!("mode={mode}"));
+                }
+            }
+            _ => result.push(head.to_owned()),
+        }
+    }
+    Ok(result)
 }
 
 fn zone_collections(

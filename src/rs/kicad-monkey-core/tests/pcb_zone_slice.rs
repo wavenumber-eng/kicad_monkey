@@ -45,6 +45,37 @@ fn zones_expose_authored_and_filled_source_semantics() {
     assert_placement_declaration_fidelity();
 }
 
+#[test]
+fn zones_surface_fill_settings_that_a_rewriter_must_not_drop() {
+    let source = r#"(kicad_pcb
+      (zone (net 0) (layer "F.Cu") (hatch edge 0.5)
+        (connect_pads (clearance 0.2)) (min_thickness 0.1)
+        (fill yes (mode hatch) (hatch_thickness 0.2) (hatch_gap 0.3)
+          (hatch_orientation 45) (hatch_smoothing_level 1)
+          (hatch_smoothing_value 0.1) (hatch_border_algorithm hatch_thickness)
+          (hatch_min_hole_area 0.4) (smoothing fillet) (radius 0.25)
+          (arc_segments 16) (thermal_gap 0.2) (thermal_bridge_width 0.3))
+        (polygon (pts (xy 0 0) (xy 10 0) (xy 10 10)))))"#;
+    let view = PcbView::parse(source, PcbLimits::default()).unwrap();
+    let zone = view.zones().next().unwrap().unwrap();
+    assert_eq!(
+        zone.unmodeled_fill_settings,
+        [
+            "mode=hatch",
+            "hatch_thickness",
+            "hatch_gap",
+            "hatch_orientation",
+            "hatch_smoothing_level",
+            "hatch_smoothing_value",
+            "hatch_border_algorithm",
+            "hatch_min_hole_area",
+            "smoothing",
+            "radius",
+            "arc_segments",
+        ]
+    );
+}
+
 fn assert_placement_declaration_fidelity() {
     for (declaration, enabled, present) in [
         ("(enabled yes)", true, true),
