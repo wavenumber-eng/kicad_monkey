@@ -296,14 +296,29 @@ impl Validation {
                 "dash_dot_dot",
             ],
         )?;
-        if graphic.fill.as_deref() == Some("solid") {
+        if matches!(
+            graphic.fill.as_deref(),
+            Some("solid" | "yes" | "hatch" | "reverse_hatch" | "cross_hatch")
+        ) {
             nonnegative(graphic.stroke_width_mm, "filled graphic stroke width")?;
         } else {
             positive(graphic.stroke_width_mm, "graphic stroke width")?;
         }
         if let Some(fill) = &graphic.fill {
             self.text(fill)?;
-            supported_token(fill, "graphic fill", &["none", "solid"])?;
+            supported_token(
+                fill,
+                "graphic fill",
+                &[
+                    "no",
+                    "none",
+                    "yes",
+                    "solid",
+                    "hatch",
+                    "reverse_hatch",
+                    "cross_hatch",
+                ],
+            )?;
             if matches!(
                 graphic.geometry,
                 AuthoredGraphicGeometry::Line { .. }
