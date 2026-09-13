@@ -238,6 +238,12 @@ fn footprint_form(
         }
     }
     append_footprint_metadata(value, &mut children);
+    children.extend(value.scalar_properties.iter().map(|property| {
+        form(
+            "property",
+            [quoted(&property.name), quoted(&property.value)],
+        )
+    }));
     for property in &value.properties {
         children.push(footprint_property(property, occurrence, limits)?);
     }

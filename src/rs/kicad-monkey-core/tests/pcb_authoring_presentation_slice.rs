@@ -3,12 +3,12 @@ mod readback;
 
 use kicad_monkey_core::{
     AuthoredBoardText, AuthoredColor, AuthoredFootprint, AuthoredFootprintOccurrence,
-    AuthoredFootprintProperty, AuthoredFootprintText, AuthoredGraphic, AuthoredGraphicGeometry,
-    AuthoredLayer, AuthoredPcb, AuthoredPoint, AuthoredStandaloneFootprint, AuthoredTextBox,
-    AuthoredTextBoxGeometry, AuthoredTextEffects, AuthoredTextHorizontalJustification,
-    AuthoredTextVerticalJustification, ErrorKind, PcbAuthoringLimits, PcbGraphicKind, TextContour,
-    TextPoint, TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon,
-    read_text_render_cache_a0,
+    AuthoredFootprintProperty, AuthoredFootprintScalarProperty, AuthoredFootprintText,
+    AuthoredGraphic, AuthoredGraphicGeometry, AuthoredLayer, AuthoredPcb, AuthoredPoint,
+    AuthoredStandaloneFootprint, AuthoredTextBox, AuthoredTextBoxGeometry, AuthoredTextEffects,
+    AuthoredTextHorizontalJustification, AuthoredTextVerticalJustification, ErrorKind,
+    FootprintLimits, FootprintView, PcbAuthoringLimits, PcbGraphicKind, TextContour, TextPoint,
+    TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon, read_text_render_cache_a0,
 };
 
 fn point(x_mm: f64, y_mm: f64) -> AuthoredPoint {
@@ -592,4 +592,27 @@ fn presentation_points_obey_an_exact_aggregate_limit() {
         })
         .expect_err("one-under presentation point limit");
     assert_eq!(error.kind, ErrorKind::ResourceLimit);
+}
+
+#[test]
+fn scalar_footprint_properties_remain_non_graphical() {
+    let mut value = AuthoredStandaloneFootprint::new("scalar", "F.Cu");
+    value
+        .footprint
+        .scalar_properties
+        .push(AuthoredFootprintScalarProperty {
+            name: "Reference".into(),
+            value: "U1".into(),
+        });
+    let source = value.canonical_text(PcbAuthoringLimits::default()).unwrap();
+    let view = FootprintView::parse(&source, FootprintLimits::default()).unwrap();
+    let property = view.properties().next().unwrap().unwrap();
+    assert_eq!(
+        (property.name.as_ref(), property.value.as_ref()),
+        ("Reference", "U1")
+    );
+    let graphical = view.graphical_properties().next().unwrap().unwrap();
+    assert!(!graphical.graphical);
+    assert!(!source.contains("(at "));
+    assert!(!source.contains("(uuid "));
 }

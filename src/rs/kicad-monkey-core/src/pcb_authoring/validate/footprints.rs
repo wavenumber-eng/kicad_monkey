@@ -12,10 +12,29 @@ impl Validation {
         let mut property_names = BTreeSet::new();
         let variables = BoardTextVariables::from_entries(
             footprint
-                .properties
+                .scalar_properties
                 .iter()
-                .map(|property| (&property.name, &property.value)),
+                .map(|property| (&property.name, &property.value))
+                .chain(
+                    footprint
+                        .properties
+                        .iter()
+                        .map(|property| (&property.name, &property.value)),
+                ),
         );
+        for property in &footprint.scalar_properties {
+            self.text(&property.name)?;
+            self.text(&property.value)?;
+            if property.name.is_empty() {
+                return Err(invalid("footprint scalar property name must be nonempty"));
+            }
+            if !property_names.insert(property.name.as_str()) {
+                return Err(invalid(format!(
+                    "duplicate footprint property name {:?} in one owner",
+                    property.name
+                )));
+            }
+        }
         for property in &footprint.properties {
             if !property_names.insert(property.name.as_str()) {
                 return Err(invalid(format!(

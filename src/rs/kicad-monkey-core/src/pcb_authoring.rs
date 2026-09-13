@@ -233,6 +233,13 @@ pub struct AuthoredFootprintText {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct AuthoredFootprintScalarProperty {
+    pub name: String,
+    pub value: String,
+}
+
+/// A graphical footprint property with an explicit local presentation.
+#[derive(Clone, Debug, PartialEq)]
 pub struct AuthoredFootprintProperty {
     pub name: String,
     pub value: String,
@@ -527,6 +534,10 @@ pub struct AuthoredFootprint {
     pub clearance_mm: Option<f64>,
     /// Absent means inherit the zone's connection policy.
     pub zone_connect: Option<AuthoredZoneConnection>,
+    /// Properties with no authored presentation children. These remain
+    /// distinct from hidden graphical properties: emitting default coordinates
+    /// would create source geometry that did not exist.
+    pub scalar_properties: Vec<AuthoredFootprintScalarProperty>,
     pub properties: Vec<AuthoredFootprintProperty>,
     pub texts: Vec<AuthoredFootprintText>,
     pub text_boxes: Vec<AuthoredTextBox>,
@@ -548,6 +559,7 @@ impl AuthoredFootprint {
             solder_paste_margin_ratio: None,
             clearance_mm: None,
             zone_connect: None,
+            scalar_properties: Vec::new(),
             properties: Vec::new(),
             texts: Vec::new(),
             text_boxes: Vec::new(),
