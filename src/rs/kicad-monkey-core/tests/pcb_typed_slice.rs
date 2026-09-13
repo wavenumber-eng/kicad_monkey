@@ -42,7 +42,7 @@ const SOURCE: &str = r#"# board comment survives
 
 const CARRIERS: &str = r#"(kicad_pcb
   (net 1 "GND")
-  (gr_text "hello" (at 1 2) (layer "F.SilkS") (uuid text-id))
+  (gr_text "hello" (at 1 2) (layer "F.SilkS") (locked yes) (uuid text-id))
   (gr_line (start 1 2) (end 3 4) (stroke (width 0.2) (type dash)) (layer "Edge.Cuts") (uuid line-id))
   (gr_rect (start 5 6) (end 7 8) (stroke (width 0.3) (type default)) (fill solid) (layer "F.Cu"))
   (gr_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.4) (type default)) (layer "B.Cu"))
@@ -523,6 +523,8 @@ fn remaining_board_carriers_are_typed_in_source_order() {
         .collect::<Result<Vec<_>, _>>()
         .expect("graphics");
     assert_eq!(graphics[0].text.as_deref(), Some("hello"));
+    assert!(graphics[0].locked);
+    assert!(!graphics[1].locked);
     assert_eq!(graphics[1].start.expect("start").x, 1.0);
     assert_eq!(graphics[1].stroke_width, Some(0.2));
     assert_eq!(graphics[1].stroke_kind.as_deref(), Some("dash"));

@@ -496,6 +496,7 @@ pub(super) fn graphic_from_span(
         stroke_kind,
         fill,
         border,
+        locked: has_flag(&header, "locked") || child_bool(source, &children, "locked")?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })
@@ -661,6 +662,7 @@ fn dimension_text_from_span(
         stroke_kind: None,
         fill: None,
         border: None,
+        locked: has_flag(&header, "locked") || child_bool(source, &children, "locked")?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })

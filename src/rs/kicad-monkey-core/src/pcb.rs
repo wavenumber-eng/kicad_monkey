@@ -502,6 +502,8 @@ pub struct PcbGraphic {
     pub fill: Option<String>,
     /// Optional `gr_text_box` border state, including bare/empty forms.
     pub border: Option<bool>,
+    /// Board graphic/text lock state. False when the source omits it.
+    pub locked: bool,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }
