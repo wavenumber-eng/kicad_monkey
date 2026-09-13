@@ -206,10 +206,10 @@ impl Validation {
             if graphic.layer != "Edge.Cuts" {
                 return Err(invalid("board profile graphics must use Edge.Cuts"));
             }
-            self.graphic(graphic, Some(layers))?;
+            self.graphic(graphic, Some(layers), false)?;
         }
         for graphic in &value.graphics {
-            self.graphic(graphic, Some(layers))?;
+            self.graphic(graphic, Some(layers), false)?;
         }
         for text in &value.texts {
             self.board_text(text, layers)?;
@@ -372,6 +372,22 @@ fn require_layer(
         )));
     }
     Ok(())
+}
+
+fn require_footprint_layer(
+    layer: &str,
+    board_layers: Option<&BTreeMap<String, String>>,
+    allow_pad_wildcard: bool,
+) -> Result<(), Error> {
+    if let Some(layers) = board_layers
+        && !layers.contains_key(layer)
+        && canonical_layer_ordinal(layer).is_some_and(|ordinal| ordinal > 31)
+    {
+        // KiCad permits footprint presentation members on a known user layer
+        // even when that layer is not enabled in the owning board table.
+        return Ok(());
+    }
+    require_layer(layer, board_layers, allow_pad_wildcard)
 }
 
 fn require_footprint_root_layer(

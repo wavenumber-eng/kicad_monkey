@@ -11,7 +11,7 @@ impl Validation {
         self.text(&value.name)?;
         self.text(&value.value)?;
         self.text(&value.layer)?;
-        require_layer(&value.layer, board_layers, false)?;
+        require_footprint_layer(&value.layer, board_layers, false)?;
         self.point(value.at)?;
         finite(value.angle_degrees, "property angle")?;
         self.effects(&value.effects)?;
@@ -44,7 +44,7 @@ impl Validation {
         self.object()?;
         self.text(&value.text)?;
         self.text(&value.layer)?;
-        require_layer(&value.layer, board_layers, false)?;
+        require_footprint_layer(&value.layer, board_layers, false)?;
         self.point(value.at)?;
         finite(value.angle_degrees, "text angle")?;
         self.effects(&value.effects)?;
@@ -132,7 +132,11 @@ impl Validation {
         self.text(&value.text)?;
         self.text(&value.layer)?;
         self.text(&value.stroke_kind)?;
-        require_layer(&value.layer, board_layers, false)?;
+        if variables.is_some() {
+            require_footprint_layer(&value.layer, board_layers, false)?;
+        } else {
+            require_layer(&value.layer, board_layers, false)?;
+        }
         match &value.geometry {
             AuthoredTextBoxGeometry::Rectangle { start, end } => {
                 self.point(*start)?;
@@ -254,10 +258,15 @@ impl Validation {
         &mut self,
         graphic: &AuthoredGraphic,
         board_layers: Option<&BTreeMap<String, String>>,
+        footprint_member: bool,
     ) -> Result<(), Error> {
         self.object()?;
         self.text(&graphic.layer)?;
-        require_layer(&graphic.layer, board_layers, false)?;
+        if footprint_member {
+            require_footprint_layer(&graphic.layer, board_layers, false)?;
+        } else {
+            require_layer(&graphic.layer, board_layers, false)?;
+        }
         self.text(&graphic.stroke_kind)?;
         supported_token(
             &graphic.stroke_kind,

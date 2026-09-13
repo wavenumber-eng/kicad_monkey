@@ -323,6 +323,27 @@ fn authored_board_and_footprint_presentation_round_trip_exactly() {
         .expect("presentation footprint");
     publish("Demo_Presentation.kicad_mod", footprint_document.source());
     readback::assert_standalone_presentation(&footprint_document);
+
+    let mut disabled_editor_layer = board();
+    disabled_editor_layer.footprints[0].footprint.graphics[0].layer = "User.7".to_owned();
+    disabled_editor_layer.footprints[0].footprint.properties[0].layer = "User.7".to_owned();
+    let source = disabled_editor_layer
+        .canonical_text(PcbAuthoringLimits::default())
+        .expect("footprint presentation may use a known disabled editor layer");
+    let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+    assert!(!view.layers().any(|layer| layer.unwrap().name == "User.7"));
+    assert!(source.contains("(layer \"User.7\")"));
+    assert!(source.contains("(layer \"User.7\" knockout)"));
+
+    let mut invalid_board_layer = board();
+    invalid_board_layer.graphics[0].layer = "User.7".to_owned();
+    assert_eq!(
+        invalid_board_layer
+            .canonical_text(PcbAuthoringLimits::default())
+            .unwrap_err()
+            .kind,
+        ErrorKind::InvalidBuildValue
+    );
 }
 
 #[test]

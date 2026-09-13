@@ -56,7 +56,7 @@ impl Validation {
             self.text_box(text_box, board_layers, Some(&variables), occurrence)?;
         }
         for graphic in &footprint.graphics {
-            self.graphic(graphic, board_layers)?;
+            self.graphic(graphic, board_layers, true)?;
         }
         for pad in &footprint.pads {
             self.pad(pad, board_nets, board_layers)?;
