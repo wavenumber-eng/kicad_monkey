@@ -133,6 +133,7 @@ pub(super) fn board_footprint(
         } else {
             "F.SilkS".to_owned()
         },
+        locked: false,
         stroke_width_mm: 0.15,
         stroke_kind: "default".to_owned(),
         fill: None,
@@ -158,6 +159,7 @@ fn profile_line(base: u64, start: (f64, f64), end: (f64, f64)) -> AuthoredGraphi
             end: point(end.0, end.1),
         },
         layer: "Edge.Cuts".to_owned(),
+        locked: false,
         stroke_width_mm: 0.05,
         stroke_kind: "default".to_owned(),
         fill: None,
@@ -392,6 +394,7 @@ pub(super) fn standalone_footprint() -> AuthoredStandaloneFootprint {
             end: point(2.0, 1.0),
         },
         layer: "F.SilkS".to_owned(),
+        locked: false,
         stroke_width_mm: 0.15,
         stroke_kind: "default".to_owned(),
         fill: Some("none".to_owned()),

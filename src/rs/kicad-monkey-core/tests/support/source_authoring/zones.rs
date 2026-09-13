@@ -90,6 +90,7 @@ pub(super) fn board() -> AuthoredPcb {
             end: point(end.0, end.1),
         },
         layer: "Edge.Cuts".to_owned(),
+        locked: false,
         stroke_width_mm: 0.05,
         stroke_kind: "default".to_owned(),
         fill: None,

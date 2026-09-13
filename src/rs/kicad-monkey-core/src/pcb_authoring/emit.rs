@@ -552,6 +552,9 @@ fn graphic(value: &AuthoredGraphic, prefix: &str) -> Sexp {
         children.push(form("fill", [atom(fill)]));
     }
     children.push(form("layer", [quoted(&value.layer)]));
+    if value.locked {
+        children.push(form("locked", [atom("yes")]));
+    }
     children.push(form("uuid", [quoted(&value.uuid)]));
     Sexp::List(children)
 }

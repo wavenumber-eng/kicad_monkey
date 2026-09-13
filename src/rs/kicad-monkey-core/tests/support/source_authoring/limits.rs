@@ -153,6 +153,7 @@ pub(super) fn assert_object_string_and_point_limits(
             end: point(1.0, 0.0),
         },
         layer: "F.SilkS".to_owned(),
+        locked: false,
         stroke_width_mm: 0.1,
         stroke_kind: "solid".to_owned(),
         fill: None,

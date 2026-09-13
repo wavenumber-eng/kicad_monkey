@@ -144,6 +144,7 @@ pub enum AuthoredGraphicGeometry {
 pub struct AuthoredGraphic {
     pub geometry: AuthoredGraphicGeometry,
     pub layer: String,
+    pub locked: bool,
     pub stroke_width_mm: f64,
     pub stroke_kind: String,
     pub fill: Option<String>,
