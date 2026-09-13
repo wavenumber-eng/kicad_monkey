@@ -30,7 +30,7 @@ pub(super) fn assert_placed_custom_pad(pad: &kicad_monkey_core::PcbPad) {
     board.footprints = vec![occurrence];
     board.groups.clear();
     board.layers.push(AuthoredLayer {
-        ordinal: 49,
+        ordinal: 35,
         name: "F.Fab".to_owned(),
         kind: "user".to_owned(),
         user_name: None,

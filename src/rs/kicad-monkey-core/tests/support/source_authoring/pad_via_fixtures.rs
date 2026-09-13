@@ -11,13 +11,13 @@ pub(super) fn uuid(value: u64) -> String {
 pub(super) fn layers() -> Vec<AuthoredLayer> {
     [
         (0, "F.Cu", "signal"),
-        (1, "In1.Cu", "power"),
-        (2, "In2.Cu", "mixed"),
-        (31, "B.Cu", "signal"),
-        (34, "B.Paste", "user"),
-        (35, "F.Paste", "user"),
-        (38, "B.Mask", "user"),
-        (39, "F.Mask", "user"),
+        (4, "In1.Cu", "power"),
+        (6, "In2.Cu", "mixed"),
+        (2, "B.Cu", "signal"),
+        (15, "B.Paste", "user"),
+        (13, "F.Paste", "user"),
+        (3, "B.Mask", "user"),
+        (1, "F.Mask", "user"),
     ]
     .into_iter()
     .map(|(ordinal, name, kind)| AuthoredLayer {

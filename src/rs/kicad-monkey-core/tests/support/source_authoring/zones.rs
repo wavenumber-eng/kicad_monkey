@@ -63,10 +63,10 @@ fn zone() -> AuthoredZone {
 pub(super) fn board() -> AuthoredPcb {
     let layers = [
         (0, "F.Cu", "signal"),
-        (1, "In1.Cu", "power"),
-        (2, "In2.Cu", "power"),
-        (31, "B.Cu", "signal"),
-        (44, "Edge.Cuts", "user"),
+        (4, "In1.Cu", "power"),
+        (6, "In2.Cu", "power"),
+        (2, "B.Cu", "signal"),
+        (25, "Edge.Cuts", "user"),
     ]
     .into_iter()
     .map(|(ordinal, name, kind)| AuthoredLayer {

@@ -28,16 +28,16 @@ pub(super) fn publish_for_independent_oracle(name: &str, source: &str) {
 pub(super) fn layers() -> Vec<AuthoredLayer> {
     [
         (0, "F.Cu", "signal"),
-        (31, "B.Cu", "signal"),
-        (32, "B.Adhes", "user"),
-        (33, "F.Adhes", "user"),
-        (34, "B.Paste", "user"),
-        (35, "F.Paste", "user"),
-        (36, "B.SilkS", "user"),
-        (37, "F.SilkS", "user"),
-        (38, "B.Mask", "user"),
-        (39, "F.Mask", "user"),
-        (44, "Edge.Cuts", "user"),
+        (2, "B.Cu", "signal"),
+        (11, "B.Adhes", "user"),
+        (9, "F.Adhes", "user"),
+        (15, "B.Paste", "user"),
+        (13, "F.Paste", "user"),
+        (7, "B.SilkS", "user"),
+        (5, "F.SilkS", "user"),
+        (3, "B.Mask", "user"),
+        (1, "F.Mask", "user"),
+        (25, "Edge.Cuts", "user"),
     ]
     .into_iter()
     .map(|(ordinal, name, kind)| AuthoredLayer {

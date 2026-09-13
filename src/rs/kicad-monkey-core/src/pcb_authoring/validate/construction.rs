@@ -32,7 +32,7 @@ impl Validation {
         let mut copper_slots = names
             .iter()
             .filter(|(_, kind)| kind.as_str() != "user")
-            .filter_map(|(name, _)| canonical_layer_ordinal(name))
+            .filter_map(|(name, _)| canonical_copper_order(name))
             .collect::<Vec<_>>();
         copper_slots.sort_unstable();
         let last_inner = copper_count.saturating_sub(2);

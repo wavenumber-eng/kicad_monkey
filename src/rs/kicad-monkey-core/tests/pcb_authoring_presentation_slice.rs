@@ -171,12 +171,12 @@ fn footprint() -> AuthoredFootprint {
 fn layers() -> Vec<AuthoredLayer> {
     [
         (0, "F.Cu", "signal"),
-        (31, "B.Cu", "signal"),
-        (36, "B.SilkS", "user"),
-        (37, "F.SilkS", "user"),
-        (48, "B.Fab", "user"),
-        (49, "F.Fab", "user"),
-        (44, "Edge.Cuts", "user"),
+        (2, "B.Cu", "signal"),
+        (7, "B.SilkS", "user"),
+        (5, "F.SilkS", "user"),
+        (33, "B.Fab", "user"),
+        (35, "F.Fab", "user"),
+        (25, "Edge.Cuts", "user"),
     ]
     .into_iter()
     .map(|(ordinal, name, kind)| AuthoredLayer {

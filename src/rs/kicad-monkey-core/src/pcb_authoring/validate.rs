@@ -410,7 +410,7 @@ fn require_copper_layer(
 ) -> Result<(), Error> {
     require_layer(layer, board_layers, false)?;
     let is_copper = board_layers.map_or_else(
-        || canonical_layer_ordinal(layer).is_some_and(|ordinal| ordinal <= 31),
+        || canonical_copper_order(layer).is_some(),
         |layers| layers.get(layer).is_some_and(|kind| kind != "user"),
     );
     if !is_copper {
@@ -427,7 +427,7 @@ fn declared_copper_order(layers: &BTreeMap<String, String>) -> Vec<String> {
         .filter(|(_, kind)| kind.as_str() != "user")
         .map(|(name, _)| name.clone())
         .collect::<Vec<_>>();
-    copper.sort_by_key(|name| canonical_layer_ordinal(name).unwrap_or(i64::MAX));
+    copper.sort_by_key(|name| canonical_copper_order(name).unwrap_or(i64::MAX));
     copper
 }
 
@@ -444,7 +444,7 @@ fn validate_layer_slot(layer: &AuthoredLayer) -> Result<(), Error> {
             layer.ordinal, layer.name
         )));
     }
-    let copper = layer.ordinal <= 31;
+    let copper = canonical_copper_order(&layer.name).is_some();
     if copper == (layer.kind == "user") {
         return Err(invalid(format!(
             "layer {:?} requires a {} kind",
@@ -455,27 +455,39 @@ fn validate_layer_slot(layer: &AuthoredLayer) -> Result<(), Error> {
     Ok(())
 }
 
+fn canonical_copper_order(name: &str) -> Option<i64> {
+    match name {
+        "F.Cu" => Some(0),
+        "B.Cu" => Some(31),
+        _ => name
+            .strip_prefix("In")
+            .and_then(|value| value.strip_suffix(".Cu"))
+            .and_then(|value| value.parse::<i64>().ok())
+            .filter(|ordinal| (1..=30).contains(ordinal)),
+    }
+}
+
 const CANONICAL_LAYER_SLOTS: &[(&str, i64)] = &[
     ("F.Cu", 0),
-    ("B.Cu", 31),
-    ("B.Adhes", 32),
-    ("F.Adhes", 33),
-    ("B.Paste", 34),
-    ("F.Paste", 35),
-    ("B.SilkS", 36),
-    ("F.SilkS", 37),
-    ("B.Mask", 38),
-    ("F.Mask", 39),
-    ("Dwgs.User", 40),
-    ("Cmts.User", 41),
-    ("Eco1.User", 42),
-    ("Eco2.User", 43),
-    ("Edge.Cuts", 44),
-    ("Margin", 45),
-    ("B.CrtYd", 46),
-    ("F.CrtYd", 47),
-    ("B.Fab", 48),
-    ("F.Fab", 49),
+    ("B.Cu", 2),
+    ("F.Mask", 1),
+    ("B.Mask", 3),
+    ("F.SilkS", 5),
+    ("B.SilkS", 7),
+    ("F.Adhes", 9),
+    ("B.Adhes", 11),
+    ("F.Paste", 13),
+    ("B.Paste", 15),
+    ("Dwgs.User", 17),
+    ("Cmts.User", 19),
+    ("Eco1.User", 21),
+    ("Eco2.User", 23),
+    ("Edge.Cuts", 25),
+    ("Margin", 27),
+    ("B.CrtYd", 29),
+    ("F.CrtYd", 31),
+    ("B.Fab", 33),
+    ("F.Fab", 35),
 ];
 
 fn canonical_layer_ordinal(name: &str) -> Option<i64> {
@@ -487,19 +499,20 @@ fn canonical_layer_ordinal(name: &str) -> Option<i64> {
                 .and_then(|value| value.strip_suffix(".Cu"))
                 .and_then(|value| value.parse::<i64>().ok())
                 .filter(|ordinal| (1..=30).contains(ordinal))
+                .map(|ordinal| (ordinal + 1) * 2)
                 .or_else(|| {
                     name.strip_prefix("User.")
                         .and_then(|value| value.parse::<i64>().ok())
-                        .filter(|ordinal| (1..=9).contains(ordinal))
-                        .map(|ordinal| ordinal + 49)
+                        .filter(|ordinal| (1..=45).contains(ordinal))
+                        .map(|ordinal| ordinal * 2 + 37)
                 })
         })
 }
 
 fn canonical_layer_name(ordinal: i64) -> Option<String> {
     match ordinal {
-        1..=30 => Some(format!("In{ordinal}.Cu")),
-        50..=58 => Some(format!("User.{}", ordinal - 49)),
+        4..=62 if ordinal % 2 == 0 => Some(format!("In{}.Cu", ordinal / 2 - 1)),
+        39..=127 if ordinal % 2 == 1 => Some(format!("User.{}", (ordinal - 37) / 2)),
         _ => CANONICAL_LAYER_SLOTS
             .iter()
             .find_map(|(name, slot)| (*slot == ordinal).then(|| (*name).to_owned())),
