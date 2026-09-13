@@ -296,40 +296,7 @@ impl Validation {
                 "dash_dot_dot",
             ],
         )?;
-        if matches!(
-            graphic.fill.as_deref(),
-            Some("solid" | "yes" | "hatch" | "reverse_hatch" | "cross_hatch")
-        ) {
-            nonnegative(graphic.stroke_width_mm, "filled graphic stroke width")?;
-        } else {
-            positive(graphic.stroke_width_mm, "graphic stroke width")?;
-        }
-        if let Some(fill) = &graphic.fill {
-            self.text(fill)?;
-            supported_token(
-                fill,
-                "graphic fill",
-                &[
-                    "no",
-                    "none",
-                    "yes",
-                    "solid",
-                    "hatch",
-                    "reverse_hatch",
-                    "cross_hatch",
-                ],
-            )?;
-            if matches!(
-                graphic.geometry,
-                AuthoredGraphicGeometry::Line { .. }
-                    | AuthoredGraphicGeometry::Arc { .. }
-                    | AuthoredGraphicGeometry::Curve { .. }
-            ) {
-                return Err(invalid(
-                    "line, arc and curve graphics cannot author fill because KiCad discards it",
-                ));
-            }
-        }
+        self.graphic_fill(graphic)?;
         self.identity(&graphic.uuid)?;
         match &graphic.geometry {
             AuthoredGraphicGeometry::Line { start, end }
@@ -366,6 +333,45 @@ impl Validation {
                     }
                 }
             }
+        }
+        Ok(())
+    }
+
+    fn graphic_fill(&mut self, graphic: &AuthoredGraphic) -> Result<(), Error> {
+        if matches!(
+            graphic.fill.as_deref(),
+            Some("solid" | "yes" | "hatch" | "reverse_hatch" | "cross_hatch")
+        ) {
+            nonnegative(graphic.stroke_width_mm, "filled graphic stroke width")?;
+        } else {
+            positive(graphic.stroke_width_mm, "graphic stroke width")?;
+        }
+        let Some(fill) = &graphic.fill else {
+            return Ok(());
+        };
+        self.text(fill)?;
+        supported_token(
+            fill,
+            "graphic fill",
+            &[
+                "no",
+                "none",
+                "yes",
+                "solid",
+                "hatch",
+                "reverse_hatch",
+                "cross_hatch",
+            ],
+        )?;
+        if matches!(
+            graphic.geometry,
+            AuthoredGraphicGeometry::Line { .. }
+                | AuthoredGraphicGeometry::Arc { .. }
+                | AuthoredGraphicGeometry::Curve { .. }
+        ) {
+            return Err(invalid(
+                "line, arc and curve graphics cannot author fill because KiCad discards it",
+            ));
         }
         Ok(())
     }

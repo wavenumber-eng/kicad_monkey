@@ -411,10 +411,15 @@
   transform. This preserves bottom-local layers and coordinates while a board
   occurrence separately owns its bottom/rotated placement.</p>
 
-  <p>Solid-filled circles, rectangles, and polygons may have zero stroke width
-  in board or footprint scope. Negative/nonfinite widths are rejected. Unfilled
-  graphics still require a positive width because KiCad replaces nonpositive
-  unfilled strokes with its default; no replacement width is invented here.</p>
+  <p>Board and footprint circles, rectangles, and polygons accept KiCad
+  10.0.6's complete graphic-fill vocabulary: <code>no</code>,
+  <code>none</code>, <code>yes</code>, <code>solid</code>,
+  <code>hatch</code>, <code>reverse_hatch</code>, and
+  <code>cross_hatch</code>. Filled and hatched forms may have zero stroke
+  width. Negative/nonfinite widths are rejected. Unfilled graphics still
+  require a positive width because KiCad replaces nonpositive unfilled strokes
+  with its default; no replacement width is invented here. This presentation
+  policy is distinct from the narrower custom-pad primitive fill policy.</p>
 
   <p>Text effects distinguish an absent face (native Newstroke source intent)
   from a named outline-font face. Supported 20241229 effects include explicit
