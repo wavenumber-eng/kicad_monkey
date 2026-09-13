@@ -4,12 +4,12 @@ mod readback;
 use kicad_monkey_core::{
     AuthoredBoardText, AuthoredColor, AuthoredFootprint, AuthoredFootprintOccurrence,
     AuthoredFootprintProperty, AuthoredFootprintScalarProperty, AuthoredFootprintText,
-    AuthoredGraphic, AuthoredGraphicGeometry, AuthoredLayer, AuthoredPcb, AuthoredPoint,
-    AuthoredStandaloneFootprint, AuthoredTextBox, AuthoredTextBoxGeometry, AuthoredTextEffects,
-    AuthoredTextHorizontalJustification, AuthoredTextVerticalJustification, ErrorKind,
-    FootprintLimits, FootprintView, PcbAuthoringLimits, PcbGraphicKind, PcbLimits, PcbView,
-    TextContour, TextPoint, TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon,
-    read_text_render_cache_a0,
+    AuthoredGraphic, AuthoredGraphicGeometry, AuthoredLayer, AuthoredNet, AuthoredNetRef,
+    AuthoredPcb, AuthoredPoint, AuthoredStandaloneFootprint, AuthoredTextBox,
+    AuthoredTextBoxGeometry, AuthoredTextEffects, AuthoredTextHorizontalJustification,
+    AuthoredTextVerticalJustification, ErrorKind, FootprintLimits, FootprintView,
+    PcbAuthoringLimits, PcbGraphicKind, PcbLimits, PcbView, TextContour, TextPoint,
+    TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon, read_text_render_cache_a0,
 };
 
 fn point(x_mm: f64, y_mm: f64) -> AuthoredPoint {
@@ -144,6 +144,7 @@ fn footprint() -> AuthoredFootprint {
             end: point(4.0, 0.0),
         },
         layer: "B.SilkS".to_owned(),
+        net: None,
         locked: false,
         stroke_width_mm: 0.15,
         stroke_kind: "solid".to_owned(),
@@ -156,6 +157,7 @@ fn footprint() -> AuthoredFootprint {
             end: point(1.0, 1.0),
         },
         layer: "B.SilkS".to_owned(),
+        net: None,
         locked: false,
         stroke_width_mm: 0.0,
         stroke_kind: "solid".to_owned(),
@@ -201,6 +203,7 @@ fn board() -> AuthoredPcb {
                 end: point(12.0, 10.0),
             },
             layer: "B.SilkS".to_owned(),
+            net: None,
             locked: true,
             stroke_width_mm: 0.0,
             stroke_kind: "solid".to_owned(),
@@ -339,6 +342,76 @@ fn authored_board_and_footprint_presentation_round_trip_exactly() {
     invalid_board_layer.graphics[0].layer = "User.7".to_owned();
     assert_eq!(
         invalid_board_layer
+            .canonical_text(PcbAuthoringLimits::default())
+            .unwrap_err()
+            .kind,
+        ErrorKind::InvalidBuildValue
+    );
+}
+
+#[test]
+fn copper_graphic_net_roundtrips_by_name_and_requires_the_board_binding() {
+    let mut value = board();
+    let copper_uuid = uuid(401);
+    value.nets.push(AuthoredNet {
+        code: 1,
+        name: "GND".to_owned(),
+    });
+    value.graphics.push(AuthoredGraphic {
+        geometry: AuthoredGraphicGeometry::Polygon {
+            points: vec![point(1.0, 1.0), point(3.0, 1.0), point(2.0, 2.0)],
+        },
+        layer: "F.Cu".to_owned(),
+        net: Some(AuthoredNetRef {
+            code: 1,
+            name: "GND".to_owned(),
+        }),
+        locked: false,
+        stroke_width_mm: 0.0,
+        stroke_kind: "solid".to_owned(),
+        fill: Some("solid".to_owned()),
+        uuid: copper_uuid.clone(),
+    });
+    let source = value
+        .canonical_text(PcbAuthoringLimits::default())
+        .expect("net-bearing copper graphic");
+    assert!(source.contains("(net \"GND\")"));
+    let graphics = PcbView::parse(&source, PcbLimits::default())
+        .unwrap()
+        .graphics()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(
+        graphics
+            .iter()
+            .find(|graphic| graphic.uuid.as_deref() == Some(copper_uuid.as_str()))
+            .unwrap()
+            .net
+            .as_ref()
+            .and_then(|net| net.name.as_deref()),
+        Some("GND")
+    );
+
+    let mut mismatched = value.clone();
+    mismatched
+        .graphics
+        .last_mut()
+        .unwrap()
+        .net
+        .as_mut()
+        .unwrap()
+        .name = "OTHER".to_owned();
+    assert_eq!(
+        mismatched
+            .canonical_text(PcbAuthoringLimits::default())
+            .unwrap_err()
+            .kind,
+        ErrorKind::InvalidBuildValue
+    );
+    let mut non_copper = value;
+    non_copper.graphics.last_mut().unwrap().layer = "F.SilkS".to_owned();
+    assert_eq!(
+        non_copper
             .canonical_text(PcbAuthoringLimits::default())
             .unwrap_err()
             .kind,

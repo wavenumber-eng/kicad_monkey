@@ -257,6 +257,7 @@ impl Validation {
     pub(super) fn graphic(
         &mut self,
         graphic: &AuthoredGraphic,
+        board_nets: Option<&BTreeMap<i64, String>>,
         board_layers: Option<&BTreeMap<String, String>>,
         footprint_member: bool,
     ) -> Result<(), Error> {
@@ -266,6 +267,21 @@ impl Validation {
             require_footprint_layer(&graphic.layer, board_layers, false)?;
         } else {
             require_layer(&graphic.layer, board_layers, false)?;
+        }
+        if let Some(net) = &graphic.net {
+            let Some(board_nets) = board_nets else {
+                return Err(invalid(
+                    "standalone footprint graphics cannot author board net references",
+                ));
+            };
+            if !graphic.layer.ends_with(".Cu") {
+                return Err(invalid("graphic net references require a copper layer"));
+            }
+            if board_nets.get(&net.code) != Some(&net.name) {
+                return Err(invalid(
+                    "graphic net reference does not match the authored board net",
+                ));
+            }
         }
         self.text(&graphic.stroke_kind)?;
         supported_token(

@@ -144,6 +144,10 @@ pub enum AuthoredGraphicGeometry {
 pub struct AuthoredGraphic {
     pub geometry: AuthoredGraphicGeometry,
     pub layer: String,
+    /// Board connectivity for copper graphics. KiCad 10 serializes shape nets
+    /// by name; the code is retained here so validation can bind the name to
+    /// the authored board net table before source emission.
+    pub net: Option<AuthoredNetRef>,
     pub locked: bool,
     pub stroke_width_mm: f64,
     pub stroke_kind: String,

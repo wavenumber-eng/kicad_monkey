@@ -32,7 +32,7 @@ pub(super) fn board(value: &AuthoredPcb, limits: PcbAuthoringLimits) -> Result<(
     state.setup(&value.setup, &layers)?;
     let nets = state.nets(&value.nets)?;
     state.board_properties(&value.properties)?;
-    state.board_artwork(value, &layers)?;
+    state.board_artwork(value, &nets, &layers)?;
     for occurrence in &value.footprints {
         state.occurrence(occurrence, &nets, &layers)?;
     }
@@ -200,16 +200,17 @@ impl Validation {
     fn board_artwork(
         &mut self,
         value: &AuthoredPcb,
+        nets: &BTreeMap<i64, String>,
         layers: &BTreeMap<String, String>,
     ) -> Result<(), Error> {
         for graphic in &value.profile {
             if graphic.layer != "Edge.Cuts" {
                 return Err(invalid("board profile graphics must use Edge.Cuts"));
             }
-            self.graphic(graphic, Some(layers), false)?;
+            self.graphic(graphic, Some(nets), Some(layers), false)?;
         }
         for graphic in &value.graphics {
-            self.graphic(graphic, Some(layers), false)?;
+            self.graphic(graphic, Some(nets), Some(layers), false)?;
         }
         for text in &value.texts {
             self.board_text(text, layers)?;

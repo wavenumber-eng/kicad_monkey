@@ -555,6 +555,9 @@ fn graphic(value: &AuthoredGraphic, prefix: &str) -> Sexp {
     if value.locked {
         children.push(form("locked", [atom("yes")]));
     }
+    if let Some(net) = &value.net {
+        children.push(form("net", [quoted(&net.name)]));
+    }
     children.push(form("uuid", [quoted(&value.uuid)]));
     Sexp::List(children)
 }
