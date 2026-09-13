@@ -63,10 +63,6 @@ fn pad_via_invalid_or_lossy_combinations_fail_before_emission() {
     complete_blind.vias[1].end_layer = "B.Cu".to_owned();
     cases.push(complete_blind);
 
-    let mut nonadjacent_micro = authored_board();
-    nonadjacent_micro.vias[3].start_layer = "F.Cu".to_owned();
-    cases.push(nonadjacent_micro);
-
     let mut reversed = authored_board();
     reversed.vias[2].start_layer = "In2.Cu".to_owned();
     reversed.vias[2].end_layer = "In1.Cu".to_owned();

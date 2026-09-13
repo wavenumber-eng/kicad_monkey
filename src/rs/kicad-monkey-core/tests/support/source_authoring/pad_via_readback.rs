@@ -104,7 +104,7 @@ pub(super) fn assert_vias(view: &kicad_monkey_core::PcbView<'_>) {
     assert_through_via(&vias[0]);
     assert_blind_vias(&vias);
     assert_eq!(vias[3].via_type.as_deref(), Some("micro"));
-    assert_eq!(vias[3].layers, ["In2.Cu", "B.Cu"]);
+    assert_eq!(vias[3].layers, ["F.Cu", "B.Cu"]);
     assert_eq!((vias[3].size, vias[3].drill), (0.3, 0.1));
     assert_eq!(vias[4].layers, ["F.Cu", "B.Cu"]);
     assert_eq!(vias[4].start_end_only, Some(true));

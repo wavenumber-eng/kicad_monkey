@@ -81,11 +81,9 @@ impl Validation {
                     "blind/buried vias must not span the complete copper stack",
                 ));
             }
-            AuthoredViaKind::Micro if end != start + 1 => {
-                return Err(invalid(
-                    "microvias must span adjacent declared copper layers",
-                ));
-            }
+            // KiCad 10.0.6 parses and serializes the micro token independently
+            // of the selected pair. Layer adjacency is an editor/DRC policy,
+            // not a file-format validity rule.
             _ => {}
         }
         Ok(())

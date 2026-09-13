@@ -279,7 +279,7 @@ pub(super) fn policy_vias() -> Vec<AuthoredVia> {
     });
     buried.filling = Some(false);
 
-    let mut micro = via(AuthoredViaKind::Micro, "In2.Cu", "B.Cu", 16.0, 204);
+    let mut micro = via(AuthoredViaKind::Micro, "F.Cu", "B.Cu", 16.0, 204);
     micro.size_mm = 0.3;
     micro.drill_mm = 0.1;
 
