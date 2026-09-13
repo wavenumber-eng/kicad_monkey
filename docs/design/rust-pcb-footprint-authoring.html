@@ -427,8 +427,10 @@
   <code>TextRenderCache</code>, including multiple contours in one glyph
   polygon. The cache uses the package's existing bounded render-cache writer.
   Its text is realized display text: footprint property variables are resolved
-  before validation, while cached board/project variables and wrapping-dependent
-  text-box whitespace fail closed without companion outline-font context. A
+  before validation. Board-root source text may retain a project-variable
+  expression while its authoritative cache carries the already resolved display
+  text; an unresolved variable in the cache itself fails closed. Wrapping-dependent
+  text-box whitespace still fails closed without companion outline-font context. A
   Newstroke carrier with a TTF cache is rejected instead of changing font
   semantics.</p>
 

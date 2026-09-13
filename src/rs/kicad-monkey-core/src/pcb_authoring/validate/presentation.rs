@@ -101,14 +101,20 @@ impl Validation {
         self.point(value.at)?;
         finite(value.angle_degrees, "board text angle")?;
         self.effects(&value.effects)?;
-        if value.render_cache.is_some() && value.text.contains("${") {
-            return Err(invalid(
-                "board text render caches with unresolved project variables require companion context",
-            ));
-        }
+        let cache_text = match value.render_cache.as_ref() {
+            Some(cache) if value.text.contains("${") => {
+                if cache.text.contains("${") {
+                    return Err(invalid(
+                        "board text render caches must contain resolved display text",
+                    ));
+                }
+                cache.text.as_str()
+            }
+            _ => value.text.as_str(),
+        };
         self.render_cache(
             value.render_cache.as_ref(),
-            &value.text,
+            cache_text,
             value.angle_degrees,
             &value.effects,
         )?;

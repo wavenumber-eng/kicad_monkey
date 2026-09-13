@@ -7,8 +7,9 @@ use kicad_monkey_core::{
     AuthoredGraphic, AuthoredGraphicGeometry, AuthoredLayer, AuthoredPcb, AuthoredPoint,
     AuthoredStandaloneFootprint, AuthoredTextBox, AuthoredTextBoxGeometry, AuthoredTextEffects,
     AuthoredTextHorizontalJustification, AuthoredTextVerticalJustification, ErrorKind,
-    FootprintLimits, FootprintView, PcbAuthoringLimits, PcbGraphicKind, TextContour, TextPoint,
-    TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon, read_text_render_cache_a0,
+    FootprintLimits, FootprintView, PcbAuthoringLimits, PcbGraphicKind, PcbLimits, PcbView,
+    TextContour, TextPoint, TextRenderCache, TextRenderCacheLimits, TextRenderCachePolygon,
+    read_text_render_cache_a0,
 };
 
 fn point(x_mm: f64, y_mm: f64) -> AuthoredPoint {
@@ -543,10 +544,30 @@ fn footprint_cache_validation_rejects_unresolved_or_wrong_realization_context() 
         .as_mut()
         .expect("cache")
         .text = "resolved".to_owned();
+    let resolved_source = unresolved_board
+        .canonical_text(PcbAuthoringLimits::default())
+        .expect("board cache carries resolved display text for a source variable");
+    let resolved_view = PcbView::parse(&resolved_source, PcbLimits::default()).unwrap();
+    let _resolved_graphic = resolved_view
+        .graphics()
+        .find(|graphic| {
+            graphic
+                .as_ref()
+                .is_ok_and(|graphic| graphic.text.as_deref() == Some("${PROJECT}"))
+        })
+        .unwrap()
+        .unwrap();
+    assert!(resolved_source.contains("(render_cache \"resolved\" 90"));
+
+    unresolved_board.texts[0]
+        .render_cache
+        .as_mut()
+        .expect("cache")
+        .text = "${PROJECT}".to_owned();
     assert_eq!(
         unresolved_board
             .canonical_text(PcbAuthoringLimits::default())
-            .expect_err("board cache requires companion variables")
+            .expect_err("cache display text remains unresolved")
             .kind,
         ErrorKind::InvalidBuildValue
     );
