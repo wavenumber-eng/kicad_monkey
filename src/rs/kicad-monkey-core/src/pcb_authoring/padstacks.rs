@@ -57,20 +57,36 @@ pub struct AuthoredPadstack {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct AuthoredPadstackLayer {
-    pub layer: AuthoredPadstackLayerSelector,
-    pub shape: AuthoredPadShape,
-    pub size_x_mm: f64,
-    pub size_y_mm: f64,
-    /// This is a land-shape offset, never a separate drill position.
-    pub offset: AuthoredPoint,
-    pub clearance_mm: Option<f64>,
-    pub thermal_bridge_width_mm: Option<f64>,
-    pub thermal_gap_mm: Option<f64>,
-    /// Readable source evidence, but currently rejected on fresh layer writes:
-    /// KiCad 10.0.6 parses this setting onto F.Cu instead of the selected row.
-    pub thermal_bridge_angle_degrees: Option<f64>,
-    pub zone_connect: Option<AuthoredPadstackZoneConnection>,
+pub enum AuthoredPadstackLayer {
+    /// An explicit source copper land and its layer-local policy.
+    Land {
+        layer: AuthoredPadstackLayerSelector,
+        shape: AuthoredPadShape,
+        size_x_mm: f64,
+        size_y_mm: f64,
+        /// This is a land-shape offset, never a separate drill position.
+        offset: AuthoredPoint,
+        clearance_mm: Option<f64>,
+        thermal_bridge_width_mm: Option<f64>,
+        thermal_gap_mm: Option<f64>,
+        /// Readable source evidence, but currently rejected on fresh layer writes:
+        /// KiCad 10.0.6 parses this setting onto F.Cu instead of the selected row.
+        thermal_bridge_angle_degrees: Option<f64>,
+        zone_connect: Option<AuthoredPadstackZoneConnection>,
+    },
+    /// An explicit source row with no shape or size. This suppresses root or
+    /// wildcard fallback for the selected copper layer.
+    NoLand {
+        layer: AuthoredPadstackLayerSelector,
+    },
+}
+
+impl AuthoredPadstackLayer {
+    pub const fn layer(&self) -> &AuthoredPadstackLayerSelector {
+        match self {
+            Self::Land { layer, .. } | Self::NoLand { layer } => layer,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -2,8 +2,29 @@ use super::*;
 
 pub(super) fn assert_padstack_writer_semantics() {
     assert_board_padstacks();
+    assert_explicit_no_land();
     assert_sparse_local_padstack();
     assert_padstack_policy_rejections();
+}
+
+fn assert_explicit_no_land() {
+    let mut board = authored_board();
+    let stack = board.footprints[0].footprint.pads[2]
+        .padstack
+        .as_mut()
+        .unwrap();
+    stack.mode = AuthoredPadstackMode::Custom;
+    stack.layers = vec![AuthoredPadstackLayer::NoLand {
+        layer: AuthoredPadstackLayerSelector::CopperLayer("In1.Cu".into()),
+    }];
+    let document = board.to_document(Default::default()).unwrap();
+    let pad = document.view().unwrap().pads().nth(2).unwrap().unwrap();
+    let row = &pad.padstack.as_ref().unwrap().layers[0];
+    assert_eq!(row.layer, "In1.Cu");
+    assert!(row.shape.is_none());
+    assert!(row.size.is_none());
+    let resolved = kicad_monkey_core::resolve_pad_copper_layer(&pad, "In1.Cu").unwrap();
+    assert_eq!((resolved.size.x, resolved.size.y), (0.0, 0.0));
 }
 
 pub(super) fn assert_board_padstacks() {
@@ -129,15 +150,25 @@ pub(super) fn assert_padstack_policy_rejections() {
             .as_mut()
             .unwrap();
         stack.mode = mode;
-        stack.layers[0].layer = AuthoredPadstackLayerSelector::CopperLayer("F.Mask".into());
+        let AuthoredPadstackLayer::Land { layer, .. } = &mut stack.layers[0] else {
+            panic!("fixture land")
+        };
+        *layer = AuthoredPadstackLayerSelector::CopperLayer("F.Mask".into());
         assert!(board.canonical_text(Default::default()).is_err());
     }
     let mut board = authored_board();
-    board.footprints[0].footprint.pads[2]
+    let row = &mut board.footprints[0].footprint.pads[2]
         .padstack
         .as_mut()
         .unwrap()
-        .layers[0]
-        .thermal_bridge_angle_degrees = Some(23.0);
+        .layers[0];
+    let AuthoredPadstackLayer::Land {
+        thermal_bridge_angle_degrees,
+        ..
+    } = row
+    else {
+        panic!("fixture land")
+    };
+    *thermal_bridge_angle_degrees = Some(23.0);
     assert!(board.canonical_text(Default::default()).is_err());
 }

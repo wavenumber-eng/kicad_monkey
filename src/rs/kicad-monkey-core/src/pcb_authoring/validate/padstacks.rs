@@ -9,33 +9,46 @@ impl Validation {
         self.object()?;
         self.stack_selectors(
             stack.mode,
-            stack.layers.iter().map(|row| &row.layer),
+            stack.layers.iter().map(AuthoredPadstackLayer::layer),
             board_layers,
         )?;
         for row in &stack.layers {
             self.object()?;
-            positive(row.size_x_mm, "padstack layer size X")?;
-            positive(row.size_y_mm, "padstack layer size Y")?;
-            self.point(row.offset)?;
-            self.pad_shape(&row.shape)?;
-            if matches!(
-                &row.shape,
-                AuthoredPadShape::Custom {
-                    clearance: Some(_),
-                    ..
-                } | AuthoredPadShape::CustomPolygon { .. }
-            ) {
-                return Err(invalid(
-                    "custom clearance mode is pad-wide; layer Custom requires clearance=None",
-                ));
-            }
-            optional_nonnegative(row.clearance_mm, "padstack clearance")?;
-            optional_nonnegative(row.thermal_bridge_width_mm, "padstack thermal width")?;
-            optional_nonnegative(row.thermal_gap_mm, "padstack thermal gap")?;
-            if row.thermal_bridge_angle_degrees.is_some() {
-                return Err(invalid(
-                    "KiCad 10.0.6 parses layer thermal_bridge_angle onto F.Cu, not the selected layer",
-                ));
+            if let AuthoredPadstackLayer::Land {
+                shape,
+                size_x_mm,
+                size_y_mm,
+                offset,
+                clearance_mm,
+                thermal_bridge_width_mm,
+                thermal_gap_mm,
+                thermal_bridge_angle_degrees,
+                ..
+            } = row
+            {
+                positive(*size_x_mm, "padstack layer size X")?;
+                positive(*size_y_mm, "padstack layer size Y")?;
+                self.point(*offset)?;
+                self.pad_shape(shape)?;
+                if matches!(
+                    shape,
+                    AuthoredPadShape::Custom {
+                        clearance: Some(_),
+                        ..
+                    } | AuthoredPadShape::CustomPolygon { .. }
+                ) {
+                    return Err(invalid(
+                        "custom clearance mode is pad-wide; layer Custom requires clearance=None",
+                    ));
+                }
+                optional_nonnegative(*clearance_mm, "padstack clearance")?;
+                optional_nonnegative(*thermal_bridge_width_mm, "padstack thermal width")?;
+                optional_nonnegative(*thermal_gap_mm, "padstack thermal gap")?;
+                if thermal_bridge_angle_degrees.is_some() {
+                    return Err(invalid(
+                        "KiCad 10.0.6 parses layer thermal_bridge_angle onto F.Cu, not the selected layer",
+                    ));
+                }
             }
         }
         Ok(())

@@ -125,7 +125,7 @@ pub(super) fn stack_layer(
     size_x_mm: f64,
     size_y_mm: f64,
 ) -> AuthoredPadstackLayer {
-    AuthoredPadstackLayer {
+    AuthoredPadstackLayer::Land {
         layer,
         shape,
         size_x_mm,
