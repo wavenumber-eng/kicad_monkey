@@ -188,6 +188,26 @@ fn layers() -> Vec<AuthoredLayer> {
     .collect()
 }
 
+fn curve_graphic() -> AuthoredGraphic {
+    AuthoredGraphic {
+        geometry: AuthoredGraphicGeometry::Curve {
+            points: [
+                point(1.0, 2.0),
+                point(3.0, 4.0),
+                point(5.0, 6.0),
+                point(7.0, 8.0),
+            ],
+        },
+        layer: "Edge.Cuts".to_owned(),
+        net: None,
+        locked: false,
+        stroke_width_mm: 0.1,
+        stroke_kind: "default".to_owned(),
+        fill: None,
+        uuid: uuid(205),
+    }
+}
+
 fn board() -> AuthoredPcb {
     let mut rotated_footprint = footprint();
     rotated_footprint.text_boxes.clear();
@@ -198,19 +218,22 @@ fn board() -> AuthoredPcb {
     boxed_footprint.text_boxes[0].uuid = uuid(304);
     AuthoredPcb {
         layers: layers(),
-        graphics: vec![AuthoredGraphic {
-            geometry: AuthoredGraphicGeometry::Circle {
-                center: point(10.0, 10.0),
-                end: point(12.0, 10.0),
+        graphics: vec![
+            AuthoredGraphic {
+                geometry: AuthoredGraphicGeometry::Circle {
+                    center: point(10.0, 10.0),
+                    end: point(12.0, 10.0),
+                },
+                layer: "B.SilkS".to_owned(),
+                net: None,
+                locked: true,
+                stroke_width_mm: 0.0,
+                stroke_kind: "solid".to_owned(),
+                fill: Some("solid".to_owned()),
+                uuid: uuid(201),
             },
-            layer: "B.SilkS".to_owned(),
-            net: None,
-            locked: true,
-            stroke_width_mm: 0.0,
-            stroke_kind: "solid".to_owned(),
-            fill: Some("solid".to_owned()),
-            uuid: uuid(201),
-        }],
+            curve_graphic(),
+        ],
         texts: vec![
             AuthoredBoardText {
                 text: "BOARD-TTF".to_owned(),
@@ -340,10 +363,14 @@ fn authored_board_and_footprint_presentation_round_trip_exactly() {
     assert!(source.contains("(layer \"User.7\" knockout)"));
 
     let mut disabled_standard_presentation_layer = board();
-    disabled_standard_presentation_layer.footprints[0].footprint.graphics[0].layer =
-        "F.Mask".to_owned();
-    disabled_standard_presentation_layer.footprints[0].footprint.properties[0].layer =
-        "F.Mask".to_owned();
+    disabled_standard_presentation_layer.footprints[0]
+        .footprint
+        .graphics[0]
+        .layer = "F.Mask".to_owned();
+    disabled_standard_presentation_layer.footprints[0]
+        .footprint
+        .properties[0]
+        .layer = "F.Mask".to_owned();
     disabled_standard_presentation_layer
         .canonical_text(PcbAuthoringLimits::default())
         .expect("footprint presentation may use a known disabled standard layer");

@@ -13,6 +13,7 @@ pub(super) fn assert_board_graphics(board_document: &kicad_monkey_core::PcbDocum
             .collect::<Vec<_>>(),
         [
             PcbGraphicKind::Circle,
+            PcbGraphicKind::Curve,
             PcbGraphicKind::Text,
             PcbGraphicKind::Text,
             PcbGraphicKind::TextBox,
@@ -22,6 +23,14 @@ pub(super) fn assert_board_graphics(board_document: &kicad_monkey_core::PcbDocum
     assert_eq!(board_graphics[0].stroke_width, Some(0.0));
     assert_eq!(board_graphics[0].fill.as_deref(), Some("solid"));
     assert!(board_graphics[0].locked);
+    assert_eq!(
+        board_graphics[1]
+            .points
+            .iter()
+            .map(|point| (point.x, point.y))
+            .collect::<Vec<_>>(),
+        [(1.0, 2.0), (3.0, 4.0), (5.0, 6.0), (7.0, 8.0)]
+    );
     let footprint_graphics = board_view
         .footprint_graphics()
         .collect::<Result<Vec<_>, _>>()
@@ -29,9 +38,9 @@ pub(super) fn assert_board_graphics(board_document: &kicad_monkey_core::PcbDocum
     assert_eq!(footprint_graphics[1].graphic.stroke_width, Some(0.0));
     assert_eq!(footprint_graphics[1].graphic.fill.as_deref(), Some("solid"));
     assert!(!footprint_graphics[1].graphic.locked);
-    assert_eq!(board_graphics[1].text.as_deref(), Some("BOARD-TTF"));
-    assert_eq!(board_graphics[2].at.expect("native text position").x, 15.0);
-    assert_eq!(board_graphics[3].border, Some(false));
+    assert_eq!(board_graphics[2].text.as_deref(), Some("BOARD-TTF"));
+    assert_eq!(board_graphics[3].at.expect("native text position").x, 15.0);
+    assert_eq!(board_graphics[4].border, Some(false));
 }
 
 pub(super) fn assert_placed_presentation(board_document: &kicad_monkey_core::PcbDocument) {

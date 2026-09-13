@@ -306,10 +306,12 @@ impl Validation {
             supported_token(fill, "graphic fill", &["none", "solid"])?;
             if matches!(
                 graphic.geometry,
-                AuthoredGraphicGeometry::Line { .. } | AuthoredGraphicGeometry::Arc { .. }
+                AuthoredGraphicGeometry::Line { .. }
+                    | AuthoredGraphicGeometry::Arc { .. }
+                    | AuthoredGraphicGeometry::Curve { .. }
             ) {
                 return Err(invalid(
-                    "line and arc graphics cannot author fill because KiCad discards it",
+                    "line, arc and curve graphics cannot author fill because KiCad discards it",
                 ));
             }
         }
@@ -324,6 +326,11 @@ impl Validation {
                 self.point(*start)?;
                 self.point(*mid)?;
                 self.point(*end)?;
+            }
+            AuthoredGraphicGeometry::Curve { points } => {
+                for point in points {
+                    self.point(*point)?;
+                }
             }
             AuthoredGraphicGeometry::Circle { center, end } => {
                 self.point(*center)?;

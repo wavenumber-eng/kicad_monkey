@@ -320,7 +320,7 @@ pub(super) fn assert_member_policy_losses(
         .canonical_text(PcbAuthoringLimits::default())
         .expect_err("KiCad discards line fill");
     assert_eq!(error.kind, ErrorKind::InvalidBuildValue);
-    assert!(error.message.contains("line and arc graphics"));
+    assert!(error.message.contains("line, arc and curve graphics"));
 
     let mut duplicate_property = standalone_footprint();
     duplicate_property.footprint.properties[1].name = "Reference".to_owned();

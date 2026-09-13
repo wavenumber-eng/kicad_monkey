@@ -576,6 +576,13 @@ fn graphic_geometry(value: &AuthoredGraphicGeometry) -> (&'static str, Vec<Sexp>
                 point_form("end", *end),
             ],
         ),
+        AuthoredGraphicGeometry::Curve { points } => (
+            "curve",
+            vec![form(
+                "pts",
+                points.iter().map(|point| point_form("xy", *point)),
+            )],
+        ),
         AuthoredGraphicGeometry::Rect { start, end } => (
             "rect",
             vec![point_form("start", *start), point_form("end", *end)],

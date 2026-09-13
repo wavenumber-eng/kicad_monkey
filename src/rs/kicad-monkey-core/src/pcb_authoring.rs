@@ -143,6 +143,10 @@ pub enum AuthoredGraphicGeometry {
         mid: AuthoredPoint,
         end: AuthoredPoint,
     },
+    /// KiCad's ordered cubic Bezier tuple: start, control 1, control 2, end.
+    Curve {
+        points: [AuthoredPoint; 4],
+    },
     Rect {
         start: AuthoredPoint,
         end: AuthoredPoint,
