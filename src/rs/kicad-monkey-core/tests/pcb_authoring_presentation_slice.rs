@@ -165,6 +165,10 @@ fn footprint() -> AuthoredFootprint {
         fill: Some("solid".to_owned()),
         uuid: uuid(106),
     });
+    let mut curve = curve_graphic();
+    curve.layer = "B.SilkS".to_owned();
+    curve.uuid = uuid(107);
+    footprint.graphics.push(curve);
     footprint
 }
 
@@ -746,7 +750,7 @@ fn footprint_cache_validation_rejects_unresolved_or_wrong_realization_context() 
 #[test]
 fn presentation_points_obey_an_exact_aggregate_limit() {
     let exact = PcbAuthoringLimits {
-        max_points: 15,
+        max_points: 19,
         ..PcbAuthoringLimits::default()
     };
     standalone()
@@ -754,7 +758,7 @@ fn presentation_points_obey_an_exact_aggregate_limit() {
         .expect("exact presentation point limit");
     let error = standalone()
         .canonical_text(PcbAuthoringLimits {
-            max_points: 14,
+            max_points: 18,
             ..PcbAuthoringLimits::default()
         })
         .expect_err("one-under presentation point limit");
