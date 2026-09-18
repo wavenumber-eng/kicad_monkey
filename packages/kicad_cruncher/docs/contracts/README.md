@@ -22,3 +22,9 @@ Current contracts:
   layer-output config contract used by `pcb-svg`.
 - `source_relink.a0.schema.json` defines the optional `project-lib`
   `source_relink.json` dry-run/apply report.
+- `toon_manifest.a0.schema.json` defines the portable digest-indexed artifact
+  manifest emitted by the native `toon` command.
+- `toon_timings.a0.schema.json` defines the optional machine-readable phase and
+  model-work profile emitted by native `toon --timings`. Both Toon contracts
+  carry assembly enablement and base/named/all variant provenance; scoped SVG
+  paths remain portable relative paths.

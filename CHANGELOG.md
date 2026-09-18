@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Apply resolved KiCad solder-mask margins in direct Rust board and footprint
+  SVG rendering for circular, oval, rectangular, and rounded-rectangular pad
+  flashes when a mask-only view is selected. Board, footprint, pad, and
+  negative pullback inheritance are covered through the Cruncher consumer;
+  nominal copper geometry remains unchanged.
+
 ## 2026.9.7
 
 - Coordinate the toolchain dependency release; no KiCad parser, model,

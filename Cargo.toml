@@ -31,6 +31,8 @@ too_many_lines = "deny"
 [workspace.dependencies]
 anyhow = "1.0.102"
 cap-std = "4.0.2"
+geometer-client = { git = "https://github.com/wavenumber-eng/geometer.git", rev = "703e60029a248801947150f913f77a1cecce2662" }
+geo = { version = "0.33.1", default-features = false }
 harfrust = "0.13.0"
 prettyplease = "0.2.37"
 read-fonts = "0.43.0"
@@ -40,6 +42,7 @@ serde_json = { version = "1.0.151", features = ["arbitrary_precision", "preserve
 sha2 = { version = "0.11.0", default-features = false }
 skrifa = { version = "0.46.0", default-features = false, features = ["std"] }
 syn = { version = "2.0.117", features = ["full"] }
+tokio = { version = "1.47", features = ["rt-multi-thread"] }
 typify = { version = "0.7.0", default-features = false }
 ttf-parser = { version = "0.25.1", default-features = false, features = ["std", "variable-fonts"] }
 unicode-casefold = "0.2.0"

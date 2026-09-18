@@ -456,7 +456,10 @@ const SCHEMATIC_REQUEST_U64_FIELDS: [&str; 15] = [
 
 fn main() -> Result<()> {
     let arguments: Vec<String> = env::args().skip(1).collect();
-    if arguments.first().is_some_and(|value| value == "--standalone") {
+    if arguments
+        .first()
+        .is_some_and(|value| value == "--standalone")
+    {
         return generate_standalone(&arguments[1..]);
     }
     let check = env::args().skip(1).any(|argument| argument == "--check");
@@ -524,7 +527,8 @@ fn generate_standalone(arguments: &[String]) -> Result<()> {
     let published = schema.clone();
     project_for_typify(&mut schema);
     let generated = config_projection::preserve_config_presence(
-        &published, generate("Cruncher PCB SVG config", schema)?,
+        &published,
+        generate("Cruncher PCB SVG config", schema)?,
     )?;
     if arguments.len() == 3 {
         if fs::read_to_string(&output)? != generated {

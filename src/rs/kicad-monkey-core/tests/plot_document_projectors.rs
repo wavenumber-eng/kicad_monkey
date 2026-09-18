@@ -144,6 +144,48 @@ fn board_projection_keeps_complete_layer_facts_atomically_bound() {
 }
 
 #[test]
+fn projected_board_can_select_one_footprint_without_losing_layer_facts() {
+    let board = r#"(kicad_pcb (version 20240108) (generator pcbnew)
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "Front Silk Screen"))
+      (footprint "One" (layer "F.Cu") (at 10 20)
+        (property "Reference" "R1" (at 0 -1 0) (layer "F.SilkS"))
+        (fp_line (start -1 0) (end 1 0) (stroke (width 0.2) (type solid)) (layer "F.SilkS")))
+      (footprint "Two" (layer "F.Cu") (at 30 20)
+        (property "Reference" "R2" (at 0 -1 0) (layer "F.SilkS"))
+        (fp_line (start -2 0) (end 2 0) (stroke (width 0.2) (type solid)) (layer "F.SilkS"))))"#;
+    let source = board_plot_artifact_with_sidecars(
+        board,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::default(),
+    )
+    .unwrap();
+    let projected = project_board_plot_artifact_a0(
+        source,
+        PlotDocumentMetadata {
+            document_id: "footprint-selection".to_owned(),
+            source_path: None,
+        },
+        PlotDocumentProjectionLimits::default(),
+    )
+    .unwrap();
+    let selected = projected.select_footprint_reference("R2");
+    assert_eq!(selected.document().records.len(), 1);
+    let kicad_monkey_contracts::generated::board_plot_document::BoardPlotRecord::BoardFootprintPlotRecord(record) =
+        &selected.document().records[0]
+    else {
+        panic!("selected record is a footprint");
+    };
+    assert_eq!(record.reference, "R2");
+    assert_eq!(selected.document().total_operations, record.operation_count);
+    assert_eq!(
+        selected.render_facts().enabled_layers(),
+        projected.render_facts().enabled_layers()
+    );
+}
+
+#[test]
 fn typed_board_projection_preserves_resource_numeric_and_model_error_kinds() {
     let metadata = PlotDocumentMetadata {
         document_id: "typed-board-errors".to_owned(),

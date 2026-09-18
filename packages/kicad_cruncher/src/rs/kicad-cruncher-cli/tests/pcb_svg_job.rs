@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fs, path::PathBuf, sync::Arc};
 
 use kicad_cruncher_cli::pcb_svg::PcbSvgJob;
 use kicad_monkey_core::{
@@ -6,8 +6,8 @@ use kicad_monkey_core::{
     board_plot_artifact_with_sidecars,
 };
 use kicad_monkey_svg::{
-    LayerPattern, LayerSelection, SvgBackground, SvgColor, SvgContextLimits, SvgRenderContextA1,
-    SvgRenderLimits, SvgStyleOverride, SvgViewport,
+    LayerPattern, LayerSelection, SvgBackground, SvgColor, SvgContextLimits, SvgFitOptions,
+    SvgRenderContextA1, SvgRenderLimits, SvgStyleOverride, SvgViewport,
 };
 
 const BOARD: &str = r#"(kicad_pcb (version 20240108) (generator pcbnew)
@@ -68,6 +68,194 @@ fn repeated_layer_reuses_artifact_but_style_or_side_does_not() {
     assert_eq!(job.profile().render_requests, 4);
     assert_eq!(job.profile().render_cache_hits, 1);
     assert!(!job.plot().document().records.is_empty());
+
+    let fit = SvgFitOptions {
+        padding_nm: 500_000,
+        min_extent_nm: 1_000_000,
+        fallback: None,
+    };
+    let fitted = job.render_physical_fit(fit, &front).unwrap();
+    let fitted_again = job.render_physical_fit(fit, &front).unwrap();
+    assert!(Arc::ptr_eq(&fitted, &fitted_again));
+    assert_eq!(job.profile().render_requests, 6);
+    assert_eq!(job.profile().render_cache_hits, 2);
+}
+
+#[test]
+fn footprint_render_uses_core_projection_selection_without_neighbor_leakage() {
+    let board = r#"(kicad_pcb (version 20240108) (generator pcbnew)
+      (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+      (footprint "One" (layer "F.Cu") (at 10 10)
+        (property "Reference" "R1" (at 0 0 0) (layer "F.Cu"))
+        (pad "1" smd rect (at 0 0) (size 2 1) (layers "F.Cu")))
+      (footprint "Two" (layer "F.Cu") (at 30 10)
+        (property "Reference" "R2" (at 0 0 0) (layer "F.Cu"))
+        (pad "1" smd circle (at 0 0) (size 3 3) (layers "F.Cu"))))"#;
+    let source = board_plot_artifact_with_sidecars(
+        board,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::default(),
+    )
+    .unwrap();
+    let mut job = PcbSvgJob::new(
+        source,
+        PlotDocumentMetadata {
+            document_id: "isolated-footprint".into(),
+            source_path: None,
+        },
+        SvgRenderLimits::default(),
+    )
+    .unwrap();
+    let context = SvgRenderContextA1::builder()
+        .background(SvgBackground::Transparent)
+        .layer_selection(LayerSelection::include(
+            vec![LayerPattern::parse("F.Cu").unwrap()],
+            true,
+        ))
+        .build()
+        .validate(SvgContextLimits::default())
+        .unwrap();
+    let rendered = job
+        .render_footprint_fit(
+            "R2",
+            SvgFitOptions {
+                padding_nm: 1_000_000,
+                min_extent_nm: 1_000_000,
+                fallback: None,
+            },
+            &context,
+        )
+        .unwrap();
+    assert!(rendered.svg.contains("data-component=\"R2\""));
+    assert!(!rendered.svg.contains("data-component=\"R1\""));
+}
+
+#[test]
+fn native_mask_layer_resolves_board_footprint_and_pad_pullback() {
+    let board = r#"(kicad_pcb
+      (layers (0 "F.Cu" signal) (1 "F.Mask" user))
+      (setup (pad_to_mask_clearance 0.1))
+      (footprint "Mask" (layer "F.Cu") (at 5 5) (solder_mask_margin 0.2)
+        (pad "1" smd rect (at 0 0) (size 2 1) (layers "F.Cu" "F.Mask"))
+        (pad "2" smd rect (at 4 0) (size 2 1) (layers "F.Cu" "F.Mask")
+          (solder_mask_margin -0.1))))"#;
+    let source = board_plot_artifact_with_sidecars(
+        board,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::default(),
+    )
+    .unwrap();
+    let mut job = PcbSvgJob::new(
+        source,
+        PlotDocumentMetadata {
+            document_id: "mask-pullback".into(),
+            source_path: None,
+        },
+        SvgRenderLimits::default(),
+    )
+    .unwrap();
+    let context = SvgRenderContextA1::builder()
+        .background(SvgBackground::Transparent)
+        .layer_selection(LayerSelection::include(
+            vec![LayerPattern::parse("F.Mask").unwrap()],
+            true,
+        ))
+        .build()
+        .validate(SvgContextLimits::default())
+        .unwrap();
+    let rendered = job
+        .render_physical(
+            SvgViewport {
+                min_x_nm: 0,
+                min_y_nm: 0,
+                width_nm: 12_000_000,
+                height_nm: 10_000_000,
+            },
+            &context,
+        )
+        .unwrap();
+    assert!(
+        rendered.svg.contains("width=\"2.4\" height=\"1.4\""),
+        "{}",
+        rendered.svg
+    );
+    assert!(
+        rendered.svg.contains("width=\"1.8\" height=\"0.8\""),
+        "{}",
+        rendered.svg
+    );
+}
+
+#[test]
+fn taillight_silkscreen_excludes_courtyard_fill_behind_knockout_text() {
+    let package_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let board_path = package_root
+        .join("tests/corpus/kicad/projects/taillight/input/11-10045__taillight__C.kicad_pcb");
+    let board = fs::read_to_string(board_path).expect("read governed Taillight board");
+    let source = board_plot_artifact_with_sidecars(
+        &board,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::default(),
+    )
+    .expect("project Taillight board source");
+    let mut job = PcbSvgJob::new(
+        source,
+        PlotDocumentMetadata {
+            document_id: "taillight-knockout".into(),
+            source_path: None,
+        },
+        SvgRenderLimits::default(),
+    )
+    .expect("create Taillight SVG job");
+    let black = SvgColor::parse("#000000").unwrap();
+    let context = SvgRenderContextA1::builder()
+        .background(SvgBackground::Transparent)
+        .layer_selection(LayerSelection::include(
+            vec![LayerPattern::parse("F.SilkS").unwrap()],
+            true,
+        ))
+        .layer_style(
+            LayerPattern::parse("F.SilkS").unwrap(),
+            SvgStyleOverride::new()
+                .with_stroke(black.clone())
+                .with_fill(black),
+        )
+        .build()
+        .validate(SvgContextLimits::default())
+        .unwrap();
+    let svg = &job
+        .render_physical_fit(
+            SvgFitOptions {
+                padding_nm: 1_000_000,
+                min_extent_nm: 5_000_000,
+                fallback: None,
+            },
+            &context,
+        )
+        .expect("render Taillight front silkscreen")
+        .svg;
+
+    let zone = svg
+        .split("<g id=\"edd2b302-a34e-4d53-8b80-a0b050c93971\"")
+        .nth(1)
+        .and_then(|tail| tail.split("</g>").next())
+        .expect("number-one background zone group");
+    assert_eq!(zone.matches("<polygon").count(), 1, "{zone}");
+    assert!(zone.contains("stroke=\"none\""), "{zone}");
+
+    let knockout = svg
+        .split("<g id=\"28d8dc12-f661-4962-b040-7f4e28ee9c5f\"")
+        .nth(1)
+        .and_then(|tail| tail.split("</g>").next())
+        .expect("number-one knockout text group");
+    assert!(knockout.contains("fill-rule=\"evenodd\""), "{knockout}");
+    assert!(knockout.contains("stroke=\"none\""), "{knockout}");
 }
 
 #[test]

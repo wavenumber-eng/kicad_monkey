@@ -8,7 +8,8 @@ The consolidated Windows job produces:
 - a Windows x64 Monkey wheel containing the package-owned native helper;
 - a universal Python Cruncher wheel that retains its public Monkey dependency;
   and
-- a Windows x64 Rust archive containing `kicad-cruncher.exe` and `kcr.exe`.
+- a Windows x64 Rust archive containing `kicad-cruncher.exe`, `kcr.exe`, and
+  the qualified `geometer.exe` sidecar with its attestation and licenses.
 
 The Windows job restores the reviewed `KM_CORPUS` ZIP and builds the native
 helper once. It then runs the native SVG, physical-provider, design-facts,
@@ -16,6 +17,11 @@ installed Python CLI, and Rust CLI migration gates sequentially against that
 shared setup. The Python distributions and Rust archive have separate
 manifests binding workflow run, commit, versions, filenames, sizes, and
 SHA-256 values. The Linux universal wheel has the same binding.
+
+Separate native smoke jobs compile the Rust CLI and run its real Geometer
+process contract on Linux x64, Linux ARM64, and macOS ARM64 using the exact
+hash-pinned release assets. These checks establish source-build and runtime
+compatibility; they do not yet promote non-Windows native archives.
 
 The publish workflow locates the successful main CI run for the tagged commit,
 downloads all three artifact sets, verifies their manifests and hashes, and

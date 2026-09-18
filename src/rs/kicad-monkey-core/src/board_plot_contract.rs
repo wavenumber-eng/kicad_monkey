@@ -45,6 +45,37 @@ impl ProjectedBoardPlotArtifact {
     pub fn render_facts(&self) -> &BoardRenderFacts {
         &self.render_facts
     }
+
+    /// Clone this projected board with only footprint records matching `reference`.
+    ///
+    /// Layer facts remain atomically bound to the originating board so strict
+    /// layer selection keeps the same source-layer vocabulary. Consumers can
+    /// use the resulting artifact for isolated footprint rendering without
+    /// reparsing or round-tripping the plot contract.
+    pub fn select_footprint_reference(&self, reference: &str) -> Self {
+        let mut document = self.document.clone();
+        document.records.retain(|record| {
+            matches!(
+                record,
+                board_contract::BoardPlotRecord::BoardFootprintPlotRecord(footprint)
+                    if footprint.reference == reference
+            )
+        });
+        document.total_operations = document
+            .records
+            .iter()
+            .map(|record| match record {
+                board_contract::BoardPlotRecord::BoardFootprintPlotRecord(footprint) => {
+                    footprint.operation_count
+                }
+                _ => 0,
+            })
+            .sum();
+        Self {
+            document,
+            render_facts: self.render_facts.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

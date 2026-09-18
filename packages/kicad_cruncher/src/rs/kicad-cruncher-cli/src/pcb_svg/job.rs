@@ -6,8 +6,8 @@ use kicad_monkey_core::{
     PlotProjectionError, ProjectedBoardPlotArtifact, project_board_plot_artifact_a0,
 };
 use kicad_monkey_svg::{
-    SvgArtifact, SvgError, SvgErrorKind, SvgRenderLimits, SvgViewport, ValidatedSvgRenderContextA1,
-    ViewportPolicy, render_board_svg,
+    SvgArtifact, SvgError, SvgErrorKind, SvgFitOptions, SvgRenderLimits, SvgViewport,
+    ValidatedSvgRenderContextA1, ViewportPolicy, render_board_svg,
 };
 
 /// Measured boundaries, kept separate from user-facing progress messages.
@@ -22,7 +22,7 @@ pub struct PcbSvgJobProfile {
 
 struct CachedRender {
     context: ValidatedSvgRenderContextA1,
-    viewport: SvgViewport,
+    viewport_policy: ViewportPolicy,
     artifact: Arc<SvgArtifact>,
 }
 
@@ -77,22 +77,65 @@ impl PcbSvgJob {
         viewport: SvgViewport,
         context: &ValidatedSvgRenderContextA1,
     ) -> Result<Arc<SvgArtifact>, SvgError> {
+        self.render_physical_with_policy(ViewportPolicy::Explicit(viewport), context)
+    }
+
+    pub fn render_physical_fit(
+        &mut self,
+        fit: SvgFitOptions,
+        context: &ValidatedSvgRenderContextA1,
+    ) -> Result<Arc<SvgArtifact>, SvgError> {
+        self.render_physical_with_policy(ViewportPolicy::Fit(fit), context)
+    }
+
+    pub fn render_footprint(
+        &mut self,
+        reference: &str,
+        viewport: SvgViewport,
+        context: &ValidatedSvgRenderContextA1,
+    ) -> Result<Arc<SvgArtifact>, SvgError> {
+        self.render_footprint_with_policy(reference, ViewportPolicy::Explicit(viewport), context)
+    }
+
+    pub fn render_footprint_fit(
+        &mut self,
+        reference: &str,
+        fit: SvgFitOptions,
+        context: &ValidatedSvgRenderContextA1,
+    ) -> Result<Arc<SvgArtifact>, SvgError> {
+        self.render_footprint_with_policy(reference, ViewportPolicy::Fit(fit), context)
+    }
+
+    fn render_footprint_with_policy(
+        &mut self,
+        reference: &str,
+        viewport_policy: ViewportPolicy,
+        context: &ValidatedSvgRenderContextA1,
+    ) -> Result<Arc<SvgArtifact>, SvgError> {
+        self.profile.render_requests += 1;
+        let selected = self.plot.select_footprint_reference(reference);
+        let start = Instant::now();
+        let result = render_board_svg(&selected, viewport_policy, context, self.limits);
+        self.profile.rendering += start.elapsed();
+        result.map(Arc::new)
+    }
+
+    fn render_physical_with_policy(
+        &mut self,
+        viewport_policy: ViewportPolicy,
+        context: &ValidatedSvgRenderContextA1,
+    ) -> Result<Arc<SvgArtifact>, SvgError> {
         self.profile.render_requests += 1;
         if let Some(cached) = self
             .renders
             .iter()
-            .find(|entry| entry.viewport == viewport && entry.context == *context)
+            .find(|entry| entry.viewport_policy == viewport_policy && entry.context == *context)
         {
             self.profile.render_cache_hits += 1;
             return Ok(Arc::clone(&cached.artifact));
         }
         let start = Instant::now();
-        let result = render_board_svg(
-            &self.plot,
-            ViewportPolicy::Explicit(viewport),
-            context,
-            self.limits,
-        );
+        let result = render_board_svg(&self.plot, viewport_policy, context, self.limits);
         self.profile.rendering += start.elapsed();
         let artifact = Arc::new(result?);
         let bytes = artifact.svg.len();
@@ -112,7 +155,7 @@ impl PcbSvgJob {
         self.profile.retained_svg_bytes += bytes;
         self.renders.push(CachedRender {
             context: context.clone(),
-            viewport,
+            viewport_policy,
             artifact: Arc::clone(&artifact),
         });
         Ok(artifact)

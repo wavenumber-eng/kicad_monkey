@@ -613,6 +613,11 @@ def parse_pcb_layer_selector(raw_layers: str | None) -> list[str] | None:
 def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
     """Return the default A0 style table for configured PCB SVG views."""
     return {
+        "board_substrate": {
+            "enabled": True,
+            "color": "#B6A26B",
+            "opacity": 1.0,
+        },
         "board_outline": {
             "enabled": True,
             "color": "#000000",
@@ -634,21 +639,35 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
             "hatch_spacing_mm": 0.5,
             "hatch_angle_deg": 45.0,
             "hatch_line_width_mm": 0.08,
+            "hatch_color": "#FF0000",
+            "hatch_opacity": 1.0,
             "outline_style": "solid",
             "outline_dash_mm": 1.5,
             "outline_width_mm": 0.15,
+            "outline_opacity": 1.0,
         },
         "drills": {
             "enabled": True,
             "plated_color": "#90EE90",
             "non_plated_color": "#ADD8E6",
             "opacity": 1.0,
+            "outline": False,
+            "outline_width_mm": 0.1,
+            "respect_tenting": False,
         },
         "slots": {
             "enabled": True,
             "plated_color": "#90EE90",
             "non_plated_color": "#ADD8E6",
             "opacity": 1.0,
+            "outline": False,
+            "outline_width_mm": 0.1,
+            "respect_tenting": False,
+        },
+        "soldermask_film": {
+            "enabled": True,
+            "color": "auto",
+            "opacity": 0.75,
         },
         "copper_traces": {"enabled": True, "color": "#000000"},
         "vias": {"enabled": True, "color": "#000000"},
@@ -691,6 +710,12 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
             "projection_algorithm": "fast",
             "outline_algorithm": "fast-mesh-shadow",
             "union_polygons": True,
+        },
+        "illustration": {
+            "enabled": True,
+            "opacity": 1.0,
+            "outline_width_mm": 0.025,
+            "detail_width_mm": 0.01375,
         },
     }
 

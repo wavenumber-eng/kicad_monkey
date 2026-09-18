@@ -50,6 +50,23 @@ const PHYSICAL_LAYER_BOARD: &str = r#"(kicad_pcb
     (pad "2" np_thru_hole circle (at 3 1) (size 0.6 0.6) (drill 0.6)
       (layers "*.Mask"))))"#;
 
+const MULTI_LAYER_ZONE_BOARD: &str = r#"(kicad_pcb
+  (version 20250830) (generator pcbnew)
+  (layers
+    (0 "F.Cu" signal)
+    (31 "B.Cu" signal)
+    (37 "F.SilkS" user "Front Silkscreen")
+    (47 "F.CrtYd" user "Front Courtyard"))
+  (zone (net 0) (net_name "") (layers "F.SilkS" "F.CrtYd")
+    (uuid "multi-layer-zone") (hatch edge 0.5)
+    (connect_pads (clearance 0.5)) (min_thickness 0.25)
+    (fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))
+    (polygon (pts (xy 0 0) (xy 8 0) (xy 8 8) (xy 0 8)))
+    (filled_polygon (layer "F.SilkS") (island)
+      (pts (xy 0 0) (xy 2 0) (xy 0 2)))
+    (filled_polygon (layer "F.CrtYd") (island)
+      (pts (xy 5 5) (xy 8 5) (xy 5 8)))))"#;
+
 #[test]
 fn direct_typed_footprint_and_symbol_render_without_transport_reencoding() {
     let footprint = first_document("footprint_plotter_a0_vectors.json");
@@ -362,6 +379,48 @@ fn internal_layer_keeps_physical_pad_and_via_drills_without_removed_copper() {
     .svg;
     assert!(!hidden.contains("data-ref=\"pad_hole\""));
     assert!(!hidden.contains("r=\"200000\""));
+}
+
+#[test]
+fn operation_specific_zone_fill_layer_overrides_record_layer_union() {
+    let board_source = board_plot_artifact_with_sidecars(
+        MULTI_LAYER_ZONE_BOARD,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::default(),
+    )
+    .expect("multi-layer zone board source");
+    let board = project_board_plot_artifact_a0(
+        board_source,
+        PlotDocumentMetadata {
+            document_id: "multi-layer-zone".to_owned(),
+            source_path: Some("multi-layer-zone.kicad_pcb".to_owned()),
+        },
+        PlotDocumentProjectionLimits::default(),
+    )
+    .expect("project multi-layer zone board");
+    let context = SvgRenderContextA1::builder()
+        .layer_selection(LayerSelection::include(
+            vec![LayerPattern::parse("F.SilkS").unwrap()],
+            true,
+        ))
+        .layer_style(
+            LayerPattern::parse("F.SilkS").unwrap(),
+            SvgStyleOverride::new()
+                .with_fill(SvgColor::parse("#123456").unwrap())
+                .with_fill_mode(kicad_monkey_svg::SvgFillMode::Solid),
+        )
+        .build()
+        .validate(SvgContextLimits::default())
+        .unwrap();
+    let svg = render_board_svg(&board, VIEWPORT, &context, SvgRenderLimits::default())
+        .expect("render selected zone layer")
+        .svg;
+
+    assert_eq!(svg.matches("<polygon").count(), 1, "{svg}");
+    assert!(svg.contains("fill=\"#123456\""), "{svg}");
+    assert!(!svg.contains("5,5 8,5 5,8"), "{svg}");
 }
 
 #[test]

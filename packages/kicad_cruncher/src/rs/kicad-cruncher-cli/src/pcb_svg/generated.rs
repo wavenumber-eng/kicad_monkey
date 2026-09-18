@@ -501,8 +501,18 @@ impl ::std::fmt::Display for CounterClockwiseHyphenated {
 ///      "maximum": 1.0,
 ///      "minimum": 0.0
 ///    },
+///    "outline": {
+///      "type": "boolean"
+///    },
+///    "outline_width_mm": {
+///      "type": "number",
+///      "exclusiveMinimum": 0.0
+///    },
 ///    "plated_color": {
 ///      "type": "string"
+///    },
+///    "respect_tenting": {
+///      "type": "boolean"
 ///    }
 ///  },
 ///  "additionalProperties": {}
@@ -530,11 +540,29 @@ pub struct HoleStyle {
     )]
     pub opacity: crate::pcb_svg::presence::Field<f64>,
     #[serde(
+        rename = "outline",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub outline: crate::pcb_svg::presence::Field<bool>,
+    #[serde(
+        rename = "outline_width_mm",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub outline_width_mm: crate::pcb_svg::presence::Field<f64>,
+    #[serde(
         rename = "plated_color",
         default,
         skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
     )]
     pub plated_color: crate::pcb_svg::presence::Field<::std::string::String>,
+    #[serde(
+        rename = "respect_tenting",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub respect_tenting: crate::pcb_svg::presence::Field<bool>,
     #[serde(flatten)]
     pub extra: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
 }
@@ -1545,6 +1573,10 @@ impl ::std::convert::TryFrom<::std::string::String> for PcbSvgConfigGlobalCanvas
 ///        "anyOf": [
 ///          {
 ///            "type": "string",
+///            "const": "BOARD_SUBSTRATE"
+///          },
+///          {
+///            "type": "string",
 ///            "const": "BOARD_OUTLINE"
 ///          },
 ///          {
@@ -1558,6 +1590,22 @@ impl ::std::convert::TryFrom<::std::string::String> for PcbSvgConfigGlobalCanvas
 ///          {
 ///            "type": "string",
 ///            "const": "SLOTS"
+///          },
+///          {
+///            "type": "string",
+///            "const": "SOLDERMASK_FILM_TOP"
+///          },
+///          {
+///            "type": "string",
+///            "const": "SOLDERMASK_FILM_BOTTOM"
+///          },
+///          {
+///            "type": "string",
+///            "const": "ILLUSTRATION_TOP"
+///          },
+///          {
+///            "type": "string",
+///            "const": "ILLUSTRATION_BOTTOM"
 ///          },
 ///          {
 ///            "type": "string",
@@ -1725,6 +1773,10 @@ impl ::std::default::Default for PcbSvgConfigLayerOutputs {
 ///  "anyOf": [
 ///    {
 ///      "type": "string",
+///      "const": "BOARD_SUBSTRATE"
+///    },
+///    {
+///      "type": "string",
 ///      "const": "BOARD_OUTLINE"
 ///    },
 ///    {
@@ -1738,6 +1790,22 @@ impl ::std::default::Default for PcbSvgConfigLayerOutputs {
 ///    {
 ///      "type": "string",
 ///      "const": "SLOTS"
+///    },
+///    {
+///      "type": "string",
+///      "const": "SOLDERMASK_FILM_TOP"
+///    },
+///    {
+///      "type": "string",
+///      "const": "SOLDERMASK_FILM_BOTTOM"
+///    },
+///    {
+///      "type": "string",
+///      "const": "ILLUSTRATION_TOP"
+///    },
+///    {
+///      "type": "string",
+///      "const": "ILLUSTRATION_BOTTOM"
 ///    },
 ///    {
 ///      "type": "string",
@@ -1812,6 +1880,8 @@ impl ::std::default::Default for PcbSvgConfigLayerOutputs {
     PartialOrd,
 )]
 pub enum PcbSvgConfigLayerOutputsIncludeSpecialLayersItem {
+    #[serde(rename = "BOARD_SUBSTRATE")]
+    BoardSubstrate,
     #[serde(rename = "BOARD_OUTLINE")]
     BoardOutline,
     #[serde(rename = "BOARD_CUTOUTS")]
@@ -1820,6 +1890,14 @@ pub enum PcbSvgConfigLayerOutputsIncludeSpecialLayersItem {
     Drills,
     #[serde(rename = "SLOTS")]
     Slots,
+    #[serde(rename = "SOLDERMASK_FILM_TOP")]
+    SoldermaskFilmTop,
+    #[serde(rename = "SOLDERMASK_FILM_BOTTOM")]
+    SoldermaskFilmBottom,
+    #[serde(rename = "ILLUSTRATION_TOP")]
+    IllustrationTop,
+    #[serde(rename = "ILLUSTRATION_BOTTOM")]
+    IllustrationBottom,
     #[serde(rename = "ASSEMBLY_HLR_TOP")]
     AssemblyHlrTop,
     #[serde(rename = "ASSEMBLY_HLR_BOTTOM")]
@@ -1852,10 +1930,15 @@ pub enum PcbSvgConfigLayerOutputsIncludeSpecialLayersItem {
 impl ::std::fmt::Display for PcbSvgConfigLayerOutputsIncludeSpecialLayersItem {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
+            Self::BoardSubstrate => f.write_str("BOARD_SUBSTRATE"),
             Self::BoardOutline => f.write_str("BOARD_OUTLINE"),
             Self::BoardCutouts => f.write_str("BOARD_CUTOUTS"),
             Self::Drills => f.write_str("DRILLS"),
             Self::Slots => f.write_str("SLOTS"),
+            Self::SoldermaskFilmTop => f.write_str("SOLDERMASK_FILM_TOP"),
+            Self::SoldermaskFilmBottom => f.write_str("SOLDERMASK_FILM_BOTTOM"),
+            Self::IllustrationTop => f.write_str("ILLUSTRATION_TOP"),
+            Self::IllustrationBottom => f.write_str("ILLUSTRATION_BOTTOM"),
             Self::AssemblyHlrTop => f.write_str("ASSEMBLY_HLR_TOP"),
             Self::AssemblyHlrBottom => f.write_str("ASSEMBLY_HLR_BOTTOM"),
             Self::AssemblyDesignatorsTop => f.write_str("ASSEMBLY_DESIGNATORS_TOP"),
@@ -1877,10 +1960,15 @@ impl ::std::str::FromStr for PcbSvgConfigLayerOutputsIncludeSpecialLayersItem {
     type Err = self::error::ConversionError;
     fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
         match value {
+            "BOARD_SUBSTRATE" => Ok(Self::BoardSubstrate),
             "BOARD_OUTLINE" => Ok(Self::BoardOutline),
             "BOARD_CUTOUTS" => Ok(Self::BoardCutouts),
             "DRILLS" => Ok(Self::Drills),
             "SLOTS" => Ok(Self::Slots),
+            "SOLDERMASK_FILM_TOP" => Ok(Self::SoldermaskFilmTop),
+            "SOLDERMASK_FILM_BOTTOM" => Ok(Self::SoldermaskFilmBottom),
+            "ILLUSTRATION_TOP" => Ok(Self::IllustrationTop),
+            "ILLUSTRATION_BOTTOM" => Ok(Self::IllustrationBottom),
             "ASSEMBLY_HLR_TOP" => Ok(Self::AssemblyHlrTop),
             "ASSEMBLY_HLR_BOTTOM" => Ok(Self::AssemblyHlrBottom),
             "ASSEMBLY_DESIGNATORS_TOP" => Ok(Self::AssemblyDesignatorsTop),
@@ -2624,14 +2712,23 @@ impl ::std::convert::From<Negative90> for RotationDirection {
 ///    "board_outline": {
 ///      "$ref": "#/$defs/StyleTableBoardOutline"
 ///    },
+///    "board_substrate": {
+///      "$ref": "#/$defs/StyleTableBoardSubstrate"
+///    },
 ///    "drills": {
 ///      "$ref": "#/$defs/HoleStyle"
+///    },
+///    "illustration": {
+///      "$ref": "#/$defs/StyleTableIllustration"
 ///    },
 ///    "pin1_marker": {
 ///      "$ref": "#/$defs/StyleTablePin1Marker"
 ///    },
 ///    "slots": {
 ///      "$ref": "#/$defs/HoleStyle"
+///    },
+///    "soldermask_film": {
+///      "$ref": "#/$defs/StyleTableSoldermaskFilm"
 ///    }
 ///  },
 ///  "additionalProperties": {
@@ -2667,11 +2764,23 @@ pub struct StyleTable {
     )]
     pub board_outline: crate::pcb_svg::presence::Field<StyleTableBoardOutline>,
     #[serde(
+        rename = "board_substrate",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub board_substrate: crate::pcb_svg::presence::Field<StyleTableBoardSubstrate>,
+    #[serde(
         rename = "drills",
         default,
         skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
     )]
     pub drills: crate::pcb_svg::presence::Field<HoleStyle>,
+    #[serde(
+        rename = "illustration",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub illustration: crate::pcb_svg::presence::Field<StyleTableIllustration>,
     #[serde(
         rename = "pin1_marker",
         default,
@@ -2684,6 +2793,12 @@ pub struct StyleTable {
         skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
     )]
     pub slots: crate::pcb_svg::presence::Field<HoleStyle>,
+    #[serde(
+        rename = "soldermask_film",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub soldermask_film: crate::pcb_svg::presence::Field<StyleTableSoldermaskFilm>,
     #[serde(flatten)]
     pub extra: ::std::collections::HashMap<::std::string::String, StyleTableExtension>,
 }
@@ -3030,9 +3145,17 @@ pub struct StyleTableAssemblyHlr {
 ///    "hatch_angle_deg": {
 ///      "type": "number"
 ///    },
+///    "hatch_color": {
+///      "type": "string"
+///    },
 ///    "hatch_line_width_mm": {
 ///      "type": "number",
 ///      "exclusiveMinimum": 0.0
+///    },
+///    "hatch_opacity": {
+///      "type": "number",
+///      "maximum": 1.0,
+///      "minimum": 0.0
 ///    },
 ///    "hatch_spacing_mm": {
 ///      "type": "number",
@@ -3041,6 +3164,11 @@ pub struct StyleTableAssemblyHlr {
 ///    "outline_dash_mm": {
 ///      "type": "number",
 ///      "exclusiveMinimum": 0.0
+///    },
+///    "outline_opacity": {
+///      "type": "number",
+///      "maximum": 1.0,
+///      "minimum": 0.0
 ///    },
 ///    "outline_style": {
 ///      "anyOf": [
@@ -3090,11 +3218,23 @@ pub struct StyleTableBoardCutouts {
     )]
     pub hatch_angle_deg: crate::pcb_svg::presence::Field<f64>,
     #[serde(
+        rename = "hatch_color",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub hatch_color: crate::pcb_svg::presence::Field<::std::string::String>,
+    #[serde(
         rename = "hatch_line_width_mm",
         default,
         skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
     )]
     pub hatch_line_width_mm: crate::pcb_svg::presence::Field<f64>,
+    #[serde(
+        rename = "hatch_opacity",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub hatch_opacity: crate::pcb_svg::presence::Field<f64>,
     #[serde(
         rename = "hatch_spacing_mm",
         default,
@@ -3107,6 +3247,12 @@ pub struct StyleTableBoardCutouts {
         skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
     )]
     pub outline_dash_mm: crate::pcb_svg::presence::Field<f64>,
+    #[serde(
+        rename = "outline_opacity",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub outline_opacity: crate::pcb_svg::presence::Field<f64>,
     #[serde(
         rename = "outline_style",
         default,
@@ -3335,6 +3481,53 @@ pub struct StyleTableBoardOutline {
     #[serde(flatten)]
     pub extra: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
 }
+///`StyleTableBoardSubstrate`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "properties": {
+///    "color": {
+///      "type": "string"
+///    },
+///    "enabled": {
+///      "type": "boolean"
+///    },
+///    "opacity": {
+///      "type": "number",
+///      "maximum": 1.0,
+///      "minimum": 0.0
+///    }
+///  },
+///  "additionalProperties": {}
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct StyleTableBoardSubstrate {
+    #[serde(
+        rename = "color",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub color: crate::pcb_svg::presence::Field<::std::string::String>,
+    #[serde(
+        rename = "enabled",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub enabled: crate::pcb_svg::presence::Field<bool>,
+    #[serde(
+        rename = "opacity",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub opacity: crate::pcb_svg::presence::Field<f64>,
+    #[serde(flatten)]
+    pub extra: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+}
 ///`StyleTableExtension`
 ///
 /// <details><summary>JSON schema</summary>
@@ -3368,6 +3561,64 @@ impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json:
     fn from(value: ::serde_json::Map<::std::string::String, ::serde_json::Value>) -> Self {
         Self(value)
     }
+}
+///`StyleTableIllustration`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "properties": {
+///    "detail_width_mm": {
+///      "type": "number",
+///      "exclusiveMinimum": 0.0
+///    },
+///    "enabled": {
+///      "type": "boolean"
+///    },
+///    "opacity": {
+///      "type": "number",
+///      "maximum": 1.0,
+///      "minimum": 0.0
+///    },
+///    "outline_width_mm": {
+///      "type": "number",
+///      "exclusiveMinimum": 0.0
+///    }
+///  },
+///  "additionalProperties": {}
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct StyleTableIllustration {
+    #[serde(
+        rename = "detail_width_mm",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub detail_width_mm: crate::pcb_svg::presence::Field<f64>,
+    #[serde(
+        rename = "enabled",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub enabled: crate::pcb_svg::presence::Field<bool>,
+    #[serde(
+        rename = "opacity",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub opacity: crate::pcb_svg::presence::Field<f64>,
+    #[serde(
+        rename = "outline_width_mm",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub outline_width_mm: crate::pcb_svg::presence::Field<f64>,
+    #[serde(flatten)]
+    pub extra: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
 }
 ///`StyleTablePin1Marker`
 ///
@@ -3442,6 +3693,53 @@ pub struct StyleTablePin1Marker {
         skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
     )]
     pub pad_diameter_ratio: crate::pcb_svg::presence::Field<f64>,
+    #[serde(flatten)]
+    pub extra: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+}
+///`StyleTableSoldermaskFilm`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "properties": {
+///    "color": {
+///      "type": "string"
+///    },
+///    "enabled": {
+///      "type": "boolean"
+///    },
+///    "opacity": {
+///      "type": "number",
+///      "maximum": 1.0,
+///      "minimum": 0.0
+///    }
+///  },
+///  "additionalProperties": {}
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct StyleTableSoldermaskFilm {
+    #[serde(
+        rename = "color",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub color: crate::pcb_svg::presence::Field<::std::string::String>,
+    #[serde(
+        rename = "enabled",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub enabled: crate::pcb_svg::presence::Field<bool>,
+    #[serde(
+        rename = "opacity",
+        default,
+        skip_serializing_if = "crate::pcb_svg::presence::Field::is_missing"
+    )]
+    pub opacity: crate::pcb_svg::presence::Field<f64>,
     #[serde(flatten)]
     pub extra: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
 }

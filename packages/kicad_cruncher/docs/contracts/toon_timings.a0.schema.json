@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kicad_cruncher.toon_timings.a0",
+  "title": "KiCad Cruncher Toon Timings",
+  "description": "Machine-readable native Toon phase and model-work measurements.",
+  "type": "object",
+  "required": [
+    "schema",
+    "source",
+    "requested_sides",
+    "selection",
+    "variant_selection",
+    "presentation",
+    "config",
+    "build_profile",
+    "cruncher_version",
+    "cache_mode",
+    "workers",
+    "geometer",
+    "command_phases_ms",
+    "sides"
+  ],
+  "properties": {
+    "schema": {"const": "kicad_cruncher.toon_timings.a0"},
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*[\\\\/]).+$"
+    },
+    "requested_sides": {"enum": ["top", "bottom", "both"]},
+    "selection": {"$ref": "#/$defs/selection"},
+    "variant_selection": {"$ref": "#/$defs/variant_selection"},
+    "presentation": {"$ref": "#/$defs/presentation"},
+    "config": {"$ref": "#/$defs/config"},
+    "build_profile": {"enum": ["debug", "release"]},
+    "cruncher_version": {"type": "string", "minLength": 1},
+    "cache_mode": {"enum": ["disabled", "explicit", "default", "unavailable"]},
+    "workers": {"$ref": "#/$defs/workers"},
+    "geometer": {"$ref": "#/$defs/geometer"},
+    "command_phases_ms": {"$ref": "#/$defs/command_phases"},
+    "sides": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": {"$ref": "#/$defs/side"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "duration": {"type": "number", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "selection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {"kind": {"const": "board"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "reference"],
+          "properties": {
+            "kind": {"const": "footprint"},
+            "reference": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "variant_selection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode"],
+          "properties": {"mode": {"enum": ["base", "all"]}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["mode", "name"],
+          "properties": {
+            "mode": {"const": "named"},
+            "name": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "presentation": {
+      "type": "object",
+      "required": ["theme", "assembly_designators", "sides"],
+      "properties": {
+        "theme": {
+          "enum": [
+            "saved",
+            "white",
+            "black",
+            "blue",
+            "red",
+            "purple",
+            "yellow",
+            "green",
+            "config",
+            "custom"
+          ]
+        },
+        "assembly_designators": {"type": "boolean"},
+        "sides": {
+          "type": "object",
+          "required": ["top", "bottom"],
+          "properties": {
+            "top": {"$ref": "#/$defs/presentation_side"},
+            "bottom": {"$ref": "#/$defs/presentation_side"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "presentation_side": {
+      "type": "object",
+      "required": ["soldermask_color", "silkscreen_color"],
+      "properties": {
+        "soldermask_color": {
+          "type": "string",
+          "pattern": "^(?:auto|#[0-9A-Fa-f]{6})$"
+        },
+        "silkscreen_color": {
+          "type": "string",
+          "pattern": "^(?:contrast|#[0-9A-Fa-f]{6})$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "config": {
+      "type": "object",
+      "required": ["file", "resolved_sha256"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?![A-Za-z]:)(?!/)(?!.*[\\\\/]).+$"
+        },
+        "resolved_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "workers": {
+      "type": "object",
+      "required": ["requested", "started"],
+      "properties": {
+        "requested": {"type": "integer", "minimum": 1, "maximum": 64},
+        "started": {"type": "integer", "minimum": 0, "maximum": 64}
+      },
+      "additionalProperties": false
+    },
+    "geometer": {
+      "type": "object",
+      "required": ["release", "c_abi_generation", "source_revision"],
+      "properties": {
+        "release": {"const": "2026.9.13"},
+        "c_abi_generation": {"const": 20260913},
+        "source_revision": {
+          "const": "703e60029a248801947150f913f77a1cecce2662"
+        }
+      },
+      "additionalProperties": false
+    },
+    "command_phases": {
+      "type": "object",
+      "required": [
+        "input",
+        "geometer_start",
+        "render_and_shutdown",
+        "publication",
+        "total_before_timings_write"
+      ],
+      "properties": {
+        "input": {"$ref": "#/$defs/duration"},
+        "geometer_start": {"$ref": "#/$defs/duration"},
+        "render_and_shutdown": {"$ref": "#/$defs/duration"},
+        "publication": {"$ref": "#/$defs/duration"},
+        "total_before_timings_write": {"$ref": "#/$defs/duration"}
+      },
+      "additionalProperties": false
+    },
+    "side_phases": {
+      "type": "object",
+      "required": [
+        "preparation",
+        "physical_render",
+        "model_illustration",
+        "composition",
+        "total"
+      ],
+      "properties": {
+        "preparation": {"$ref": "#/$defs/duration"},
+        "physical_render": {"$ref": "#/$defs/duration"},
+        "model_illustration": {"$ref": "#/$defs/duration"},
+        "composition": {"$ref": "#/$defs/duration"},
+        "total": {"$ref": "#/$defs/duration"}
+      },
+      "additionalProperties": false
+    },
+    "side": {
+      "type": "object",
+      "required": [
+        "variant",
+        "side",
+        "model_instances",
+        "geometer_requests",
+        "model_cache_hits",
+        "persistent_model_cache_hits",
+        "warning_count",
+        "svg_bytes",
+        "svg_sha256",
+        "phases_ms"
+      ],
+      "properties": {
+        "variant": {"type": "string", "minLength": 1},
+        "side": {"enum": ["top", "bottom"]},
+        "model_instances": {"type": "integer", "minimum": 0},
+        "geometer_requests": {"type": "integer", "minimum": 0},
+        "model_cache_hits": {"type": "integer", "minimum": 0},
+        "persistent_model_cache_hits": {"type": "integer", "minimum": 0},
+        "warning_count": {"type": "integer", "minimum": 0},
+        "svg_bytes": {"type": "integer", "minimum": 1},
+        "svg_sha256": {"$ref": "#/$defs/sha256"},
+        "phases_ms": {"$ref": "#/$defs/side_phases"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

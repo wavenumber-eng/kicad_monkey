@@ -289,6 +289,10 @@
                         "anyOf": [
                             {
                                 "type": "string",
+                                "const": "BOARD_SUBSTRATE"
+                            },
+                            {
+                                "type": "string",
                                 "const": "BOARD_OUTLINE"
                             },
                             {
@@ -302,6 +306,22 @@
                             {
                                 "type": "string",
                                 "const": "SLOTS"
+                            },
+                            {
+                                "type": "string",
+                                "const": "SOLDERMASK_FILM_TOP"
+                            },
+                            {
+                                "type": "string",
+                                "const": "SOLDERMASK_FILM_BOTTOM"
+                            },
+                            {
+                                "type": "string",
+                                "const": "ILLUSTRATION_TOP"
+                            },
+                            {
+                                "type": "string",
+                                "const": "ILLUSTRATION_BOTTOM"
                             },
                             {
                                 "type": "string",
@@ -484,6 +504,15 @@
         "StyleTable": {
             "type": "object",
             "properties": {
+                "illustration": {
+                    "$ref": "#/$defs/StyleTableIllustration"
+                },
+                "board_substrate": {
+                    "$ref": "#/$defs/StyleTableBoardSubstrate"
+                },
+                "soldermask_film": {
+                    "$ref": "#/$defs/StyleTableSoldermaskFilm"
+                },
                 "board_outline": {
                     "$ref": "#/$defs/StyleTableBoardOutline"
                 },
@@ -612,6 +641,62 @@
                 "not": {}
             }
         },
+        "StyleTableIllustration": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                },
+                "outline_width_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "detail_width_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                }
+            },
+            "unevaluatedProperties": {}
+        },
+        "StyleTableBoardSubstrate": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            "unevaluatedProperties": {}
+        },
+        "StyleTableSoldermaskFilm": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            },
+            "unevaluatedProperties": {}
+        },
         "StyleTableBoardOutline": {
             "type": "object",
             "properties": {
@@ -687,6 +772,14 @@
                     "type": "number",
                     "exclusiveMinimum": 0
                 },
+                "hatch_color": {
+                    "type": "string"
+                },
+                "hatch_opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                },
                 "outline_style": {
                     "anyOf": [
                         {
@@ -706,6 +799,11 @@
                 "outline_width_mm": {
                     "type": "number",
                     "exclusiveMinimum": 0
+                },
+                "outline_opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
                 }
             },
             "unevaluatedProperties": {}
@@ -721,6 +819,16 @@
                 },
                 "non_plated_color": {
                     "type": "string"
+                },
+                "outline": {
+                    "type": "boolean"
+                },
+                "outline_width_mm": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "respect_tenting": {
+                    "type": "boolean"
                 },
                 "opacity": {
                     "type": "number",

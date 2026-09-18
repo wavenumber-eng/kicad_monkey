@@ -56,6 +56,17 @@ jobs:
             throw "Reviewed corpus ZIP was not restored at $corpus"
           }
           "KM_CORPUS=$corpus" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Stage the pinned Geometer runtime once
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'geometer-runtime'
+          $executable = (& python packages/kicad_cruncher/scripts/fetch-geometer-runtime.py `
+            --platform windows-x64 --destination $runtime).Trim()
+          if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
+            throw "Geometer runtime was not staged at $executable"
+          }
+          "GEOMETER_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "KCR_REQUIRE_GEOMETER_TEST=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Run Phase 6 native acceptance gates
         run: |
           uv run --extra test python tests/rack.py run L1_029

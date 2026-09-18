@@ -3,7 +3,7 @@ import "@typespec/json-schema";
 using TypeSpec.JsonSchema;
 namespace KiCadCruncher;
 
-alias SyntheticLayer = "BOARD_OUTLINE" | "BOARD_CUTOUTS" | "DRILLS" | "SLOTS" | "ASSEMBLY_HLR_TOP" | "ASSEMBLY_HLR_BOTTOM" | "ASSEMBLY_DESIGNATORS_TOP" | "ASSEMBLY_DESIGNATORS_BOTTOM" | "PIN1_TOP" | "PIN1_BOTTOM" | "ASSEMBLY_HLR_TOP_OUTLINE" | "ASSEMBLY_HLR_BOTTOM_OUTLINE" | "ASSEMBLY_HLR_TOP_DETAIL" | "ASSEMBLY_HLR_BOTTOM_DETAIL" | "ASSEMBLY_BOUNDS_TOP_MODEL" | "ASSEMBLY_BOUNDS_BOTTOM_MODEL" | "ASSEMBLY_BOUNDS_TOP_PADS" | "ASSEMBLY_BOUNDS_BOTTOM_PADS";
+alias SyntheticLayer = "BOARD_SUBSTRATE" | "BOARD_OUTLINE" | "BOARD_CUTOUTS" | "DRILLS" | "SLOTS" | "SOLDERMASK_FILM_TOP" | "SOLDERMASK_FILM_BOTTOM" | "ILLUSTRATION_TOP" | "ILLUSTRATION_BOTTOM" | "ASSEMBLY_HLR_TOP" | "ASSEMBLY_HLR_BOTTOM" | "ASSEMBLY_DESIGNATORS_TOP" | "ASSEMBLY_DESIGNATORS_BOTTOM" | "PIN1_TOP" | "PIN1_BOTTOM" | "ASSEMBLY_HLR_TOP_OUTLINE" | "ASSEMBLY_HLR_BOTTOM_OUTLINE" | "ASSEMBLY_HLR_TOP_DETAIL" | "ASSEMBLY_HLR_BOTTOM_DETAIL" | "ASSEMBLY_BOUNDS_TOP_MODEL" | "ASSEMBLY_BOUNDS_BOTTOM_MODEL" | "ASSEMBLY_BOUNDS_TOP_PADS" | "ASSEMBLY_BOUNDS_BOTTOM_PADS";
 
 alias ProjectionMode = "detail" | "outline" | "bounding_box" | "model_bounds" | "pad_bounds" | "none";
 
@@ -30,6 +30,9 @@ model ComponentOverrideAssemblyDesignators {
 
 model StyleTable {
   ...Record<StyleTableExtension>;
+  "illustration"?: StyleTableIllustration;
+  "board_substrate"?: StyleTableBoardSubstrate;
+  "soldermask_film"?: StyleTableSoldermaskFilm;
   "board_outline"?: StyleTableBoardOutline;
   "board_cutouts"?: StyleTableBoardCutouts;
   "drills"?: HoleStyle;
@@ -37,6 +40,36 @@ model StyleTable {
   "pin1_marker"?: StyleTablePin1Marker;
   "assembly_designators"?: StyleTableAssemblyDesignators;
   "assembly_hlr"?: StyleTableAssemblyHlr;
+}
+
+model StyleTableIllustration {
+  ...Record<unknown>;
+  "enabled"?: boolean;
+  @minValue(0)
+  @maxValue(1)
+  "opacity"?: float64;
+  @minValueExclusive(0)
+  "outline_width_mm"?: float64;
+  @minValueExclusive(0)
+  "detail_width_mm"?: float64;
+}
+
+model StyleTableBoardSubstrate {
+  ...Record<unknown>;
+  "enabled"?: boolean;
+  "color"?: string;
+  @minValue(0)
+  @maxValue(1)
+  "opacity"?: float64;
+}
+
+model StyleTableSoldermaskFilm {
+  ...Record<unknown>;
+  "enabled"?: boolean;
+  "color"?: string;
+  @minValue(0)
+  @maxValue(1)
+  "opacity"?: float64;
 }
 
 model StyleTableExtension {
@@ -79,11 +112,18 @@ model StyleTableBoardCutouts {
   "hatch_angle_deg"?: float64;
   @minValueExclusive(0)
   "hatch_line_width_mm"?: float64;
+  "hatch_color"?: string;
+  @minValue(0)
+  @maxValue(1)
+  "hatch_opacity"?: float64;
   "outline_style"?: "solid" | "dashed";
   @minValueExclusive(0)
   "outline_dash_mm"?: float64;
   @minValueExclusive(0)
   "outline_width_mm"?: float64;
+  @minValue(0)
+  @maxValue(1)
+  "outline_opacity"?: float64;
 }
 
 model StyleTablePin1Marker {
@@ -146,6 +186,10 @@ model HoleStyle {
   "enabled"?: boolean;
   "plated_color"?: string;
   "non_plated_color"?: string;
+  "outline"?: boolean;
+  @minValueExclusive(0)
+  "outline_width_mm"?: float64;
+  "respect_tenting"?: boolean;
   @minValue(0)
   @maxValue(1)
   "opacity"?: float64;

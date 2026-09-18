@@ -48,6 +48,9 @@ export interface PcbSvgConfigGlobalCanvas {
   [k: string]: unknown;
 }
 export interface StyleTable {
+  illustration?: StyleTableIllustration;
+  board_substrate?: StyleTableBoardSubstrate;
+  soldermask_film?: StyleTableSoldermaskFilm;
   board_outline?: StyleTableBoardOutline;
   board_cutouts?: StyleTableBoardCutouts;
   drills?: HoleStyle;
@@ -55,6 +58,25 @@ export interface StyleTable {
   pin1_marker?: StyleTablePin1Marker;
   assembly_designators?: StyleTableAssemblyDesignators;
   assembly_hlr?: StyleTableAssemblyHlr;
+  [k: string]: unknown;
+}
+export interface StyleTableIllustration {
+  enabled?: boolean;
+  opacity?: number;
+  outline_width_mm?: number;
+  detail_width_mm?: number;
+  [k: string]: unknown;
+}
+export interface StyleTableBoardSubstrate {
+  enabled?: boolean;
+  color?: string;
+  opacity?: number;
+  [k: string]: unknown;
+}
+export interface StyleTableSoldermaskFilm {
+  enabled?: boolean;
+  color?: string;
+  opacity?: number;
   [k: string]: unknown;
 }
 export interface StyleTableBoardOutline {
@@ -79,15 +101,21 @@ export interface StyleTableBoardCutouts {
   hatch_spacing_mm?: number;
   hatch_angle_deg?: number;
   hatch_line_width_mm?: number;
+  hatch_color?: string;
+  hatch_opacity?: number;
   outline_style?: "solid" | "dashed";
   outline_dash_mm?: number;
   outline_width_mm?: number;
+  outline_opacity?: number;
   [k: string]: unknown;
 }
 export interface HoleStyle {
   enabled?: boolean;
   plated_color?: string;
   non_plated_color?: string;
+  outline?: boolean;
+  outline_width_mm?: number;
+  respect_tenting?: boolean;
   opacity?: number;
   [k: string]: unknown;
 }
@@ -162,10 +190,15 @@ export interface PcbSvgConfigLayerOutputs {
   enabled?: boolean;
   layers?: "auto" | string[];
   include_special_layers?: (
+    | "BOARD_SUBSTRATE"
     | "BOARD_OUTLINE"
     | "BOARD_CUTOUTS"
     | "DRILLS"
     | "SLOTS"
+    | "SOLDERMASK_FILM_TOP"
+    | "SOLDERMASK_FILM_BOTTOM"
+    | "ILLUSTRATION_TOP"
+    | "ILLUSTRATION_BOTTOM"
     | "ASSEMBLY_HLR_TOP"
     | "ASSEMBLY_HLR_BOTTOM"
     | "ASSEMBLY_DESIGNATORS_TOP"

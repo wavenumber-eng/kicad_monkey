@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+- Add the public pure-Rust `toon` command for transactional top/bottom KiCad
+  board illustrations. The command composes copper, closed board substrate,
+  holes/cutouts, resolved solder-mask film, silkscreen, and embedded STEP model
+  projections through the exact Geometer 2026.9.13 process contract.
+- Ship the qualified Geometer executable, build attestation, and licenses in
+  the Windows x64 native archive. Hash-pinned Linux x64, Linux ARM64, and macOS
+  ARM64 runtimes exercise the same process and Toon composition in CI.
+- Publish the A0 Toon manifest contract with portable source identity, per-SVG
+  size/SHA-256/model/warning records, and exact Geometer provenance.
+- Match the current Altium Cruncher Toon presentation contract: substrate,
+  copper, film, silk, cutouts, drills, slots, outline, then illustration;
+  expose drills and slots as tenting-aware gray virtual layers while retaining
+  physical substrate bores; use the white-mask/black-silk palette; and request
+  0.025 mm HLR outlines with 0.01375 mm detail lines.
+- Sort independently illustrated STEP models by their transformed Z bounds,
+  matching Altium Cruncher's top/bottom painter order so elevated shields and
+  covers obscure lower components while retaining visibility through openings.
+- Deduplicate identical model illustration work within a Toon job, persist only
+  validated successful Geometer geometry under version/settings-bound keys,
+  and expose `--cache-dir`/`--no-cache`. Fully warm jobs skip Geometer startup.
+- Add bounded deterministic `--workers` scheduling (default 4) for unique model
+  cache misses and `--timings` A0 JSON profiles with phase, worker, cache,
+  request, warning, output-size, and digest measurements.
+- Add `toon --footprint REF` for a tightly fitted transparent SVG containing one
+  placed footprint's copper, silkscreen, drills/slots, and embedded models, with
+  its board side inferred and neighboring board geometry excluded.
+- Add Altium-compatible named Toon themes plus editable `toon.config` JSON/JSONC
+  loading, automatic project-adjacent preset creation, and `--write-config`.
+  Explicit CLI colors override authored config. Substrate, copper, mask, silk,
+  cutout, drill/slot, board-outline, illustration opacity, and HLR lineweights
+  are connected to native SVG composition; manifest/timing artifacts bind the
+  resolved config by SHA-256. Top and bottom view styles resolve independently,
+  and each view's layer list controls native painter order and omissions.
+- Add PCB-Autodoc-compatible assembly-designator fitting over projected model
+  outlines or model-free electrical-pad envelopes, bottom-view mirror
+  compensation, component-level `show_designator: false`, and configurable
+  typography/stroke controls.
+- Add KiCad `--variant`/`--all-variants` population output, DNP model/label
+  suppression, portable per-variant directories, `--doc`/`--pcbdoc`, and exact
+  variant provenance in Toon manifests and timing profiles. Model geometry and
+  persistent cache entries are reused across variant renders.
+
 ## 2026.9.7
 
 - Require `kicad-monkey>=2026.9.7` and update the controlled assembly
