@@ -6,6 +6,7 @@ import json
 from html.parser import HTMLParser
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
 from kicad_cruncher.bom_pnp_model import BOM_PNP_CONFIG_SCHEMA, default_bom_pnp_config_text
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_pcb_clean import (
@@ -36,6 +37,119 @@ CONTRACTS_ROOT = PACKAGE_ROOT / "docs" / "contracts"
 DESIGN_ROOT = PACKAGE_ROOT / "docs" / "design"
 CLI_DESIGN_ROOT = DESIGN_ROOT / "cli"
 COMMAND_MANIFEST = CONTRACTS_ROOT / "command_manifest.a0.json"
+
+
+def test_toon_manifest_contract_is_valid_and_portable() -> None:
+    """The native Toon artifact index must reject machine-local source paths."""
+    schema = json.loads(
+        (CONTRACTS_ROOT / "toon_manifest.a0.schema.json").read_text(encoding="utf-8")
+    )
+    Draft202012Validator.check_schema(schema)
+    manifest = {
+        "schema": "kicad_cruncher.toon_manifest.a0",
+        "version": "a0",
+        "source": "board.kicad_pcb",
+        "requested_sides": "top",
+        "selection": {"kind": "board"},
+        "variant_selection": {"mode": "base"},
+        "presentation": {
+            "theme": "saved",
+            "assembly_designators": False,
+            "sides": {
+                "top": {"soldermask_color": "auto", "silkscreen_color": "#F5F5F5"},
+                "bottom": {"soldermask_color": "auto", "silkscreen_color": "#F5F5F5"},
+            },
+        },
+        "config": {"file": "toon.config", "resolved_sha256": "1" * 64},
+        "geometer": {
+            "release": "2026.9.13",
+            "c_abi_generation": 20260913,
+            "source_revision": "703e60029a248801947150f913f77a1cecce2662",
+        },
+        "artifacts": [
+            {
+                "file": "board__toon_top.svg",
+                "variant": "base",
+                "side": "top",
+                "svg_bytes": 1,
+                "svg_sha256": "0" * 64,
+                "soldermask_color": "#000000",
+                "silkscreen_color": "#F5F5F5",
+                "rendered_model_count": 0,
+                "geometer_request_count": 0,
+                "model_cache_hit_count": 0,
+                "persistent_model_cache_hit_count": 0,
+                "warnings": [],
+            }
+        ],
+    }
+    validator = Draft202012Validator(schema)
+    validator.validate(manifest)
+    manifest["source"] = r"C:\\workspace\\board.kicad_pcb"
+    assert list(validator.iter_errors(manifest))
+
+
+def test_toon_timings_contract_is_valid_and_portable() -> None:
+    schema = json.loads(
+        (CONTRACTS_ROOT / "toon_timings.a0.schema.json").read_text(encoding="utf-8")
+    )
+    Draft202012Validator.check_schema(schema)
+    profile = {
+        "schema": "kicad_cruncher.toon_timings.a0",
+        "source": "board.kicad_pcb",
+        "requested_sides": "top",
+        "selection": {"kind": "footprint", "reference": "U1"},
+        "variant_selection": {"mode": "named", "name": "production"},
+        "presentation": {
+            "theme": "black",
+            "assembly_designators": True,
+            "sides": {
+                "top": {"soldermask_color": "#000000", "silkscreen_color": "#F5F5F5"},
+                "bottom": {"soldermask_color": "#000000", "silkscreen_color": "#F5F5F5"},
+            },
+        },
+        "config": {"file": "toon.config", "resolved_sha256": "1" * 64},
+        "build_profile": "release",
+        "cruncher_version": "2026.9.7",
+        "cache_mode": "explicit",
+        "workers": {"requested": 4, "started": 2},
+        "geometer": {
+            "release": "2026.9.13",
+            "c_abi_generation": 20260913,
+            "source_revision": "703e60029a248801947150f913f77a1cecce2662",
+        },
+        "command_phases_ms": {
+            "input": 1.0,
+            "geometer_start": 2.0,
+            "render_and_shutdown": 3.0,
+            "publication": 4.0,
+            "total_before_timings_write": 10.0,
+        },
+        "sides": [
+            {
+                "variant": "production",
+                "side": "top",
+                "model_instances": 10,
+                "geometer_requests": 2,
+                "model_cache_hits": 8,
+                "persistent_model_cache_hits": 2,
+                "warning_count": 0,
+                "svg_bytes": 1,
+                "svg_sha256": "0" * 64,
+                "phases_ms": {
+                    "preparation": 1.0,
+                    "physical_render": 2.0,
+                    "model_illustration": 3.0,
+                    "composition": 4.0,
+                    "total": 10.0,
+                },
+            }
+        ],
+    }
+    validator = Draft202012Validator(schema)
+    validator.validate(profile)
+    profile["source"] = r"C:\\workspace\\board.kicad_pcb"
+    assert list(validator.iter_errors(profile))
 
 
 class _DataAttrParser(HTMLParser):
@@ -109,9 +223,7 @@ def test_cli_config_contract_links_are_release_ready() -> None:
         if doc_contract == "none":
             continue
         if not doc_contract.startswith("docs/contracts/"):
-            failures.append(
-                f"{command}: config contract must live under docs/contracts"
-            )
+            failures.append(f"{command}: config contract must live under docs/contracts")
             continue
         if not doc_contract.endswith(".schema.json"):
             failures.append(f"{command}: config contract is not a JSON schema")
@@ -127,9 +239,7 @@ def test_cli_config_contract_links_are_release_ready() -> None:
     ]
     failures.extend(f"{path}: contains pending config contract" for path in pending_docs)
 
-    assert failures == [], "Config contract link signoff gaps:\n" + "\n".join(
-        failures
-    )
+    assert failures == [], "Config contract link signoff gaps:\n" + "\n".join(failures)
 
 
 def test_pcb_layer_step_default_jsonc_documents_enum_options(tmp_path: Path) -> None:
@@ -170,9 +280,7 @@ def test_pcb_layer_step_a0_contract_removed_old_color_body_fields() -> None:
 def test_library_extraction_bundle_contract_documents_parameter_maps() -> None:
     """The library extraction metadata contract must define raw/canonical fields."""
     schema = json.loads(
-        (CONTRACTS_ROOT / "library_extraction_bundle.a0.schema.json").read_text(
-            encoding="utf-8"
-        )
+        (CONTRACTS_ROOT / "library_extraction_bundle.a0.schema.json").read_text(encoding="utf-8")
     )
 
     assert schema["$id"] == "kicad_cruncher.library_extraction_bundle.a0"

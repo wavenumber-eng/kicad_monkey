@@ -5,6 +5,7 @@ enabled = true
 concerns = ["cli", "contracts", "release"]
 
 objectives = [
+    "SVG HLR defaults use fast detail and fast mesh shadow with compatible controls and distinct cache identities",
     "Stable public commands run against redistributable KiCad fixtures",
     "Generated outputs have expected schemas, README guidance, and artifact shapes",
     "Workflow tests do not require a private corpus",
@@ -183,7 +184,7 @@ test_rust_pcb_review_svg_matches_python_enrichment_contract = "Compare PCB revie
 id = "L3_012"
 file = "test_L3_012_rust_cli_install.py"
 name = "Installed Rust Design CLI"
-description = "Install the Windows x64 Rust binaries and run a complete design-review bundle without Python at runtime"
+description = "Install the Windows x64 Rust binaries and run design-review and Toon workflows without Python at runtime"
 concerns = ["cli", "contracts", "cross-package", "release"]
 test_case_type = "reference"
 test_cases = "isolated Cargo install prefix and the reviewed led_component project extracted from KM_CORPUS/kicad.zip"
@@ -195,8 +196,10 @@ install_harness = "tests/support_scripts/rust_cli_install_test.py"
 [subtests.objectives]
 entrypoints = "cargo install publishes both kicad-cruncher.exe and kcr.exe from one Rust dispatch surface"
 native_runtime = "the installed kcr design-review command publishes a complete bundle with Python removed from its runtime environment"
+geometer_runtime = "the archive includes the exact attested Geometer executable and licenses required by native model illustration"
+toon = "the installed kcr toon command publishes digest-bound top/bottom SVGs through the sibling Geometer runtime"
 source_hygiene = "installed executables contain no UTF-8 or UTF-16 workspace path"
-release_artifact = "the exact smoke-tested binaries produce a hash-bound Windows x64 archive and release manifest"
+release_artifact = "the exact smoke-tested binaries and Geometer sidecar produce a hash-bound Windows x64 archive and release manifest"
 
 [[subtests]]
 id = "L3_004"
@@ -250,3 +253,20 @@ test_missing_exact_footprint_key_preserves_existing_destination = "Reject a miss
 test_each_post_conversion_failure_preserves_existing_destination = "Inject filter and validation failures"
 test_reuse_rejects_invalid_existing_footprint_without_mutating_it = "Fail closed when reused output needs repair"
 test_symbol_conversion_requires_exact_key_and_reports_reusable_result = "Select and reuse an exact symbol key"
+
+[[subtests]]
+id = "L3_013"
+file = "test_L3_013_fast_svg_projection.py"
+name = "Fast SVG HLR boundary"
+description = "Check fast defaults, legacy-control validation, and projection cache identity"
+concerns = ["contracts"]
+test_case_type = "unit"
+test_cases = "Explicit fast and legacy Geometer option dictionaries"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_pcb_svg_projection"
+
+[subtests.objectives]
+fast_defaults = "Default detail and outline use fast and fast-mesh-shadow"
+legacy_controls = "Incompatible legacy controls fail before per-model warning handling"
+cache_identity = "Fast candidate settings affect projection reuse"

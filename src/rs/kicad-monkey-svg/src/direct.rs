@@ -174,12 +174,14 @@ enum OperationData<'a> {
     PadCircle {
         center: Point,
         diameter_nm: i64,
+        mask_margin_nm: i64,
         layers: &'a [String],
     },
     PadOval {
         center: Point,
         size: Point,
         angle_deg: f64,
+        mask_margin_nm: i64,
         layers: &'a [String],
     },
     PadRect {
@@ -187,6 +189,7 @@ enum OperationData<'a> {
         size: Point,
         angle_deg: f64,
         radius_nm: Option<i64>,
+        mask_margin_nm: i64,
         layers: &'a [String],
     },
     PadCustom {
@@ -705,12 +708,14 @@ macro_rules! define_operation_adapter {
                 m::PlotterOperation::FlashPadCircleOperation(value) => OperationData::PadCircle {
                     center: (value.x.get(), value.y.get()),
                     diameter_nm: value.diameter_nm.get(),
+                    mask_margin_nm: value.mask_margin_nm.as_ref().map_or(0, |value| value.get()),
                     layers: operation_layers(&value.layers),
                 },
                 m::PlotterOperation::FlashPadOvalOperation(value) => OperationData::PadOval {
                     center: (value.x.get(), value.y.get()),
                     size: (value.size_x_nm.get(), value.size_y_nm.get()),
                     angle_deg: value.orient_deg,
+                    mask_margin_nm: value.mask_margin_nm.get(),
                     layers: operation_layers(&value.layers),
                 },
                 m::PlotterOperation::FlashPadRectOperation(value) => OperationData::PadRect {
@@ -718,6 +723,7 @@ macro_rules! define_operation_adapter {
                     size: (value.size_x_nm.get(), value.size_y_nm.get()),
                     angle_deg: value.orient_deg,
                     radius_nm: None,
+                    mask_margin_nm: value.mask_margin_nm.get(),
                     layers: operation_layers(&value.layers),
                 },
                 m::PlotterOperation::FlashPadRoundRectOperation(value) => OperationData::PadRect {
@@ -725,6 +731,7 @@ macro_rules! define_operation_adapter {
                     size: (value.size_x_nm.get(), value.size_y_nm.get()),
                     angle_deg: value.orient_deg,
                     radius_nm: Some(value.corner_radius_nm.get()),
+                    mask_margin_nm: value.mask_margin_nm.get(),
                     layers: operation_layers(&value.layers),
                 },
                 m::PlotterOperation::FlashPadCustomOperation(value) => OperationData::PadCustom {
@@ -913,6 +920,7 @@ macro_rules! schematic_common_operation {
         OperationData::PadCircle {
             center: ($value.x.get(), $value.y.get()),
             diameter_nm: $value.diameter_nm.get(),
+            mask_margin_nm: 0,
             layers: operation_layers(&$value.layers),
         }
     };
@@ -921,6 +929,7 @@ macro_rules! schematic_common_operation {
             center: ($value.x.get(), $value.y.get()),
             size: ($value.size_x_nm.get(), $value.size_y_nm.get()),
             angle_deg: $value.orient_deg,
+            mask_margin_nm: 0,
             layers: operation_layers(&$value.layers),
         }
     };
@@ -930,6 +939,7 @@ macro_rules! schematic_common_operation {
             size: ($value.size_x_nm.get(), $value.size_y_nm.get()),
             angle_deg: $value.orient_deg,
             radius_nm: None,
+            mask_margin_nm: 0,
             layers: operation_layers(&$value.layers),
         }
     };
@@ -939,6 +949,7 @@ macro_rules! schematic_common_operation {
             size: ($value.size_x_nm.get(), $value.size_y_nm.get()),
             angle_deg: $value.orient_deg,
             radius_nm: Some($value.corner_radius_nm.get()),
+            mask_margin_nm: 0,
             layers: operation_layers(&$value.layers),
         }
     };
@@ -1280,6 +1291,7 @@ fn board_footprint_operation(operation: &board::BoardFootprintOperation) -> Oper
             OperationData::PadCircle {
                 center: (value.x.get(), value.y.get()),
                 diameter_nm: value.diameter_nm.get(),
+                mask_margin_nm: value.mask_margin_nm.as_ref().map_or(0, |value| value.get()),
                 layers: operation_layers(&value.layers),
             }
         }
@@ -1287,6 +1299,7 @@ fn board_footprint_operation(operation: &board::BoardFootprintOperation) -> Oper
             center: (value.x.get(), value.y.get()),
             size: (value.size_x_nm.get(), value.size_y_nm.get()),
             angle_deg: value.orient_deg,
+            mask_margin_nm: value.mask_margin_nm.get(),
             layers: operation_layers(&value.layers),
         },
         board::BoardFootprintOperation::FlashPadRectOperation(value) => OperationData::PadRect {
@@ -1294,6 +1307,7 @@ fn board_footprint_operation(operation: &board::BoardFootprintOperation) -> Oper
             size: (value.size_x_nm.get(), value.size_y_nm.get()),
             angle_deg: value.orient_deg,
             radius_nm: None,
+            mask_margin_nm: value.mask_margin_nm.get(),
             layers: operation_layers(&value.layers),
         },
         board::BoardFootprintOperation::FlashPadRoundRectOperation(value) => {
@@ -1302,6 +1316,7 @@ fn board_footprint_operation(operation: &board::BoardFootprintOperation) -> Oper
                 size: (value.size_x_nm.get(), value.size_y_nm.get()),
                 angle_deg: value.orient_deg,
                 radius_nm: Some(value.corner_radius_nm.get()),
+                mask_margin_nm: value.mask_margin_nm.get(),
                 layers: operation_layers(&value.layers),
             }
         }
@@ -2540,21 +2555,33 @@ fn add_operation_bounds(
         OperationData::PadCircle {
             center,
             diameter_nm,
+            mask_margin_nm,
+            layers,
             ..
         } => {
-            nonnegative(*diameter_nm, "diameter_nm")?;
+            let diameter_nm = expanded_pad_dimension(
+                *diameter_nm,
+                selected_mask_margin(context, scope, layers, *mask_margin_nm),
+                "diameter_nm",
+            )?;
             bounds.point(
                 transform.point(*center),
-                (*diameter_nm as f64) / 2.0 + stroke_radius,
+                (diameter_nm as f64) / 2.0 + stroke_radius,
             );
         }
         OperationData::PadOval {
             center,
             size,
             angle_deg,
+            mask_margin_nm,
+            layers,
             ..
         } => {
-            if let Some(line) = pad_oval_centerline(*center, *size)? {
+            let size = expanded_pad_size(
+                *size,
+                selected_mask_margin(context, scope, layers, *mask_margin_nm),
+            )?;
+            if let Some(line) = pad_oval_centerline(*center, size)? {
                 for point_twice in [line.first_twice, line.second_twice] {
                     let point = (point_twice.0 as f64 / 2.0, point_twice.1 as f64 / 2.0);
                     let offset = (point.0 - center.0 as f64, point.1 - center.1 as f64);
@@ -2576,8 +2603,20 @@ fn add_operation_bounds(
             center,
             size,
             angle_deg,
+            mask_margin_nm,
+            layers,
             ..
-        } => add_rotated_box_bounds(*center, *size, *angle_deg, transform, stroke_radius, bounds)?,
+        } => add_rotated_box_bounds(
+            *center,
+            expanded_pad_size(
+                *size,
+                selected_mask_margin(context, scope, layers, *mask_margin_nm),
+            )?,
+            *angle_deg,
+            transform,
+            stroke_radius,
+            bounds,
+        )?,
         OperationData::PadCustom {
             center,
             angle_deg,
@@ -2852,10 +2891,15 @@ fn operation_stroke_radius(
         OperationData::PadOval {
             center,
             size,
+            mask_margin_nm,
             layers,
             ..
         } if size.0 != size.1 => {
-            let line = pad_oval_centerline(*center, *size)?.ok_or_else(|| {
+            let size = expanded_pad_size(
+                *size,
+                selected_mask_margin(context, scope, layers, *mask_margin_nm),
+            )?;
+            let line = pad_oval_centerline(*center, size)?.ok_or_else(|| {
                 direct_error(
                     SvgErrorKind::InvalidDocument,
                     "non-circular oval pad has no centerline",
@@ -2893,12 +2937,7 @@ fn operation_stroke_radius(
         },
         _ => return Ok(0.0),
     };
-    if source.layer.is_none() {
-        source.layer = scope.layer;
-    }
-    if source.layers.is_empty() {
-        source.layers = scope.layers;
-    }
+    (source.layer, source.layers) = effective_operation_layers(source.layer, source.layers, scope);
     let style = resolve_effective_style(&source, kind, context, scope)?;
     if style.width_nm == 0 && style.filled {
         Ok(0.0)
@@ -3702,27 +3741,33 @@ fn render_operation(
         OperationData::PadCircle {
             center,
             diameter_nm,
+            mask_margin_nm,
             layers,
         } => {
-            nonnegative(*diameter_nm, "diameter_nm")?;
+            let pad_scope = RenderScope {
+                layer: inherited_layer,
+                layers: if layers.is_empty() {
+                    inherited_layers
+                } else {
+                    layers
+                },
+                ..scope
+            };
+            let diameter_nm = expanded_pad_dimension(
+                *diameter_nm,
+                selected_mask_margin(context, scope, layers, *mask_margin_nm),
+                "diameter_nm",
+            )?;
             sink.element()?;
             sink.raw("<circle")?;
             sink.attribute("cx", &format_nm(center.0))?;
             sink.attribute("cy", &format_nm(center.1))?;
-            sink.attribute("r", &format_half_nm(i128::from(*diameter_nm)))?;
+            sink.attribute("r", &format_half_nm(i128::from(diameter_nm)))?;
             emit_pad_style(
                 sink,
                 PlotterOperationKind::FlashPadCircle,
                 context,
-                RenderScope {
-                    layer: inherited_layer,
-                    layers: if layers.is_empty() {
-                        inherited_layers
-                    } else {
-                        layers
-                    },
-                    ..scope
-                },
+                pad_scope,
             )?;
             sink.raw("/>\n")
         }
@@ -3730,10 +3775,14 @@ fn render_operation(
             center,
             size,
             angle_deg,
+            mask_margin_nm,
             layers,
         } => render_pad_oval(
             *center,
-            *size,
+            expanded_pad_size(
+                *size,
+                selected_mask_margin(context, scope, layers, *mask_margin_nm),
+            )?,
             *angle_deg,
             sink,
             context,
@@ -3752,24 +3801,29 @@ fn render_operation(
             size,
             angle_deg,
             radius_nm,
+            mask_margin_nm,
             layers,
-        } => render_pad_rect(
-            *center,
-            *size,
-            *angle_deg,
-            *radius_nm,
-            sink,
-            context,
-            RenderScope {
-                layer: inherited_layer,
-                layers: if layers.is_empty() {
-                    inherited_layers
-                } else {
-                    layers
+        } => {
+            let margin = selected_mask_margin(context, scope, layers, *mask_margin_nm);
+            let radius = expanded_pad_radius(*radius_nm, margin)?;
+            render_pad_rect(
+                *center,
+                expanded_pad_size(*size, margin)?,
+                *angle_deg,
+                radius,
+                sink,
+                context,
+                RenderScope {
+                    layer: inherited_layer,
+                    layers: if layers.is_empty() {
+                        inherited_layers
+                    } else {
+                        layers
+                    },
+                    ..scope
                 },
-                ..scope
-            },
-        ),
+            )
+        }
         OperationData::PadCustom {
             center,
             angle_deg,
@@ -3830,12 +3884,7 @@ fn operation_visible(
     scope: RenderScope<'_>,
 ) -> bool {
     let (operation_layer, operation_layers, kind) = operation_scope(operation);
-    let layer = operation_layer.or(scope.layer);
-    let layers = if operation_layers.is_empty() {
-        scope.layers
-    } else {
-        operation_layers
-    };
+    let (layer, layers) = effective_operation_layers(operation_layer, operation_layers, scope);
     let preliminary_semantic =
         operation_semantic_role(operation, layer, layers, scope.semantic_role);
     let selected = context.layer_selection().is_all()
@@ -3876,6 +3925,84 @@ fn operation_visible(
             Some(PinTextKind::Number) => context.visibility().pin_numbers(),
             None => true,
         }
+}
+
+fn effective_operation_layers<'a>(
+    operation_layer: Option<&'a str>,
+    operation_layers: &'a [String],
+    scope: RenderScope<'a>,
+) -> (Option<&'a str>, &'a [String]) {
+    if operation_layer.is_some() || !operation_layers.is_empty() {
+        (operation_layer, operation_layers)
+    } else if scope.layer.is_some() {
+        (scope.layer, &[])
+    } else {
+        (None, scope.layers)
+    }
+}
+
+fn selected_mask_margin(
+    context: &ValidatedSvgRenderContextA1,
+    scope: RenderScope<'_>,
+    operation_layers: &[String],
+    margin_nm: i64,
+) -> i64 {
+    if margin_nm == 0 || context.layer_selection().is_all() {
+        return 0;
+    }
+    let (layer, layers) = effective_operation_layers(None, operation_layers, scope);
+    let selection = context.layer_selection();
+    let mut selected_mask = layer
+        .filter(|layer| selection.matches(Some(layer)))
+        .is_some_and(|layer| layer.ends_with(".Mask"));
+    let mut selected_non_mask = layer
+        .filter(|layer| selection.matches(Some(layer)))
+        .is_some_and(|layer| !layer.ends_with(".Mask"));
+    for layer in layers {
+        if layer == "*.Mask" {
+            selected_mask |= ["F.Mask", "B.Mask"]
+                .into_iter()
+                .any(|candidate| selection.matches(Some(candidate)));
+        } else if selection.matches(Some(layer)) {
+            if layer.ends_with(".Mask") {
+                selected_mask = true;
+            } else {
+                selected_non_mask = true;
+            }
+        }
+    }
+    if selected_mask && !selected_non_mask {
+        margin_nm
+    } else {
+        0
+    }
+}
+
+fn expanded_pad_dimension(value: i64, margin_nm: i64, label: &str) -> Result<i64, SvgError> {
+    nonnegative(value, label)?;
+    let doubled_margin = margin_nm
+        .checked_mul(2)
+        .ok_or_else(|| overflow_error("pad mask margin exceeds i64"))?;
+    let expanded = value
+        .checked_add(doubled_margin)
+        .ok_or_else(|| overflow_error("expanded pad dimension exceeds i64"))?;
+    nonnegative(expanded, label)?;
+    Ok(expanded)
+}
+
+fn expanded_pad_size(size: Point, margin_nm: i64) -> Result<Point, SvgError> {
+    Ok((
+        expanded_pad_dimension(size.0, margin_nm, "size_x_nm")?,
+        expanded_pad_dimension(size.1, margin_nm, "size_y_nm")?,
+    ))
+}
+
+fn expanded_pad_radius(radius_nm: Option<i64>, margin_nm: i64) -> Result<Option<i64>, SvgError> {
+    let Some(radius_nm) = radius_nm else {
+        return Ok((margin_nm > 0).then_some(margin_nm));
+    };
+    nonnegative(radius_nm, "corner_radius_nm")?;
+    Ok(Some(radius_nm.saturating_add(margin_nm).max(0)))
 }
 
 fn represented_layers_match(
@@ -4143,12 +4270,8 @@ fn emit_inherited_style<'a>(
     scope: RenderScope<'a>,
 ) -> Result<(), SvgError> {
     let mut effective = source.clone();
-    if effective.layer.is_none() {
-        effective.layer = scope.layer;
-    }
-    if effective.layers.is_empty() {
-        effective.layers = scope.layers;
-    }
+    (effective.layer, effective.layers) =
+        effective_operation_layers(effective.layer, effective.layers, scope);
     emit_style(sink, &effective, kind, context, scope)
 }
 
@@ -5095,6 +5218,47 @@ mod tests {
     }
 
     #[test]
+    fn mask_only_selection_applies_pad_margin_without_changing_copper() {
+        let layers = vec!["F.Cu".to_owned(), "F.Mask".to_owned()];
+        let operation = OperationData::PadRect {
+            center: (0, 0),
+            size: (2_000_000, 1_000_000),
+            angle_deg: 0.0,
+            radius_nm: None,
+            mask_margin_nm: 200_000,
+            layers: &layers,
+        };
+        let render = |selected: &str| {
+            let context = SvgRenderContextA1::builder()
+                .layer_selection(crate::LayerSelection::include(
+                    vec![LayerPattern::parse(selected).unwrap()],
+                    true,
+                ))
+                .build()
+                .validate(SvgContextLimits::default())
+                .unwrap();
+            let mut sink = SvgSink::new(10_000, 10, 10_000);
+            render_operation(
+                &operation,
+                &mut sink,
+                &context,
+                RenderScope::default(),
+                &mut BlockState::new(1),
+            )
+            .unwrap();
+            sink.finish().unwrap().0
+        };
+
+        let copper = render("F.Cu");
+        assert!(copper.contains("width=\"2\" height=\"1\""), "{copper}");
+        let mask = render("F.Mask");
+        assert!(
+            mask.contains("width=\"2.4\" height=\"1.4\" rx=\"0.2\""),
+            "{mask}"
+        );
+    }
+
+    #[test]
     #[allow(
         clippy::too_many_lines,
         reason = "one serializer matrix covers every dimensional SVG operation family"
@@ -5189,12 +5353,14 @@ mod tests {
             OperationData::PadCircle {
                 center: (1, -1),
                 diameter_nm: 3,
+                mask_margin_nm: 0,
                 layers: &[],
             },
             OperationData::PadOval {
                 center: (1, -1),
                 size: (1_000_001, 3),
                 angle_deg: 30.0,
+                mask_margin_nm: 0,
                 layers: &[],
             },
             OperationData::PadRect {
@@ -5202,6 +5368,7 @@ mod tests {
                 size: (3, 5),
                 angle_deg: 45.0,
                 radius_nm: Some(1),
+                mask_margin_nm: 0,
                 layers: &[],
             },
             OperationData::PadCustom {
@@ -5482,12 +5649,14 @@ mod tests {
             center: (0, 0),
             size: (2_000_000, 1_000_000),
             angle_deg: 0.0,
+            mask_margin_nm: 0,
             layers: &[],
         };
         let represented_oval = OperationData::PadOval {
             center: (0, 0),
             size: (2_000_000, 1_000_000),
             angle_deg: 0.0,
+            mask_margin_nm: 0,
             layers: &represented_layers,
         };
         let validate = |builder: crate::SvgRenderContextBuilder| {

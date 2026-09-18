@@ -169,6 +169,43 @@ jobs:
     if: needs.changes.outputs.scope == 'full'
     uses: ./.github/workflows/windows-release-candidates.yml
 
+  geometer-platform-smoke:
+    name: Geometer process (${{ matrix.platform }})
+    needs: changes
+    if: needs.changes.outputs.scope == 'full'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x64
+          - os: ubuntu-22.04-arm
+            platform: linux-arm64
+          - os: macos-15
+            platform: macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Stage the pinned release runtime
+        shell: bash
+        run: |
+          runtime="${RUNNER_TEMP}/geometer-runtime"
+          executable="$(python3 packages/kicad_cruncher/scripts/fetch-geometer-runtime.py \
+            --platform '${{ matrix.platform }}' --destination "${runtime}")"
+          test -x "${executable}"
+          {
+            echo "GEOMETER_EXECUTABLE=${executable}"
+            echo "KCR_REQUIRE_GEOMETER_TEST=1"
+          } >> "${GITHUB_ENV}"
+      - name: Build the native CLI and exercise the process boundary
+        run: |
+          cargo build --locked --release --package kicad-cruncher-cli
+          cargo test --locked --package kicad-cruncher-cli \
+            --test geometer_process --test toon_preview_process
+
   ci-success:
     name: CI success
     if: always()
@@ -179,6 +216,7 @@ jobs:
       - windows-provider-smoke
       - phase5-exit
       - windows-release-candidates
+      - geometer-platform-smoke
     runs-on: ubuntu-latest
     steps:
       - name: Require every selected scope job
@@ -191,6 +229,7 @@ jobs:
           WINDOWS_PROVIDER_SMOKE: ${{ needs.windows-provider-smoke.result }}
           PHASE5_EXIT: ${{ needs.phase5-exit.result }}
           WINDOWS_RELEASE_CANDIDATES: ${{ needs.windows-release-candidates.result }}
+          GEOMETER_PLATFORM_SMOKE: ${{ needs.geometer-platform-smoke.result }}
         run: |
           test "${CHANGES}" = success
           test "${WORKFLOW_VALIDATION}" = success
@@ -200,18 +239,21 @@ jobs:
               test "${WINDOWS_PROVIDER_SMOKE}" = skipped
               test "${PHASE5_EXIT}" = skipped
               test "${WINDOWS_RELEASE_CANDIDATES}" = skipped
+              test "${GEOMETER_PLATFORM_SMOKE}" = skipped
               ;;
             python)
               test "${PYTHON_PROVIDER}" = success
               test "${WINDOWS_PROVIDER_SMOKE}" = success
               test "${PHASE5_EXIT}" = skipped
               test "${WINDOWS_RELEASE_CANDIDATES}" = skipped
+              test "${GEOMETER_PLATFORM_SMOKE}" = skipped
               ;;
             full)
               test "${PYTHON_PROVIDER}" = success
               test "${WINDOWS_PROVIDER_SMOKE}" = skipped
               test "${PHASE5_EXIT}" = success
               test "${WINDOWS_RELEASE_CANDIDATES}" = success
+              test "${GEOMETER_PLATFORM_SMOKE}" = success
               ;;
             *) exit 1 ;;
           esac

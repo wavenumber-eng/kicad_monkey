@@ -55,9 +55,16 @@ opt-ins on other platforms, not production-support declarations.
 Each Cruncher GitHub release now includes a hash-manifested
 `kicad-cruncher-<version>-windows-x64.zip`. Extract it and put that directory
 before Python tool-script directories on `PATH` to select the pure-Rust
-`kicad-cruncher.exe` and `kcr.exe`. These executables currently own
-`design`, `design-review`, `dr`, and `--version`; they generate the complete
-review bundle without a Python interpreter.
+`kicad-cruncher.exe` and `kcr.exe`, accompanied by the qualified
+`geometer.exe` model-geometry sidecar. The Cruncher entry points currently own
+`design`, `design-review`, `dr`, `toon`, and `--version`; they generate the
+complete review bundle or native board illustrations without a Python
+interpreter.
+
+The same Rust client and released Geometer process are compiled and exercised
+in CI on Linux x64, Linux ARM64, and macOS ARM64. Those platforms are currently
+source-build targets; only the Windows x64 native archive is promoted as a
+release candidate.
 
 For a source checkout, the equivalent tested install is:
 
@@ -176,6 +183,98 @@ overlay. Assembly labels are blue, bold monospace by default and rotate 90
 degrees in the configurable `ccw`/`cw` direction when their fitted bounds exceed
 the configurable height/width aspect threshold. Assembly designator style
 overrides can target exact refs, prefixes, wildcards, or ranges.
+
+The native `toon` command writes portable, digest-indexed SVGs and a
+`manifest.json` to `./output/toon/` by default. It replaces that directory only
+after every requested side has rendered successfully. Bottom views are mirrored
+for presentation, and standard pad mask apertures honor resolved board,
+footprint, and pad solder-mask margins, including negative pullback.
+Its default presentation follows the Altium Cruncher Toon contract: the saved
+side-specific stackup mask color at 75% opacity (off-white fallback), contrasting
+silkscreen, light-gray drill/slot virtual layers, and 0.025/0.01375 mm Geometer HLR outline/detail
+widths. `BOARD_SUBSTRATE` is a distinct `#B6A26B` board-domain fill below copper
+and solder mask. Physical drills, slots, and internal cutouts are subtracted from
+that substrate; colored drill/slot virtual objects are then painted without a
+stroke. Those objects are clipped only to the physical board domain so holes
+crossing the outer profile or an interior cutout appear as castellated partial
+holes.
+
+```powershell
+kcr toon board.kicad_pcb
+kcr toon project.kicad_pro --side top -o output/toon
+kcr toon board.kicad_pcb --side bottom
+kcr toon board.kicad_pcb --theme black
+kcr toon board.kicad_pcb --soldermask-color '#000000'
+kcr toon --write-config toon.config
+kcr toon board.kicad_pcb --config toon.config
+kcr toon board.kicad_pcb --workers 4 --timings output/toon-profile.json
+kcr toon board.kicad_pcb --cache-dir temp/toon-cache
+kcr toon board.kicad_pcb --no-cache
+kcr toon board.kicad_pcb --footprint U1
+kcr toon project.kicad_pro --assembly --variant ADXL355
+kcr toon project.kicad_pro --all-variants
+```
+
+Toon uses the Altium-compatible `saved`, `white`, `black`, `blue`, `red`,
+`purple`, `yellow`, and `green` mask/silk themes. Without an explicit theme it
+loads `toon.config` beside the board, creating an editable JSONC preset there
+when missing. `--config` selects another PCB-SVG config and `--write-config`
+writes the resolved preset without loading a board or starting Geometer.
+Explicit `--theme` or `--soldermask-color` is applied after the authored file.
+The native compositor consumes the preset's substrate, copper, mask, silk,
+cutout, drill/slot, outline, and illustration lineweight/opacity settings.
+Each enabled top/bottom view may override those styles and controls its painter
+order and layer omissions through its `layers` list. Explicit CLI colors remain
+the final override for both views.
+
+`--assembly` adds an independent red assembly-designator layer after each
+side's model illustration layer. The shared Rust fitter follows PCB Autodoc's
+polygon candidate search, binary maximum-size fit, two-axis rotation, size cap,
+fill ratio, and horizontal tie preference. It fits against projected model
+outlines and falls back to visible electrical-pad envelopes only for footprints
+without an authored model. Component config entries with
+`show_designator: false` suppress individual labels.
+
+Project inputs support `--variant NAME` and `--all-variants`. Variant DNP
+components retain their physical board pads but omit model illustrations and
+assembly labels. A named selection is written under its portable variant
+directory; all-variants writes `base` plus every project variant in separate
+directories. Geometry/model caches remain shared across those outputs, and the
+manifest/timing contracts record the variant selection and exact per-variant
+SVG digests. `--doc`/`--pcbdoc` selects an adjacent board by name when a project
+contains a non-default board filename.
+
+`--footprint REF` emits one transparent, tightly fitted Toon SVG for the exact
+placed footprint and its embedded models. It preserves the footprint's board
+rotation and side, includes only its copper, silkscreen, drills and slots, and
+does not leak neighboring board geometry. The side is inferred; an explicit
+opposite `--side` is rejected. The artifact name includes the reference, for
+example `board__U1__toon_top.svg`.
+
+Toon illustrates each unique model content/effective-pose request once per job
+and schedules cache misses over a bounded Geometer pool (`--workers`, default
+4). Successful geometry is cached across invocations; failures are retried and
+are never positive cache entries. The default cache is
+`%LOCALAPPDATA%\kicad-cruncher\toon-models-a0` on Windows,
+`~/Library/Caches/kicad-cruncher/toon-models-a0` on macOS, and
+`$XDG_CACHE_HOME/kicad-cruncher/toon-models-a0` (or
+`~/.cache/kicad-cruncher/toon-models-a0`) on Linux. `--no-cache` disables only
+the persistent layer. A fully warm render does not launch Geometer.
+
+`--timings PATH` writes the portable `kicad_cruncher.toon_timings.a0` JSON
+contract with phase durations, requested/started workers, cache mode and hit
+counts, request counts, warnings, output sizes, SVG digests, and the portable
+resolved-config digest also recorded in the Toon manifest.
+
+The command discovers the qualified Geometer executable beside `kcr` or via
+`GEOMETER_EXECUTABLE`. Native Toon currently consumes embedded STEP/STP models
+from footprint or board scope. It does not resolve project-relative paths,
+`${KIPRJMOD}`, absolute paths, or KiCad 3D-model environment variables while
+rendering; those references are reported and omitted. The planned
+[source-preserving model-embedding workflow](https://github.com/wavenumber-eng/kicad_monkey/issues/90)
+can make resolvable external references available to Toon without adding a
+second path-resolution system to the renderer. Custom/trapezoid mask polygon
+offsets also remain outside this initial contract.
 
 The `bom`, `pnp`, and `jlc` commands provide initial KiCad manufacturing output
 support. They share a documented `bom.config` JSONC file with a top block

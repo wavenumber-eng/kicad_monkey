@@ -124,6 +124,10 @@ class WorkflowTests(unittest.TestCase):
         ci = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
         self.assertIn("fast, python, or full", ci)
         self.assertEqual(ci.count("windows-release-candidates.yml"), 1)
+        self.assertIn("geometer-platform-smoke:", ci)
+        self.assertIn("platform: linux-x64", ci)
+        self.assertIn("platform: linux-arm64", ci)
+        self.assertIn("platform: macos-arm64", ci)
         self.assertIn(
             "group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}",
             ci,
@@ -147,6 +151,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("git status --porcelain --untracked-files=all", candidates)
         self.assertIn("$build = Join-Path", candidates)
         self.assertNotIn("uv build --sdist --out-dir $dist", candidates)
+        self.assertIn("KCR_REQUIRE_GEOMETER_TEST=1", candidates)
 
     def test_release_verifies_public_bytes_before_creating_releases(self) -> None:
         release_path = WORKFLOWS / "release.yml"

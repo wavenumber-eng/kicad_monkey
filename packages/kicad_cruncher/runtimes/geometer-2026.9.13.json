@@ -1,0 +1,34 @@
+{
+  "schema": "kicad_cruncher.geometer_runtime_source.a0",
+  "release": "2026.9.13",
+  "tag": "v2026-09-13",
+  "source_revision": "703e60029a248801947150f913f77a1cecce2662",
+  "c_abi_generation": 20260913,
+  "client": {
+    "package": "geometer-client",
+    "git": "https://github.com/wavenumber-eng/geometer.git",
+    "revision": "703e60029a248801947150f913f77a1cecce2662"
+  },
+  "assets": {
+    "windows-x64": {
+      "archive": "native-windows-x64.zip",
+      "sha256": "191cb3b58f70be4aa59424c276b922ddccafb81876b9eff33620ad16bcb1017e",
+      "executable": "geometer.exe"
+    },
+    "linux-x64": {
+      "archive": "native-linux-x64.zip",
+      "sha256": "d9efd6be1e99b862beca7346aae4a466da2dd385da1e33e1e981dd2541759b7b",
+      "executable": "geometer"
+    },
+    "linux-arm64": {
+      "archive": "native-linux-arm64.zip",
+      "sha256": "69921ccf4ade4c889248bdb3a64837693cf21ba3051bd424c5f6c82f152879b7",
+      "executable": "geometer"
+    },
+    "macos-arm64": {
+      "archive": "native-macos-arm64.zip",
+      "sha256": "c80c229345ed5105cbf3670760c7802a27cb524203a5cb73554dc668cea00b9e",
+      "executable": "geometer"
+    }
+  }
+}

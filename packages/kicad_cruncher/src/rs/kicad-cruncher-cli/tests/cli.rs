@@ -17,6 +17,11 @@ fn executable_reports_help_and_version_without_python() {
             .unwrap()
             .contains("design (design-review, dr)")
     );
+    assert!(
+        String::from_utf8(binary().arg("--help").output().unwrap().stdout)
+            .unwrap()
+            .contains("toon")
+    );
 
     let version = binary().arg("--version").output().unwrap();
     assert!(version.status.success());
@@ -29,13 +34,32 @@ fn executable_reports_help_and_version_without_python() {
 
 #[test]
 fn installed_binary_names_share_the_cli_contract() {
-    for arguments in [vec!["--version"], vec!["design", "--help"]] {
+    for arguments in [
+        vec!["--version"],
+        vec!["design", "--help"],
+        vec!["toon", "--help"],
+    ] {
         let primary = binary().args(&arguments).output().unwrap();
         let alias = alias_binary().args(&arguments).output().unwrap();
         assert_eq!(primary.status.code(), alias.status.code());
         assert_eq!(primary.stdout, alias.stdout);
         assert_eq!(primary.stderr, alias.stderr);
     }
+}
+
+#[test]
+fn toon_runtime_failure_is_actionable_without_false_success() {
+    let output = binary()
+        .args(["toon", "missing.kicad_pcb"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("could not resolve Toon input")
+    );
 }
 
 #[test]

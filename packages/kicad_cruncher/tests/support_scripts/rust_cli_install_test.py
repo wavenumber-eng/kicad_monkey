@@ -1,4 +1,4 @@
-"""Build, install, and exercise the pure-Rust Cruncher design CLI."""
+"""Build, install, and exercise the pure-Rust Cruncher CLI."""
 
 from __future__ import annotations
 
@@ -77,6 +77,36 @@ def _assert_windows_x64_pe(executable: Path) -> None:
         raise AssertionError(f"installed artifact is not Windows x64: {executable}")
 
 
+def _stage_geometer_runtime(workspace: Path, bin_dir: Path) -> Path:
+    configured = os.environ.get("GEOMETER_EXECUTABLE", "").strip()
+    if configured:
+        source = Path(configured).expanduser().resolve()
+        source_root = source.parent
+        required = [source, source_root / "geometer.build-attestation.json"]
+        license_root = source_root / "licenses" / "geometer"
+        if not license_root.is_dir():
+            license_root = source_root / "licenses"
+        if any(not path.is_file() for path in required) or not license_root.is_dir():
+            raise AssertionError("GEOMETER_EXECUTABLE does not name a staged release runtime")
+        shutil.copy2(source, bin_dir / "geometer.exe")
+        shutil.copy2(required[1], bin_dir / required[1].name)
+        shutil.copytree(license_root, bin_dir / "licenses" / "geometer")
+        return bin_dir / "geometer.exe"
+    fetch = workspace / "packages" / "kicad_cruncher" / "scripts" / "fetch-geometer-runtime.py"
+    _run(
+        [
+            sys.executable,
+            str(fetch),
+            "--platform",
+            "windows-x64",
+            "--destination",
+            str(bin_dir),
+        ],
+        cwd=workspace,
+    )
+    return bin_dir / "geometer.exe"
+
+
 def _copy_fixture(workspace: Path, destination: Path) -> Path:
     configured = os.environ.get("KM_CORPUS", "").strip()
     archive_path = (
@@ -145,6 +175,32 @@ def _assert_bundle(output: Path) -> None:
         raise AssertionError(f"installed Rust CLI omitted bundle artifacts: {missing}")
 
 
+def _assert_toon_bundle(output: Path, board_name: str) -> None:
+    manifest_path = output / "manifest.json"
+    if not manifest_path.is_file():
+        raise AssertionError(f"expected Toon manifest at {manifest_path}")
+    manifest = json.loads(manifest_path.read_text("utf-8"))
+    if manifest.get("schema") != "kicad_cruncher.toon_manifest.a0":
+        raise AssertionError("installed Rust CLI emitted the wrong Toon manifest schema")
+    if manifest.get("source") != board_name:
+        raise AssertionError("Toon manifest source is not a portable board filename")
+    if manifest.get("requested_sides") != "both":
+        raise AssertionError("installed Rust CLI did not render both board sides")
+    geometer = manifest.get("geometer", {})
+    if (
+        geometer.get("release") != "2026.9.13"
+        or geometer.get("c_abi_generation") != 20260913
+    ):
+        raise AssertionError("Toon manifest reports an incompatible Geometer runtime")
+    artifacts = manifest.get("artifacts", [])
+    if [record.get("side") for record in artifacts] != ["top", "bottom"]:
+        raise AssertionError("Toon manifest does not contain ordered top/bottom artifacts")
+    for record in artifacts:
+        artifact = output / record["file"]
+        if not artifact.is_file() or _sha256(artifact) != record.get("svg_sha256"):
+            raise AssertionError(f"Toon artifact digest is invalid: {artifact}")
+
+
 def _write_release_artifact(
     artifact_dir: Path,
     *,
@@ -160,16 +216,23 @@ def _write_release_artifact(
     stem = f"kicad-cruncher-{version}-windows-x64"
     archive = artifact_dir / f"{stem}.zip"
     manifest_path = artifact_dir / f"{stem}.json"
-    executable_names = ("kicad-cruncher.exe", "kcr.exe")
+    executable_names = ("kicad-cruncher.exe", "kcr.exe", "geometer.exe")
     readme = package_root / "docs" / "contracts" / "rust_cli_windows_x64.md"
     license_path = workspace / "LICENSE"
+    geometer_attestation = bin_dir / "geometer.build-attestation.json"
+    geometer_licenses = bin_dir / "licenses" / "geometer"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for name in executable_names:
             bundle.write(bin_dir / name, name)
+        bundle.write(geometer_attestation, geometer_attestation.name)
+        for license_file in sorted(geometer_licenses.iterdir()):
+            if license_file.is_file():
+                bundle.write(license_file, f"licenses/geometer/{license_file.name}")
         bundle.write(readme, "README.md")
         bundle.write(license_path, "LICENSE")
+    attestation = json.loads(geometer_attestation.read_text(encoding="utf-8"))
     manifest = {
-        "schema": "kicad_cruncher.rust_cli_release.a0",
+        "schema": "kicad_cruncher.rust_cli_release.a1",
         "version": version,
         "platform": "windows-x64",
         "git_sha": git_sha,
@@ -187,6 +250,16 @@ def _write_release_artifact(
             }
             for name in executable_names
         ],
+        "geometer": {
+            "release": attestation["build"]["geometer_version"],
+            "c_abi_generation": attestation["build"]["c_abi_version"],
+            "source_revision": attestation["build"]["source"]["revision"],
+            "attestation": {
+                "filename": geometer_attestation.name,
+                "bytes": geometer_attestation.stat().st_size,
+                "sha256": _sha256(geometer_attestation),
+            },
+        },
     }
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
@@ -244,6 +317,10 @@ def run_install_test(
             _assert_windows_x64_pe(executable)
             _assert_no_workspace_path(executable, workspace)
 
+        geometer = _stage_geometer_runtime(workspace, bin_dir)
+        _assert_windows_x64_pe(geometer)
+        _assert_no_workspace_path(geometer, workspace)
+
         runtime = temp_dir / "runtime"
         runtime.mkdir()
         env = _native_runtime_env(bin_dir)
@@ -251,6 +328,9 @@ def run_install_test(
             version_result = _run([str(executable), "--version"], cwd=runtime, env=env)
             if version not in version_result.stdout:
                 raise AssertionError(f"unexpected version output from {executable.name}")
+        geometer_version = _run([str(geometer), "--version"], cwd=runtime, env=env)
+        if "2026.9.13" not in geometer_version.stdout or "20260913" not in geometer_version.stdout:
+            raise AssertionError("installed Geometer runtime has an incompatible version")
 
         project = _copy_fixture(workspace, runtime)
         output = runtime / "review"
@@ -260,6 +340,14 @@ def run_install_test(
             env=env,
         )
         _assert_bundle(output)
+
+        toon_output = runtime / "toon"
+        _run(
+            [str(executables[1]), "toon", str(project), "--output", str(toon_output)],
+            cwd=runtime,
+            env=env,
+        )
+        _assert_toon_bundle(toon_output, project.with_suffix(".kicad_pcb").name)
 
         if artifact_dir is not None:
             resolved_sha = (
