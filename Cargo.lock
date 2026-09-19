@@ -238,7 +238,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -357,7 +357,7 @@ dependencies = [
 [[package]]
 name = "geometer-client"
 version = "2026.9.18"
-source = "git+https://github.com/wavenumber-eng/geometer.git?rev=68d217e6d133f8712751f6dec9ec9372338055f9#68d217e6d133f8712751f6dec9ec9372338055f9"
+source = "git+https://github.com/wavenumber-eng/geometer.git?rev=ffb250b7cab66bdbfec3fc2a255dad7f8fe8902c#ffb250b7cab66bdbfec3fc2a255dad7f8fe8902c"
 dependencies = [
  "geometer-sys",
  "serde",
@@ -370,7 +370,7 @@ dependencies = [
 [[package]]
 name = "geometer-sys"
 version = "2026.9.18"
-source = "git+https://github.com/wavenumber-eng/geometer.git?rev=68d217e6d133f8712751f6dec9ec9372338055f9#68d217e6d133f8712751f6dec9ec9372338055f9"
+source = "git+https://github.com/wavenumber-eng/geometer.git?rev=ffb250b7cab66bdbfec3fc2a255dad7f8fe8902c#ffb250b7cab66bdbfec3fc2a255dad7f8fe8902c"
 dependencies = [
  "serde_json",
 ]
@@ -709,7 +709,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -852,7 +852,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1286,7 +1286,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

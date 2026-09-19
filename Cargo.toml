@@ -31,7 +31,7 @@ too_many_lines = "deny"
 [workspace.dependencies]
 anyhow = "1.0.102"
 cap-std = "4.0.2"
-geometer-client = { git = "https://github.com/wavenumber-eng/geometer.git", rev = "68d217e6d133f8712751f6dec9ec9372338055f9" }
+geometer-client = { git = "https://github.com/wavenumber-eng/geometer.git", rev = "ffb250b7cab66bdbfec3fc2a255dad7f8fe8902c" }
 geo = { version = "0.33.1", default-features = false }
 harfrust = "0.13.0"
 prettyplease = "0.2.37"

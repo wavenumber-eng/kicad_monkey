@@ -9,7 +9,7 @@ use tokio::runtime::Runtime;
 
 pub const GEOMETER_RELEASE: &str = "2026.9.18";
 pub const GEOMETER_C_ABI_GENERATION: u32 = 20_260_918;
-pub const GEOMETER_SOURCE_REVISION: &str = "68d217e6d133f8712751f6dec9ec9372338055f9";
+pub const GEOMETER_SOURCE_REVISION: &str = "ffb250b7cab66bdbfec3fc2a255dad7f8fe8902c";
 
 #[derive(Debug)]
 pub enum NativeGeometerError {
