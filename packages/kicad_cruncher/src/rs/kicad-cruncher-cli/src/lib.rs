@@ -555,6 +555,12 @@ pub fn os_args(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Vec<OsStrin
 
 /// Execute the native CLI over an explicit argument sequence.
 pub fn run_cli(args: impl IntoIterator<Item = OsString>) -> ExitCode {
+    let args = args.into_iter().collect::<Vec<_>>();
+    #[cfg(feature = "embedded-geometer")]
+    if args == [OsStr::new("serve"), OsStr::new("--stdio")] {
+        return u8::try_from(geometer_client::serve_stdio())
+            .map_or(ExitCode::FAILURE, ExitCode::from);
+    }
     let invocation = match parse_args(args) {
         Ok(invocation) => invocation,
         Err(error) => {

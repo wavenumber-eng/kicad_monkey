@@ -20,6 +20,10 @@ path = "src/bin/kcr.rs"
 [lints]
 workspace = true
 
+[features]
+default = []
+embedded-geometer = ["geometer-client/direct-static"]
+
 [dependencies]
 geometer-client.workspace = true
 geo.workspace = true

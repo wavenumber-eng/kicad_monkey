@@ -1,0 +1,62 @@
+#![cfg(feature = "embedded-geometer")]
+
+use std::fs;
+
+use geometer_client::contracts::{
+    MeshIllustrationView, ModelAttachmentIllustrationSourceA0, ModelIllustrationGeometryRequestA0,
+    ModelIllustrationSourceA0,
+};
+use kicad_cruncher_cli::pcb_svg::geometer::{
+    GEOMETER_C_ABI_GENERATION, GEOMETER_RELEASE, NativeGeometer,
+};
+use kicad_cruncher_cli::pcb_svg::models::read_embedded_models;
+use kicad_monkey_core::{PcbLimits, PcbView};
+
+#[test]
+fn statically_linked_kcr_serves_as_its_own_geometer_worker() {
+    let service =
+        NativeGeometer::connect(env!("CARGO_BIN_EXE_kcr")).expect("connect embedded worker");
+    assert_eq!(service.client().welcome().release_version, GEOMETER_RELEASE);
+    assert_eq!(
+        service.client().welcome().c_abi_generation,
+        GEOMETER_C_ABI_GENERATION
+    );
+
+    let board = fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/corpus/kicad/projects/hlr_test/hlr_test.kicad_pcb"
+    ))
+    .expect("read embedded-model fixture");
+    let view = PcbView::parse(&board, PcbLimits::default()).expect("parse fixture");
+    let models = read_embedded_models(&view).expect("read embedded model");
+    let model = models.instances.first().expect("fixture has embedded STEP");
+    let result = service
+        .illustrate_model(
+            ModelIllustrationGeometryRequestA0 {
+                schema: "geometry.model_illustration_geometry.request.a0".to_owned(),
+                source: ModelIllustrationSourceA0::ModelSource(
+                    ModelAttachmentIllustrationSourceA0 {
+                        kind: "model".to_owned(),
+                        attachment: "model".to_owned(),
+                        transform: None,
+                        material_override: None,
+                        tessellation: None,
+                    },
+                ),
+                view: MeshIllustrationView {
+                    direction: [0.0, 0.0, 1.0],
+                    up: [0.0, 1.0, 0.0],
+                    mirror_x: None,
+                },
+                prepare: None,
+                linework: None,
+                style: None,
+                work_limits: None,
+            },
+            model.step.to_vec(),
+        )
+        .expect("embedded one-pass model illustration");
+    assert_eq!(result.geometry.length_unit, "millimeter");
+    assert!(!result.geometry.surfaces.is_empty());
+    service.close().expect("clean embedded worker shutdown");
+}

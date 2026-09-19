@@ -7,13 +7,14 @@ use geometer_client::contracts::ModelIllustrationGeometryRequestA0;
 use geometer_client::{GeometerClient, GeometerClientError, ModelIllustrationGeometry};
 use tokio::runtime::Runtime;
 
-pub const GEOMETER_RELEASE: &str = "2026.9.13";
-pub const GEOMETER_C_ABI_GENERATION: u32 = 20_260_913;
-pub const GEOMETER_SOURCE_REVISION: &str = "703e60029a248801947150f913f77a1cecce2662";
+pub const GEOMETER_RELEASE: &str = "2026.9.18";
+pub const GEOMETER_C_ABI_GENERATION: u32 = 20_260_918;
+pub const GEOMETER_SOURCE_REVISION: &str = "68d217e6d133f8712751f6dec9ec9372338055f9";
 
 #[derive(Debug)]
 pub enum NativeGeometerError {
     NotFound,
+    CurrentExecutable(std::io::Error),
     Runtime(std::io::Error),
     Client(GeometerClientError),
     Incompatible {
@@ -28,6 +29,9 @@ impl fmt::Display for NativeGeometerError {
             Self::NotFound => formatter.write_str(
                 "could not find the compatible Geometer runtime; place it beside kcr or set GEOMETER_EXECUTABLE",
             ),
+            Self::CurrentExecutable(error) => {
+                write!(formatter, "could not locate the current executable: {error}")
+            }
             Self::Runtime(error) => write!(formatter, "could not start the async runtime: {error}"),
             Self::Client(error) => write!(formatter, "Geometer client failed: {error}"),
             Self::Incompatible {
@@ -61,7 +65,14 @@ pub struct NativeGeometer {
 
 impl NativeGeometer {
     pub fn discover() -> Result<PathBuf, NativeGeometerError> {
-        GeometerClient::find_executable().ok_or(NativeGeometerError::NotFound)
+        #[cfg(feature = "embedded-geometer")]
+        {
+            std::env::current_exe().map_err(NativeGeometerError::CurrentExecutable)
+        }
+        #[cfg(not(feature = "embedded-geometer"))]
+        {
+            GeometerClient::find_executable().ok_or(NativeGeometerError::NotFound)
+        }
     }
 
     pub fn connect_discovered() -> Result<Self, NativeGeometerError> {
