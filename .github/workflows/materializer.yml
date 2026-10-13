@@ -1,0 +1,76 @@
+name: Analytic materializer
+
+# The materializer, its contract and the pack on every platform the design
+# lists, plus a wasm32 build so browsers can host the producer and reader.
+
+on:
+  pull_request:
+    paths:
+      - "src/rs/kicad-monkey-contracts/**"
+      - "src/rs/kicad-monkey-core/**"
+      - "src/rs/kicad-monkey-materialization-pack/**"
+      - "src/tsp/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/materializer.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Materializer (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x64
+          - os: ubuntu-22.04-arm
+            platform: linux-arm64
+          - os: macos-15
+            platform: macos-arm64
+          - os: macos-13
+            platform: macos-x64
+          - os: windows-latest
+            platform: windows-x64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Contract and pack
+        run: cargo test --locked -p kicad-monkey-contracts -p kicad-monkey-materialization-pack
+      - name: Producer
+        shell: bash
+        run: |
+          tests=()
+          for file in src/rs/kicad-monkey-core/tests/board_materialization_*.rs; do
+            tests+=(--test "$(basename "${file}" .rs)")
+          done
+          cargo test --locked -p kicad-monkey-core --lib board_materialization
+          cargo test --locked -p kicad-monkey-core "${tests[@]}"
+
+  wasm32:
+    name: Materializer (wasm32)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Producer, contract, and pack build for wasm32
+        run: >-
+          cargo build --locked --target wasm32-unknown-unknown
+          -p kicad-monkey-contracts -p kicad-monkey-core -p kicad-monkey-materialization-pack

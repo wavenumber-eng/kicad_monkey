@@ -283,7 +283,8 @@ fn apply_footprint_fabrication(
     match child.head.as_deref() {
         Some("solder_mask_margin") => result.solder_mask_margin = first_f64(source, child)?,
         Some("solder_paste_margin") => result.solder_paste_margin = first_f64(source, child)?,
-        Some("solder_paste_margin_ratio") => {
+        // `solder_paste_ratio` is KiCad's legacy spelling.
+        Some("solder_paste_margin_ratio" | "solder_paste_ratio") => {
             result.solder_paste_margin_ratio = first_f64(source, child)?;
         }
         Some("clearance") => result.clearance = first_f64(source, child)?,
@@ -390,6 +391,10 @@ pub(super) fn segment_from_span(
         end_y: end.1,
         width: optional_child_f64(source, &children, "width")?,
         layer: optional_child_string(source, &children, "layer")?,
+        layers: child(&children, "layers")
+            .map(|_| child_strings(source, &children, "layers", limits.max_object_children))
+            .transpose()?,
+        solder_mask_margin: optional_child_f64(source, &children, "solder_mask_margin")?,
         locked: has_flag(&header, "locked"),
         net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
@@ -514,6 +519,10 @@ pub(super) fn routing_arc_from_span(
         end: required_point(source, &children, "end", span)?,
         width: optional_child_f64(source, &children, "width")?,
         layer: optional_child_string(source, &children, "layer")?,
+        layers: child(&children, "layers")
+            .map(|_| child_strings(source, &children, "layers", limits.max_object_children))
+            .transpose()?,
+        solder_mask_margin: optional_child_f64(source, &children, "solder_mask_margin")?,
         net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),

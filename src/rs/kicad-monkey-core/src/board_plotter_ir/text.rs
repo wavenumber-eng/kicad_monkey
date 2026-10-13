@@ -13,9 +13,10 @@ use super::text_cache::{
     AuthoredRenderCache, apply_knockout, attach_authored_cache, attach_native_cache,
     cache_is_valid, parse_render_cache,
 };
+pub use super::text_native::KiCadTextBoxText;
 use super::text_native::{
-    new_text_box_operation, plotter_layout, text_box_border_operation, text_box_cache_geometry,
-    text_box_layout, text_box_wrap_width,
+    board_text_box_placement, kicad_border, new_text_box_operation, plotter_layout,
+    text_box_border_operation, text_box_cache_geometry, text_box_layout, text_box_wrap_width,
 };
 use super::text_variables::BoardTextVariables;
 use super::text_wrap::wrap_text_box;
@@ -123,6 +124,8 @@ pub struct BoardTextOperation {
     /// Exterior contours; empty means the key is absent.
     pub render_cache_polygons: Vec<Vec<[i64; 2]>>,
     pub render_cache: Option<BoardTextRenderCache>,
+    /// Text-box text only: how KiCad draws it (outside the plot contract).
+    pub kicad: Option<KiCadTextBoxText>,
 }
 
 /// One `gr_text` record; Python board text never hides, so records carry
@@ -151,6 +154,9 @@ pub struct BoardTextBoxRecord {
     pub text: String,
     pub border: bool,
     pub operations: Vec<BoardTextBoxOperation>,
+    /// A bordered polygon box: the outline KiCad strokes, in nm, where the
+    /// border operation is its bounding box (outside the plot contract).
+    pub kicad_border: Option<Vec<[i64; 2]>>,
 }
 
 pub(super) fn board_variables(
@@ -729,6 +735,7 @@ pub(super) fn gr_text_operation(
         knockout: false,
         render_cache_polygons: Vec::new(),
         render_cache: None,
+        kicad: None,
     })
 }
 
@@ -869,6 +876,13 @@ fn text_box_text_operation(input: TextBoxOperationInput<'_>) -> Result<BoardText
         size_x_nm,
     )?;
     operation.multiline = multiline;
+    operation.kicad = Some(board_text_box_placement(
+        graphic,
+        effects,
+        (angle, margins),
+        resolved,
+        native_wrapped.as_deref(),
+    )?);
     attach_text_box_cache(&mut operation, effects, valid_cache, base_layout, limits)?;
     Ok(operation)
 }
@@ -1003,5 +1017,6 @@ fn text_box_record(
         text,
         border: border == Some(true),
         operations,
+        kicad_border: kicad_border(&graphic.points, border == Some(true))?,
     })
 }

@@ -7,6 +7,7 @@ use super::text_cache::{
     apply_knockout, attach_authored_cache_mapped, attach_native_cache_mapped,
     cache_is_valid_without_angle, parse_render_cache,
 };
+use super::text_native::footprint_text_box_placement;
 use super::{
     BoardFootprintBlock, BoardFootprintBlockAttributes, BoardFootprintChildAttributes,
     BoardFootprintChildMetadata, BoardFootprintOperation, BoardFootprintPlacement,
@@ -571,6 +572,12 @@ fn text_box_operations(
         },
     )?;
     let mut operation = board_text_operation(plotter);
+    operation.kicad = Some(footprint_text_box_placement(
+        text_box,
+        context.placement.angle_deg,
+        &resolved,
+        &operation.text,
+    )?);
     attach_footprint_cache(
         context,
         CacheDescriptor {
@@ -931,6 +938,7 @@ fn board_text_operation(value: PlotterText) -> BoardTextOperation {
         knockout: false,
         render_cache_polygons: Vec::new(),
         render_cache: None,
+        kicad: None,
     }
 }
 

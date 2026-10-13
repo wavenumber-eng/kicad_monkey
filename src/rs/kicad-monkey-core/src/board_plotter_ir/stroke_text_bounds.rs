@@ -398,6 +398,7 @@ fn include_footprint_properties(
             knockout: false,
             render_cache_polygons: Vec::new(),
             render_cache: None,
+            kicad: None,
         };
         let parent = ParentTransform {
             x: footprint.at_x.unwrap_or_default() * 1_000_000.0,

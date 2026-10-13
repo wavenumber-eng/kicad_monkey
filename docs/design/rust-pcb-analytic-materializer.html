@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust PCB analytic materializer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust PCB analytic materializer</h1>
+
+  <p>Status: proposal. The contract is
+  <code>kicad_monkey.materialization.a0</code>, and
+  <a href="../adrs/ADR-013-pcb-analytic-materialization-contract.md">ADR-013</a>
+  records the decision. The wire format and the pack layout are described in
+  <a href="../contracts/materialization.md">the materialization contract</a>.</p>
+
+  <pre><code>KiCad source -&gt; resolve physical intent -&gt; analytic materialization -&gt; adapters</code></pre>
+
+  <h2>Purpose and rationale</h2>
+  <p>Downstream consumers of a board (viewers, fabrication writers, DRC and
+  analysis tools, simulators) need the same facts: what material exists,
+  where, on which layer of the stack, on which net, and how it is
+  transformed. Today each consumer reinterprets KiCad objects (tracks, pads,
+  vias, zones, footprints) and usually polygonizes them, which fixes a
+  tolerance early and loses structure that DRC and analysis can use.</p>
+  <p>The materializer resolves KiCad's physical intent once. After the
+  boundary it no longer matters whether copper came from a track, a pad, a
+  via, a zone or a filled polygon. Each operation adds or subtracts one
+  analytic shape, under one composed affine, on one stack slice, with a
+  resolved net. Lowering to polygons, meshes or Gerbers stays in the
+  consumer, at the consumer's own tolerance. A separate binding table maps
+  operations back to KiCad sources for consumers that need traceability;
+  geometry consumers do not depend on it.</p>
+
+  <h2>Layout in kicad_monkey</h2>
+  <p>The layout follows the existing producers. <code>board_plotter_ir</code>
+  is a module of <code>kicad-monkey-core</code> whose contract is authored in
+  TypeSpec and generated into <code>kicad-monkey-contracts</code>; the
+  materializer is laid out the same way.</p>
+  <table>
+    <thead><tr><th>Piece</th><th>Location</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>Contract</td>
+        <td><code>src/tsp/kicad_monkey/materialization-a0.tsp</code></td>
+        <td>Request, scope, stack, nets, net classes, differential pairs,
+          shape union, surface and hole operations, components, binding
+          table, chunk index, diagnostics. TypeSpec is the authority; the
+          JSON Schema and the Rust, Python and TypeScript bindings are
+          generated.</td></tr>
+      <tr><td>Validation and scope</td>
+        <td><code>kicad-monkey-contracts/src/materialization_contract*</code></td>
+        <td>Semantic validation of documents and pack headers, chunking, and
+          the scope filter. Contract-only readers can validate and filter
+          without the KiCad parser.</td></tr>
+      <tr><td>Producer</td>
+        <td><code>kicad-monkey-core/src/board_materialization/</code></td>
+        <td>Resolves physical intent from <code>PcbView</code> and the
+          project file and emits operations, with the request's products
+          pushed into emission. Dependency-free and transport-neutral, as
+          core requires.</td></tr>
+      <tr><td>Packed encoding</td>
+        <td><code>src/rs/kicad-monkey-materialization-pack</code></td>
+        <td>Writes and reads the columnar, chunked binary form. Depends only
+          on <code>kicad-monkey-contracts</code>, so readers need no KiCad
+          parser.</td></tr>
+    </tbody>
+  </table>
+  <p>Native and WASM transport operations are not part of this proposal.
+  Following ADR-011, they are added once the native producer and its
+  contract are agreed.</p>
+
+  <h2>Contract boundary</h2>
+  <ul>
+    <li><strong>Shapes.</strong> A closed union: <code>disk_2d</code>,
+      <code>rect_2d</code>, <code>rounded_rect_2d</code>,
+      <code>chamfered_rect_2d</code>, <code>trapezoid_2d</code>,
+      <code>capsule_2d</code>, <code>annulus_2d</code>,
+      <code>swept_path_2d</code> (line, arc and cubic B&eacute;zier segments
+      with width, cap and join) and <code>planar_region_2d</code> (one outer
+      contour and holes, with the same segments). A disk under an affine is
+      an exact ellipse, so there is no ellipse shape. The cubic segment is
+      the exact form of KiCad's curves on pads, graphics and the board
+      edge.</li>
+    <li><strong>Operations.</strong> Surface operations carry an index, an
+      action (add or subtract), a material (copper, dielectric, solder mask,
+      paste, silkscreen), a slice key, a net key, a shape, an affine, and
+      their bounds after the affine. Hole operations carry a shape, an
+      affine, plating, start and end slices, a net key when plated, plating
+      thickness when known, IPC-4761 protection, back-drills,
+      post-machining and castellation.</li>
+    <li><strong>Units and frame.</strong> Integer nanometres, KiCad's board
+      frame (X right, Y down). Z is derived from the slice order and
+      thicknesses and never stored. Unknown physical values stay absent;
+      they are never defaulted.</li>
+    <li><strong>Combination.</strong> Per slice and material (and per net
+      for copper), material is the union of the adds minus the union of the
+      subtracts, regardless of order. Operations that share a
+      <code>group_key</code> form one item whose subtracts remove only its
+      own adds (knockout text). An optional signed <code>offset_nm</code>
+      grows or erodes a shape by a disk where the grown shape has no closed
+      form; it is never zero.</li>
+    <li><strong>Analytic only.</strong> The producer performs no Boolean
+      operations, offsetting or tessellation. Removed material (mask
+      openings, drills through dielectric, profile cutouts) is written as
+      subtract operations for consumers to resolve. Profile contour closure
+      is the one new close-to-format operation.</li>
+  </ul>
+  <h3>Correctness rules</h3>
+  <ol>
+    <li>Projected and fully parsed views of the same board produce
+      identical results.</li>
+    <li>A selective result equals the complete result filtered to the same
+      scope (operations, components and diagnostics).</li>
+    <li>Output is byte-deterministic for the same source and producer
+      version.</li>
+    <li>Operations on different nets are never merged.</li>
+    <li>Every operation has a slice. Every conductive operation has a net
+      key; copper without a net uses the empty key.</li>
+  </ol>
+
+  <h2>Products and physical rules</h2>
+  <p>Rules follow KiCad 10.0.6's source (<code>pad.cpp</code>,
+  <code>pcb_track.cpp</code>, <code>plot_board_layers.cpp</code>,
+  <code>pcb_text.cpp</code>, the stroke font and the board parser) and the
+  current KiCad parser where file formats moved.</p>
+  <table>
+    <thead><tr><th>Product</th><th>Operations</th></tr></thead>
+    <tbody>
+      <tr><td>copper</td><td>Tracks and arcs as <code>swept_path_2d</code>;
+        pad lands as their analytic shape, custom pads as their anchor plus
+        primitives; via lands as <code>disk_2d</code> on each flashed layer;
+        stored zone fills as <code>planar_region_2d</code>; copper graphics
+        and text (text, text boxes, dimensions and tables on copper are
+        unconnected copper).</td></tr>
+      <tr><td>holes</td><td>Round holes as <code>disk_2d</code>, slots as
+        <code>capsule_2d</code>, with plating, span, protection,
+        back-drill, post-machining and castellation.</td></tr>
+      <tr><td>dielectric</td><td>Per dielectric slice: the closed profile
+        added, its cutouts and every hole whose span crosses the slice
+        subtracted, plus back-drill bores and post-machining.</td></tr>
+      <tr><td>solder_mask</td><td>Per side: the profile added; pad openings,
+        untented via openings, exposed tracks, exposed copper graphics and
+        mask-layer graphics, text and zones subtracted.</td></tr>
+      <tr><td>paste</td><td>Pad apertures after margin and ratio, plus
+        paste-layer graphics, text and zones.</td></tr>
+      <tr><td>silkscreen</td><td>Graphics as paths and regions; stroke text
+        through the Newstroke geometry; outline text through render
+        caches.</td></tr>
+      <tr><td>components</td><td>Records: reference, footprint, side,
+        affine, body extent, net-tie and jumper groups. 3D models are not
+        materialized.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Stack and profile</h3>
+  <ul>
+    <li>Slices follow the KiCad stackup front to back; the stackup layer
+      type gives each its role. Thickness, material, &epsilon;r, tan&delta;
+      and core or prepreg are copied when stated. Dielectric sub-layers
+      (<code>addsublayer</code>) are slices of their own.</li>
+    <li>The stackup is used only when its copper layers equal the board's;
+      otherwise, and without a stackup, the stack is an explicit default
+      with every physical value unknown (<code>stackup_mismatch</code>,
+      <code>stackup_absent</code>).</li>
+    <li>Board thickness, copper finish, the impedance-control flag and the
+      plated-edge flag are recorded on the stack. KiCad stores no plated-edge
+      geometry, so none is emitted.</li>
+    <li>The stack has one rigid region holding every slice. The contract
+      also describes flexible regions, bend lines and the coverlay, adhesive
+      and stiffener roles for rigid-flex; KiCad stores no per-region stackup,
+      so the producer does not emit them.</li>
+    <li>Board and footprint <code>Edge.Cuts</code> carriers become exact
+      lines, arcs and cubics, chained within KiCad's 10 &micro;m outline
+      epsilon through an endpoint grid. Loops nest by even-odd containment:
+      even-depth loops are regions, the loops directly inside are cutouts
+      (which also covers panels). Unclosed edges and missing outlines are
+      reported.</li>
+  </ul>
+
+  <h3>Copper and holes</h3>
+  <ul>
+    <li>Pads and vias that remove unused layers, keep end layers or carry
+      zone-layer connections flash where core's board layer flash resolver
+      says, the same one its plotter uses.</li>
+    <li>Pad holes sit at the pad position (the drill offset moves only the
+      copper), are drilled through the board, and use the X size for round
+      drills. NPTH pads keep copper unless KiCad's
+      <code>PAD::FlashLayer</code> rule removes it.</li>
+    <li>Zone outlines may contain arcs. Fills from formats before 20250210
+      grow by half of <code>min_thickness</code> unless the zone says
+      <code>(filled_areas_thickness no)</code>, as KiCad's loader does. Zones
+      inside footprints are indexed; KiCad neither fills nor plots them, so a
+      stored fill there is reported and adds no material. Zone refill is not
+      performed.</li>
+    <li>Via protection is resolved as fabricated: a via's tenting, covering
+      and plugging per side, and its filling and capping, follow the board
+      setup where the via leaves them unstated (KiCad's
+      <code>FROM_BOARD</code> modes). Boards older than format 20250228 did
+      not write covering, plugging, filling or capping, so an absent value
+      is off there. Tenting falls back to the legacy
+      <code>viasonmask</code> plot option, then the board's
+      <code>(tenting ...)</code>, then tented.</li>
+    <li>Back-drills and tertiary drills record their side, diameter and end
+      slice, and bore the dielectric between the drilled outer layer and the
+      end layer. Counterbores and countersinks cut copper by KiCad's
+      <code>GetPostMachiningKnockout</code> disk and the dielectric at each
+      slice's nearer surface.</li>
+    <li>Castellated holes are flagged; as in KiCad's drill output they are
+      not clipped by the profile.</li>
+    <li>Plating thickness is not stated by KiCad and stays unknown.</li>
+  </ul>
+
+  <h3>Mask, paste and silkscreen</h3>
+  <ul>
+    <li>A pad opens a mask side only when its layer list includes that mask
+      layer. Mask and paste margins resolve pad, then footprint, then board;
+      mask margins clamp so the opening stays non-negative; paste ratios
+      apply per axis. In format 20240201 and older a local margin of 0 means
+      inherit. Rules from <code>.kicad_dru</code> are not evaluated.</li>
+    <li>Opening shapes follow KiCad's layer plotter: circles and ovals
+      resize; a rectangle grown by a positive margin becomes a rounded
+      rectangle of that radius; rounded rectangles add an equal margin to
+      their radius; chamfered rectangles, trapezoids and custom primitives
+      are offset.</li>
+    <li>Tracks and arcs on a mask layer (<code>(layers "F.Cu" "F.Mask")</code>)
+      open the mask by their width plus twice their own or the board's
+      expansion. An outer-copper graphic that is also on its mask layer
+      opens it once; a margin alone does not expose it.</li>
+    <li>Text comes from the board plot document, which resolves variables
+      and render caches. Stroke text is placed as KiCad draws it, through
+      <code>realize_newstroke_kicad_a0</code> (italic shear, line offsets,
+      effective pen, bold multiplier from format 20260826). Text-box text,
+      multi-line text and table separators use the KiCad layout the plotter
+      records carry.</li>
+    <li>Knockout text: the box is the glyph bounds grown by max(pen / 2,
+      height / 9); outline glyphs become holes of the box, stroke glyphs are
+      subtracted within the box's own group.</li>
+  </ul>
+
+  <h3>Nets</h3>
+  <ul>
+    <li>Net keys are resolved names. The net table lists the referenced
+      nets.</li>
+    <li>Net classes come from the <code>.kicad_pro</code> as
+      <code>NET_SETTINGS::GetEffectiveNetClass</code> resolves them:
+      assigned and pattern-matched classes sort by priority then name, each
+      rule comes from the first class that sets it, <code>Default</code>
+      fills what is left, and several classes form a composite. Patterns are
+      bus-expanded and match as anchored regexes (the common subset of Tcl
+      advanced regular expressions, without a regex dependency) or
+      wildcards. <code>net_settings</code> migrations and old boards'
+      <code>(net_class)</code> forms follow KiCad.</li>
+    <li>Differential pairs follow <code>MatchDpSuffix</code>.</li>
+    <li>Footprint copper keeps its authored net, usually none, as KiCad
+      does. In a net-tie footprint, a shape touching a grouped pad lists the
+      group's nets in <code>tied_net_keys</code>; the nets stay
+      separate.</li>
+    <li>Pad binding entries carry pin-to-die length and delay.</li>
+  </ul>
+
+  <h3>Reported, not modelled</h3>
+  <p>Each case is a diagnostic in the document, never a silent drop:
+  <code>solder_mask_min_width</code> web merging, hatched fills (drawn as
+  outlines), dashed strokes (drawn solid), multi-line stroke text with a
+  line spacing other than 1, outline fonts without a render cache,
+  footprint scale and mirror transforms from format 20260616, net-class
+  patterns beyond the supported regex subset, back-drills that cannot be
+  placed, undecodable zones, material on undeclared copper layers, and
+  zero-width tracks.</p>
+
+  <h2>Requests, scope and serving</h2>
+  <ul>
+    <li>A request names products, and optionally slice keys, net keys and a
+      region, a tile size, and limits on source bytes, operations and
+      points. An empty key list means all.</li>
+    <li>Products are pushed into emission. Slice, net and region filters
+      select from the emission with the contract's scope filter, so rule 2
+      holds by construction and is tested.</li>
+    <li><code>PreparedBoard::prepare</code> decodes a board and emits every
+      product once; <code>PreparedBoard::materialize</code> then answers any
+      request with the same result a direct call gives. It is
+      <code>Send</code> and <code>Sync</code>.</li>
+    <li>Stages that do not depend on each other (the presentation plot,
+      zone decoding and the other families) run on scoped threads, which
+      are inline on <code>wasm32</code>. Output stays byte-identical.</li>
+    <li>Pushing scope into <code>PcbSelection</code> was measured and not
+      adopted: the net table and zone diagnostics need the same families
+      for any product, and partial zone decoding would change diagnostics
+      and break rule 2.</li>
+  </ul>
+
+  <h2>Safety and resources</h2>
+  <ul>
+    <li>Source size, operation count and point count are bounded by the
+      request. Without slice, net or region filters, emission stops as soon
+      as the operation limit is passed.</li>
+    <li>Margins and grown sizes saturate at the contract's 32-bit nanometre
+      range; bounds round outward.</li>
+    <li>The validator checks every <code>NonNegativeNm</code> range, closed
+      contours and non-empty paths, slice roles, hole spans, net and binding
+      consistency, the canonical scope, contiguous ordered chunks, and that
+      each shape's anchor points lie inside its bounds.</li>
+    <li>Pack readers bound the header size, check every section against
+      the pack's length, validate the header before reading operations, and
+      fail closed on damaged or truncated input.</li>
+    <li>No new dependency; <code>unsafe_code</code> stays forbidden; the
+      producer and pack crates build for <code>wasm32-unknown-unknown</code>.</li>
+  </ul>
+
+  <h2>Test requirements and ownership</h2>
+  <table>
+    <thead><tr><th>Area</th><th>Tests</th></tr></thead>
+    <tbody>
+      <tr><td>Contract</td><td><code>kicad-monkey-contracts/tests/materialization_validation.rs</code>
+        and the module tests: decoding, every validator rule, chunking and
+        the scope filter.</td></tr>
+      <tr><td>Pack</td><td><code>kicad-monkey-materialization-pack/tests/pack.rs</code>
+        and module tests: exact round trips, header validation, and every
+        byte flipped or cut failing closed.</td></tr>
+      <tr><td>Producer</td><td><code>kicad-monkey-core/tests/board_materialization_*.rs</code>:
+        copper, holes and nets (<code>slice</code>), stack, profile and
+        dielectric, technical products, text, net classes, pairs, ties and
+        post-machining (<code>slice4</code>), sources, requests, prepared
+        boards and pack round trips, and rules 1 to 3.</td></tr>
+      <tr><td>Source model</td><td><code>pcb_zone_slice</code> and
+        <code>newstroke_geometry</code> for the core changes the producer
+        relies on.</td></tr>
+      <tr><td>Corpus gate</td><td><code>examples/materialization_gate.rs</code>
+        on corpus boards: validation, determinism, binding coverage, rule 2
+        on every per-slice scope, prepared answers and the pack round
+        trip.</td></tr>
+      <tr><td>CI</td><td><code>.github/workflows/materializer.yml</code>:
+        contract, pack and producer tests on Linux x64 and arm64, macOS arm64
+        and x64 and Windows x64, and a <code>wasm32</code> build.</td></tr>
+    </tbody>
+  </table>
+  <p>The materializer has no Python surface yet, so it adds no entry to the
+  promoted Python API contract or the interface manifest.</p>
+
+  <h2>Evidence</h2>
+  <p>On the public corpus boards 4-ch-backplane,
+  speedy_processing_module, charge_indicator and taillight:</p>
+  <ul>
+    <li>Every board validates, is byte-deterministic, and binds every
+      operation. Rule 2 holds for every per-slice scope of each product,
+      alone and together with copper, and a prepared board's answers equal
+      direct materializations.</li>
+    <li>Profiles close with no diagnostics; the region and cutout counts
+      agree with an independent count of each board's
+      <code>Edge.Cuts</code> carriers.</li>
+    <li>Mask, paste and silkscreen were compared by area with
+      <code>kicad-cli</code> 10.0.6 Gerbers (union of adds minus subtracts):
+      mask within 0.03% and paste within 0.007% on every layer, silkscreen
+      within 0.14% on every layer but one. charge_indicator's back
+      silkscreen differs by 20% because its logo font is not installed on
+      the comparison machine: KiCad falls back to its stroke font, while the
+      materializer follows the board's saved render cache.</li>
+    <li>Net classes and differential pairs equal what KiCad's scripting API
+      reports on the corpus boards and on purpose-built test boards.</li>
+    <li>A pack is about a fifth of the size of the JSON document.</li>
+  </ul>
+
+  <h2>Format gating</h2>
+  <p>KiCad 11 development formats add facts the producer will gate on the
+  file format version: frequency-dependent dielectric models (20260511),
+  pad simulation electrical types (20260521), footprint affine transforms
+  with scale and mirror (20260616, reported today), an
+  exclude-from-simulation footprint attribute (20260828) and microvia
+  stacks (20260830).</p>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Zone refill, which callers run through <code>kicad-cli</code>
+      first.</li>
+    <li>Boolean resolution, offsetting, tessellation and meshing, which
+      consumers own; the Geometer gate in
+      <a href="rust-geometer-bridge-disposition.html">the bridge-entry
+      disposition</a> stays closed.</li>
+    <li>3D models, material properties beyond KiCad's stackup, and device
+      models.</li>
+    <li>Native and WASM transport operations, and a Python API, until the
+      contract is agreed.</li>
+  </ul>
+</body>
+</html>

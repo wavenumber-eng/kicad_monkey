@@ -32,6 +32,14 @@ pub struct PcbFootprintGraphic {
     pub graphic: PcbGraphic,
 }
 
+/// One zone owned by an embedded board footprint. Before format 20260616
+/// its points are in the board frame; from then on, in the footprint's.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PcbFootprintZone {
+    pub footprint_index: usize,
+    pub zone: PcbZone,
+}
+
 /// One source-authored footprint-local text item.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbFootprintText {
@@ -114,6 +122,21 @@ impl<'a> PcbView<'a> {
             .iter()
             .filter(move |_| self.selection.contains(PcbFamily::FootprintTextBoxes))
             .map(|indexed| footprint_text_box_from_span(self.source, indexed, self.limits))
+    }
+
+    /// Iterate footprint-owned zones in board and child source order.
+    pub fn footprint_zones(&self) -> impl Iterator<Item = Result<PcbFootprintZone, Error>> + '_ {
+        self.footprint_zones
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Zones))
+            .map(|indexed| {
+                let mut zone = zones::zone_from_span(self.source, &indexed.span, self.limits)?;
+                zone.net = self.net_resolver.resolve(zone.net);
+                Ok(PcbFootprintZone {
+                    footprint_index: indexed.parent_index,
+                    zone,
+                })
+            })
     }
 }
 

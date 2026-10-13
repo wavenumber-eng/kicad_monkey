@@ -54,6 +54,12 @@ pub struct PcbPad {
     pub pin_function: Option<String>,
     pub pin_type: Option<String>,
     pub die_length: Option<f64>,
+    /// Pad-to-die delay in picoseconds, as the file states it in every
+    /// format that has it.
+    pub die_delay: Option<f64>,
+    /// Fabrication property (`(property pad_prop_castellated)` and the
+    /// like), as authored.
+    pub fabrication_property: Option<String>,
     pub rect_delta_x: Option<f64>,
     pub rect_delta_y: Option<f64>,
     pub roundrect_rratio: Option<f64>,
@@ -93,6 +99,10 @@ pub(super) fn pad_from_span(
     let kind = required_string(header.get(1), "Expected pad kind", &indexed.span)?;
     let (drill, plated) = pad_drill_and_plating(source, &children, &kind, limits)?;
     let custom = custom_pad_fields(source, &children, limits)?;
+    let drill_properties =
+        |name| manufacturing::drill_properties_from_children(source, &children, name, limits);
+    let machining =
+        |name| manufacturing::post_machining_from_children(source, &children, name, limits);
     Ok(PcbPad {
         owner: PcbFootprintMemberOwner::EmbeddedFootprint {
             footprint_index: indexed.parent_index,
@@ -115,6 +125,8 @@ pub(super) fn pad_from_span(
         pin_function: optional_child_string(source, &children, "pinfunction")?,
         pin_type: optional_child_string(source, &children, "pintype")?,
         die_length: optional_child_f64(source, &children, "die_length")?,
+        die_delay: optional_child_f64(source, &children, "die_delay")?,
+        fabrication_property: optional_child_string(source, &children, "property")?,
         rect_delta_x,
         rect_delta_y,
         roundrect_rratio: optional_child_f64(source, &children, "roundrect_rratio")?,
@@ -148,30 +160,10 @@ pub(super) fn pad_from_span(
             "keep_end_layers",
         )?,
         teardrops: manufacturing::teardrop_parameters_from_children(source, &children, limits)?,
-        backdrill: manufacturing::drill_properties_from_children(
-            source,
-            &children,
-            "backdrill",
-            limits,
-        )?,
-        tertiary_drill: manufacturing::drill_properties_from_children(
-            source,
-            &children,
-            "tertiary_drill",
-            limits,
-        )?,
-        front_post_machining: manufacturing::post_machining_from_children(
-            source,
-            &children,
-            "front_post_machining",
-            limits,
-        )?,
-        back_post_machining: manufacturing::post_machining_from_children(
-            source,
-            &children,
-            "back_post_machining",
-            limits,
-        )?,
+        backdrill: drill_properties("backdrill")?,
+        tertiary_drill: drill_properties("tertiary_drill")?,
+        front_post_machining: machining("front_post_machining")?,
+        back_post_machining: machining("back_post_machining")?,
         zone_layer_connections: manufacturing::zone_layer_connections_from_children(
             source, &children, limits,
         )?,

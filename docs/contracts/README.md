@@ -15,6 +15,9 @@ Current contracts:
 - `schematic_svg_enrichment_a0.schema.json`: document-level metadata embedded
   in enriched schematic SVG output.
 - `svg.md`: human-readable SVG enrichment and linkage contract.
+- `materialization.md`: the proposed `kicad_monkey.materialization.a0`
+  request, result and pack contract; its JSON Schemas are generated under
+  `contracts/generated/schema/`.
 
 The promoted package-root API contract lives in source at
 `src/py/kicad_monkey/kicad_api_contract.py` so it can be imported by tests,

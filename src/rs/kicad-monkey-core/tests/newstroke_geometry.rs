@@ -1,7 +1,7 @@
 use kicad_monkey_core::{
     BoardNetClassAssignments, BoardPlotLimits, BoardTextVariables, NewstrokeErrorKind,
     NewstrokeLimits, NewstrokeRequest, PcbLimits, TextHorizontalAlignment, TextVerticalAlignment,
-    board_plot_facts_with_sidecars, realize_newstroke_a0,
+    board_plot_facts_with_sidecars, realize_newstroke_a0, realize_newstroke_kicad_a0,
 };
 
 fn request(text: &str) -> NewstrokeRequest<'_> {
@@ -360,4 +360,103 @@ fn invalid_geometry_and_stroke_width_fail_before_realization() {
             .kind,
         NewstrokeErrorKind::InvalidInput
     );
+}
+
+fn kicad(request: NewstrokeRequest<'_>) -> kicad_monkey_core::NewstrokeOutput {
+    realize_newstroke_kicad_a0(request, NewstrokeLimits::default()).expect("kicad text")
+}
+
+fn points(output: &kicad_monkey_core::NewstrokeOutput) -> Vec<(f64, f64)> {
+    output
+        .polylines
+        .iter()
+        .flat_map(|polyline| &polyline.points)
+        .map(|point| (point.x_mm, point.y_mm))
+        .collect()
+}
+
+#[test]
+fn kicad_italics_shear_each_glyph_point_right_above_its_baseline() {
+    let upright = points(&kicad(request("H")));
+    let italic = points(&kicad(NewstrokeRequest {
+        italic: true,
+        ..request("H")
+    }));
+    assert_eq!(upright.len(), italic.len());
+    let shift = |index: usize| italic[index].0 - upright[index].0;
+    for (index, (upright_point, italic_point)) in upright.iter().zip(&italic).enumerate() {
+        assert_close(italic_point.1, upright_point.1);
+        // KiCad's `x -= y * ITALIC_TILT`, with Y down: higher points move right.
+        assert!(
+            (shift(index) - shift(0) + (upright_point.1 - upright[0].1) / 8.0).abs() <= 1e-9,
+            "point {index}"
+        );
+    }
+    let top = (0..upright.len())
+        .min_by(|a, b| upright[*a].1.total_cmp(&upright[*b].1))
+        .expect("points");
+    let bottom = (0..upright.len())
+        .max_by(|a, b| upright[*a].1.total_cmp(&upright[*b].1))
+        .expect("points");
+    assert!(shift(top) > shift(bottom), "italic text leans right");
+}
+
+#[test]
+fn kicad_line_positions_follow_get_line_positions() {
+    let left = kicad(request("H"));
+    let right = kicad(NewstrokeRequest {
+        horizontal_alignment: TextHorizontalAlignment::Right,
+        ..request("H")
+    });
+    // Left text starts stroke/1.52 right of the anchor; right text ends
+    // that far left of it.
+    let offset = left.effective_stroke_width_mm / 1.52;
+    let expected = left.alignment_width_mm + 2.0 * offset;
+    for (l, r) in points(&left).iter().zip(points(&right)) {
+        assert!((l.0 - r.0 - expected).abs() <= 1e-9);
+    }
+    let top = kicad(NewstrokeRequest {
+        vertical_alignment: TextVerticalAlignment::Top,
+        ..request("H")
+    });
+    // A line is 1.17 x the glyph height between top and bottom anchors.
+    for (t, b) in points(&top).iter().zip(points(&left)) {
+        assert!((t.1 - b.1 - 1.17).abs() <= 1e-9);
+    }
+}
+
+#[test]
+fn kicad_multiline_text_steps_by_the_stroke_font_pitch_and_aligns_each_line() {
+    let pitch = 1.68 * 0.9583;
+    let single = kicad(request("H"));
+    let lines = kicad(request("H\nHHH"));
+    let first = points(&single);
+    let all = points(&lines);
+    // Bottom-aligned: the block (1.17 heights plus one pitch) ends at the
+    // anchor, so the first line sits one pitch higher than a single line.
+    for (one, both) in first.iter().zip(&all) {
+        assert!((both.0 - one.0).abs() <= 1e-9);
+        assert!((one.1 - both.1 - pitch).abs() <= 1e-9);
+    }
+    // The second line is a pitch below the first.
+    let second_line_h = &all[first.len()..first.len() * 2];
+    for (top, bottom) in all.iter().zip(second_line_h) {
+        assert!((bottom.1 - top.1 - pitch).abs() <= 1e-9);
+    }
+    // Right alignment uses each line's own width.
+    let right = |text| {
+        points(&kicad(NewstrokeRequest {
+            horizontal_alignment: TextHorizontalAlignment::Right,
+            ..request(text)
+        }))
+    };
+    let alone = right("HHH");
+    let below = right("H\nHHH");
+    let tail = &below[below.len() - alone.len()..];
+    for (a, b) in alone.iter().zip(tail) {
+        assert!(
+            (a.0 - b.0).abs() <= 1e-9,
+            "the long line is aligned by its own width"
+        );
+    }
 }

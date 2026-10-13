@@ -38,3 +38,5 @@ export type { NativeDesignFactsResultA1 } from "./native-design-facts-result-a1.
 export type { NativeSVGRenderRequestA0 } from "./native-svg-render-request.js";
 export type { NativeSVGRenderResultA0 } from "./native-svg-render-result.js";
 export type { NativeErrorA0 } from "./native-error.js";
+export type { MaterializationRequestA0 } from "./materialization-request.js";
+export type { MaterializationDocumentA0 } from "./materialization-document.js";

@@ -1,0 +1,121 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.materialization.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.materialization.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "products": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/MaterialProduct"
+            }
+        },
+        "slice_keys": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "net_keys": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "region": {
+            "$ref": "#/$defs/NmBounds"
+        },
+        "tile_size_nm": {
+            "$ref": "#/$defs/NonNegativeNm"
+        },
+        "max_source_bytes": {
+            "type": "string",
+            "description": "Bounds the board and project files together."
+        },
+        "max_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "products",
+        "tile_size_nm",
+        "max_source_bytes",
+        "max_operations",
+        "max_points"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Resource-bounded materialization request. Source bytes are out of band.",
+    "title": "Materialization request a0",
+    "$defs": {
+        "MaterialProduct": {
+            "type": "string",
+            "enum": [
+                "copper",
+                "holes",
+                "dielectric",
+                "solder_mask",
+                "paste",
+                "silkscreen",
+                "components"
+            ],
+            "description": "Selectable products. Every operation belongs to exactly one product. The\nboard profile has no product of its own: it is the add operation of every\ndielectric and solder-mask slice, with cutouts subtracted there."
+        },
+        "NmBounds": {
+            "type": "object",
+            "properties": {
+                "min_x_nm": {
+                    "$ref": "#/$defs/Nm"
+                },
+                "min_y_nm": {
+                    "$ref": "#/$defs/Nm"
+                },
+                "max_x_nm": {
+                    "$ref": "#/$defs/Nm"
+                },
+                "max_y_nm": {
+                    "$ref": "#/$defs/Nm"
+                }
+            },
+            "required": [
+                "min_x_nm",
+                "min_y_nm",
+                "max_x_nm",
+                "max_y_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Axis-aligned bounds in the board frame, inclusive."
+        },
+        "NonNegativeNm": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Non-negative length in integer nanometres."
+        },
+        "Nm": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647,
+            "description": "Board-frame length in integer nanometres. The range matches KiCad's own\n32-bit internal-unit limit, so the packed encoding stores it losslessly."
+        }
+    }
+}

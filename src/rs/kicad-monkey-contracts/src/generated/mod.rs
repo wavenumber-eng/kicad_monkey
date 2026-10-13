@@ -15,6 +15,8 @@ pub mod footprint_plot_request;
 pub mod footprint_plot_result;
 pub mod footprint_read_request;
 pub mod footprint_read_result;
+pub mod materialization_document;
+pub mod materialization_request;
 pub mod native_design_facts_request;
 pub mod native_design_facts_request_a1;
 pub mod native_design_facts_result;

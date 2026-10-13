@@ -9,6 +9,7 @@
 /// Version of the Rust KiCad Monkey engine producing reusable core artifacts.
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub mod board_materialization;
 pub mod board_plot_contract;
 pub mod board_plotter_ir;
 pub mod compiled_schematic_graph;
@@ -127,23 +128,23 @@ pub use kicad_netlist::{
 };
 pub use newstroke::{
     NewstrokeError, NewstrokeErrorKind, NewstrokeLimits, NewstrokeOutput, NewstrokePoint,
-    NewstrokePolyline, NewstrokeRequest, realize_newstroke_a0,
+    NewstrokePolyline, NewstrokeRequest, realize_newstroke_a0, realize_newstroke_kicad_a0,
 };
 pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbComponentClassRef, PcbCounts, PcbDimension,
     PcbDocument, PcbDrillLayerSpan, PcbDrillProperties, PcbEdit, PcbEmbeddedFile, PcbFamily,
     PcbFootprint, PcbFootprintGraphic, PcbFootprintMemberOwner, PcbFootprintProperty,
-    PcbFootprintText, PcbFootprintTextBox, PcbFootprintTransform, PcbFrontBackOptionalBool,
-    PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape,
-    PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet, PcbNetRef, PcbPad,
-    PcbPadCustomOptions, PcbPadCustomPrimitive, PcbPadDrill, PcbPadNameGroup, PcbPadPolygonPoint,
-    PcbPadPrimitiveGeometry, PcbPadstack, PcbPadstackLayer, PcbPoint, PcbPolygonPoint,
-    PcbPostMachiningProperties, PcbProfileOwner, PcbProfilePrimitive, PcbProperty,
+    PcbFootprintText, PcbFootprintTextBox, PcbFootprintTransform, PcbFootprintZone,
+    PcbFrontBackOptionalBool, PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup, PcbHole,
+    PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet,
+    PcbNetRef, PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive, PcbPadDrill, PcbPadNameGroup,
+    PcbPadPolygonPoint, PcbPadPrimitiveGeometry, PcbPadstack, PcbPadstackLayer, PcbPoint,
+    PcbPolygonPoint, PcbPostMachiningProperties, PcbProfileOwner, PcbProfilePrimitive, PcbProperty,
     PcbResolvedPadCopperLayer, PcbRoutingArc, PcbSegment, PcbSelection, PcbSetup, PcbStackup,
-    PcbStackupLayer, PcbTable, PcbTableCell, PcbTeardropParameters, PcbVia, PcbViaStack,
-    PcbViaStackLayer, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout,
-    PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement, PcbZonePlacementSource,
-    PcbZonePolygon, resolve_pad_copper_layer,
+    PcbStackupLayer, PcbStackupSublayer, PcbTable, PcbTableCell, PcbTeardropParameters, PcbVia,
+    PcbViaStack, PcbViaStackLayer, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout,
+    PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZoneOutlineArc, PcbZonePlacement,
+    PcbZonePlacementSource, PcbZonePolygon, resolve_pad_copper_layer,
 };
 pub use pcb_authoring::{
     AuthoredBackdrill, AuthoredBoardText, AuthoredChamferCorner, AuthoredColor,

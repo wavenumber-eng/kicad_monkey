@@ -52,6 +52,8 @@ const roots = [
   ["NativeSvgRenderRequest.json", "NativeSVGRenderRequestA0", "native-svg-render-request.ts"],
   ["NativeSvgRenderResult.json", "NativeSVGRenderResultA0", "native-svg-render-result.ts"],
   ["NativeError.json", "NativeErrorA0", "native-error.ts"],
+  ["MaterializationRequest.json", "MaterializationRequestA0", "materialization-request.ts"],
+  ["MaterializationDocument.json", "MaterializationDocumentA0", "materialization-document.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {
@@ -2128,7 +2130,15 @@ function pythonType(schema) {
   if (schema.type === "array" && Array.isArray(schema.prefixItems)) {
     return `tuple[${schema.prefixItems.map(pythonType).join(", ")}]`;
   }
-  if (schema.type === "array") return `list[${pythonType(schema.items)}]`;
+  if (schema.type === "array") {
+    const constraints = [];
+    if (Number.isSafeInteger(schema.minItems)) constraints.push(`min_length=${schema.minItems}`);
+    if (Number.isSafeInteger(schema.maxItems)) constraints.push(`max_length=${schema.maxItems}`);
+    const listType = `list[${pythonType(schema.items)}]`;
+    return constraints.length > 0
+      ? `Annotated[${listType}, Meta(${constraints.join(", ")})]`
+      : listType;
+  }
   const mapValues = schema.additionalProperties ?? schema.unevaluatedProperties;
   if (schema.type === "object" && mapValues && !isFalseSchema(mapValues)) {
     return `dict[str, ${pythonType(mapValues)}]`;

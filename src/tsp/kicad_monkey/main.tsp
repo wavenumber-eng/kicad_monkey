@@ -8,3 +8,4 @@ import "./compiled-schematic-graph-a0.tsp";
 import "./source-bundle-a0.tsp";
 import "./font-text-a0.tsp";
 import "./native-transport-a0.tsp";
+import "./materialization-a0.tsp";

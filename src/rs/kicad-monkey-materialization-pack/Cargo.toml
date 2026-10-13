@@ -1,0 +1,18 @@
+[package]
+name = "kicad-monkey-materialization-pack"
+description = "Packed columnar encoding for KiCad Monkey analytic board materializations"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
+serde.workspace = true
+serde_json.workspace = true

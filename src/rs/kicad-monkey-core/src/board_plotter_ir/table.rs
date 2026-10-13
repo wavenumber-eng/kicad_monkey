@@ -116,6 +116,7 @@ fn table_record(
         border_width,
     )?;
     budget.charge(geometry_count, 0)?;
+    let kicad_hidden_segments = kicad_hidden_segments(&operations, cells, &xs, &ys)?;
 
     for (cell_index, cell) in cells.iter().enumerate() {
         let context = TableCellContext {
@@ -157,6 +158,7 @@ fn table_record(
         cell_count: cells.len(),
         cell_bounds_nm,
         operations,
+        kicad_hidden_segments,
     })
 }
 
@@ -258,6 +260,53 @@ fn append_geometry(
         }
     }
     Ok(())
+}
+
+/// Grid separators KiCad does not draw: it strokes only cells' normalized
+/// right and bottom edges (`PCB_TABLE::DrawBorders`), so an interior grid
+/// line that is no cell's far edge (the far edge of a negative row height or
+/// column width) gets none. The outermost lines are the external border.
+fn kicad_hidden_segments(
+    operations: &[BoardTableOperation],
+    cells: &[PcbTableCell],
+    xs: &[f64],
+    ys: &[f64],
+) -> Result<Vec<usize>, Error> {
+    let nm_set = |values: &mut dyn Iterator<Item = f64>| {
+        values
+            .map(mm_to_nm)
+            .collect::<Result<std::collections::BTreeSet<i64>, Error>>()
+    };
+    let rights = nm_set(&mut cells.iter().map(|cell| cell.start.x.max(cell.end.x)))?;
+    let bottoms = nm_set(&mut cells.iter().map(|cell| cell.start.y.max(cell.end.y)))?;
+    let outer = |values: &[f64]| -> Result<[i64; 2], Error> {
+        let first = values.first().ok_or_else(limit_error)?;
+        let last = values.last().ok_or_else(limit_error)?;
+        Ok([mm_to_nm(*first)?, mm_to_nm(*last)?])
+    };
+    let (outer_x, outer_y) = if cells.is_empty() {
+        ([0, 0], [0, 0])
+    } else {
+        (outer(xs)?, outer(ys)?)
+    };
+    let interior = |value: i64, outer: [i64; 2]| value != outer[0] && value != outer[1];
+    Ok(operations
+        .iter()
+        .enumerate()
+        .filter_map(|(index, operation)| {
+            let BoardTableOperation::Segment(PlotterOperation::ThickSegment(segment)) = operation
+            else {
+                return None;
+            };
+            let vertical = segment.start_x == segment.end_x
+                && interior(segment.start_x, outer_x)
+                && !rights.contains(&segment.start_x);
+            let horizontal = segment.start_y == segment.end_y
+                && interior(segment.start_y, outer_y)
+                && !bottoms.contains(&segment.start_y);
+            (vertical || horizontal).then_some(index)
+        })
+        .collect())
 }
 
 fn push_segment(
@@ -370,6 +419,7 @@ fn table_cell_text_operation(
         knockout: false,
         render_cache_polygons: Vec::new(),
         render_cache: None,
+        kicad: None,
     };
     attach_table_cell_cache(
         &mut operation,

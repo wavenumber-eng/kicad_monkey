@@ -123,7 +123,48 @@ pub fn realize_newstroke_a0(
     request: NewstrokeRequest<'_>,
     limits: NewstrokeLimits,
 ) -> Result<NewstrokeOutput, NewstrokeError> {
+    realize(request, limits, Italic::Legacy)
+}
+
+/// Realize Newstroke text placed exactly as KiCad draws it.
+///
+/// - Italic: KiCad's `STROKE_GLYPH::Transform` shears each scaled glyph
+///   point about its own baseline, `x -= y * ITALIC_TILT`, before the cursor
+///   and alignment offsets, so italics lean right.
+/// - Anchor: KiCad's `FONT::getLinePositions` offsets, including its
+///   stroke-width corrections.
+/// - Lines: text split at `\n` is laid out as KiCad's stroke font does at
+///   its default line spacing: a pitch of `1.68 * 0.9583` text heights,
+///   the block aligned vertically as a whole and each line horizontally by
+///   its own width.
+///
+/// [`realize_newstroke_a0`] keeps its established preview behaviour, which
+/// shears the other way and approximates the anchor from cap heights.
+pub fn realize_newstroke_kicad_a0(
+    request: NewstrokeRequest<'_>,
+    limits: NewstrokeLimits,
+) -> Result<NewstrokeOutput, NewstrokeError> {
+    realize(request, limits, Italic::KiCad)
+}
+
+/// How glyphs are anchored and italics sheared.
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Italic {
+    /// The established preview placement.
+    Legacy,
+    /// KiCad's placement and glyph shear.
+    KiCad,
+}
+
+fn realize(
+    request: NewstrokeRequest<'_>,
+    limits: NewstrokeLimits,
+    italic: Italic,
+) -> Result<NewstrokeOutput, NewstrokeError> {
     validate_request(request, limits)?;
+    if italic == Italic::KiCad && !request.text.is_empty() {
+        return realize_kicad_lines(request, limits);
+    }
     if request.text.is_empty() {
         return Ok(NewstrokeOutput {
             polylines: Vec::new(),
@@ -141,10 +182,16 @@ pub fn realize_newstroke_a0(
     if !alignment_width_mm.is_finite() {
         return Err(invalid_geometry_error());
     }
-    let cursor = match request.horizontal_alignment {
-        TextHorizontalAlignment::Left => 0.0,
-        TextHorizontalAlignment::Center => -alignment_width_mm / 2.0,
-        TextHorizontalAlignment::Right => -alignment_width_mm,
+    let (cursor, offset_y) = match italic {
+        Italic::Legacy => (
+            match request.horizontal_alignment {
+                TextHorizontalAlignment::Left => 0.0,
+                TextHorizontalAlignment::Center => -alignment_width_mm / 2.0,
+                TextHorizontalAlignment::Right => -alignment_width_mm,
+            },
+            vertical_offset(request),
+        ),
+        Italic::KiCad => kicad_line_offset(request, alignment_width_mm, 0, 1),
     };
     let initial_cursor = cursor;
     let mut state = RealizationState {
@@ -154,10 +201,63 @@ pub fn realize_newstroke_a0(
         point_count: 0,
         missing_glyphs: 0,
         cursor,
-        offset_y: vertical_offset(request),
+        offset_y,
+        italic,
     };
     state.walk(request.text, &nodes)?;
     let advance_width_mm = state.cursor - initial_cursor;
+    if !advance_width_mm.is_finite() {
+        return Err(invalid_geometry_error());
+    }
+    let bounds_mm = bounds(&state.polylines);
+    Ok(NewstrokeOutput {
+        polylines: state.polylines,
+        bounds_mm,
+        advance_width_mm,
+        alignment_width_mm,
+        effective_stroke_width_mm: effective_stroke_width(request),
+        missing_glyphs: state.missing_glyphs,
+        markup_nodes,
+        point_count: state.point_count,
+    })
+}
+
+/// KiCad's stroke-font line pitch at line spacing 1: `METRICS`
+/// interline pitch times `STROKE_FONT`'s legacy factor.
+const KICAD_INTERLINE_PER_HEIGHT: f64 = 1.68 * 0.9583;
+
+/// [`realize`] for KiCad placement, one line at a time.
+fn realize_kicad_lines(
+    request: NewstrokeRequest<'_>,
+    limits: NewstrokeLimits,
+) -> Result<NewstrokeOutput, NewstrokeError> {
+    let lines: Vec<&str> = request.text.split('\n').collect();
+    let mut state = RealizationState {
+        request,
+        limits,
+        polylines: Vec::new(),
+        point_count: 0,
+        missing_glyphs: 0,
+        cursor: 0.0,
+        offset_y: 0.0,
+        italic: Italic::KiCad,
+    };
+    let (mut markup_nodes, mut alignment_width_mm, mut advance_width_mm) = (0usize, 0.0f64, 0.0f64);
+    for (index, line) in lines.iter().enumerate() {
+        let remaining = limits.max_markup_nodes.saturating_sub(markup_nodes);
+        let (nodes, used) = parsed_markup(line, remaining)?;
+        markup_nodes += used;
+        let width = markup_width(line, &nodes) * request.size_x_mm;
+        if !width.is_finite() {
+            return Err(invalid_geometry_error());
+        }
+        let (cursor, offset_y) = kicad_line_offset(request, width, index, lines.len());
+        state.cursor = cursor;
+        state.offset_y = offset_y;
+        state.walk(line, &nodes)?;
+        alignment_width_mm = alignment_width_mm.max(width);
+        advance_width_mm = advance_width_mm.max(state.cursor - cursor);
+    }
     if !advance_width_mm.is_finite() {
         return Err(invalid_geometry_error());
     }
@@ -197,6 +297,7 @@ struct RealizationState<'a> {
     missing_glyphs: usize,
     cursor: f64,
     offset_y: f64,
+    italic: Italic,
 }
 
 impl RealizationState<'_> {
@@ -283,11 +384,8 @@ impl RealizationState<'_> {
                 let x = (f64::from(glyph[index]) - f64::from(b'R')) * STROKE_SCALE - start_x;
                 let y =
                     (f64::from(glyph[index + 1]) - f64::from(b'R') + FONT_OFFSET) * STROKE_SCALE;
-                current.push(self.transform(
-                    x * size_x + self.cursor,
-                    y * size_y + self.offset_y + style_y,
-                    self.request.italic,
-                )?);
+                let point = self.glyph_point(x * size_x, y * size_y, self.offset_y + style_y);
+                current.push(point?);
                 index += 2;
             }
             self.finish_glyph_stroke(&mut current)?;
@@ -323,6 +421,21 @@ impl RealizationState<'_> {
             .ok_or_else(|| limit_error("Newstroke points exceed max_points"))?;
         self.polylines.push(NewstrokePolyline { points });
         Ok(())
+    }
+
+    /// Place one scaled glyph point (`x`, `y` relative to the cursor and
+    /// baseline) with the line offset `offset_y`.
+    fn glyph_point(&self, x: f64, y: f64, offset_y: f64) -> Result<NewstrokePoint, NewstrokeError> {
+        if self.italic == Italic::KiCad {
+            let shear = if self.request.italic {
+                -y * ITALIC_TILT
+            } else {
+                0.0
+            };
+            self.transform(x + shear + self.cursor, y + offset_y, false)
+        } else {
+            self.transform(x + self.cursor, y + offset_y, self.request.italic)
+        }
     }
 
     fn transform(
@@ -412,6 +525,35 @@ fn parsed_markup(
         message: error.message,
     })?;
     Ok((parsed, nodes))
+}
+
+/// KiCad's anchor offset of line `index` of `count` (`FONT::getLinePositions`),
+/// including its stroke-font "match 6.0 positioning" corrections: the first
+/// line is 1.17 text heights tall, each further line adds one pitch, and the
+/// anchor moves by `stroke / 1.52` in X and `-0.052 * stroke` in Y.
+fn kicad_line_offset(
+    request: NewstrokeRequest<'_>,
+    line_width_mm: f64,
+    index: usize,
+    count: usize,
+) -> (f64, f64) {
+    let stroke = effective_stroke_width(request);
+    let size_y = request.size_y_mm;
+    let offset_x = stroke / 1.52;
+    let pitch = size_y * KICAD_INTERLINE_PER_HEIGHT;
+    let base_y = size_y - stroke * 0.052 + index as f64 * pitch;
+    let height = size_y * 1.17 + count.saturating_sub(1) as f64 * pitch;
+    let y = match request.vertical_alignment {
+        TextVerticalAlignment::Top => base_y,
+        TextVerticalAlignment::Center => base_y - height / 2.0,
+        TextVerticalAlignment::Bottom => base_y - height,
+    };
+    let x = match request.horizontal_alignment {
+        TextHorizontalAlignment::Left => offset_x,
+        TextHorizontalAlignment::Center => -line_width_mm / 2.0,
+        TextHorizontalAlignment::Right => -(line_width_mm + offset_x),
+    };
+    (x, y)
 }
 
 fn vertical_offset(request: NewstrokeRequest<'_>) -> f64 {

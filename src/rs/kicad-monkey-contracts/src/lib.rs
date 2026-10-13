@@ -11,9 +11,11 @@ mod compiled_graph_contract;
 mod font_bundle_contract;
 mod font_text_contract;
 pub mod generated;
+pub mod materialization_contract;
 mod native_transport_contract;
 mod schematic_plot_contract;
 mod source_bundle_contract;
+mod validation;
 
 pub use board_plot_contract::validate_board_plot_document;
 pub use compiled_graph_contract::{
@@ -45,6 +47,8 @@ pub use source_bundle_contract::{
     SourceBundleDecodeError, decode_source_bundle_manifest_a0,
     validate_source_bundle_manifest_contract,
 };
+pub use validation::ValidationError;
+pub(crate) use validation::validation_error;
 
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
 use generated::footprint_plot_document::{
@@ -541,26 +545,6 @@ pub struct ValidatedBuildRequest {
     pub max_depth: usize,
     pub max_nodes: usize,
 }
-
-/// Stable semantic contract validation failure.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ValidationError {
-    pub code: &'static str,
-    pub path: String,
-    pub message: &'static str,
-}
-
-impl fmt::Display for ValidationError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "{} at {}: {}",
-            self.code, self.path, self.message
-        )
-    }
-}
-
-impl std::error::Error for ValidationError {}
 
 /// Enforce identity, resource limits, and the `Node.kind` payload union.
 pub fn validate_build_request(
@@ -1273,17 +1257,5 @@ fn require_absent(path: &str, valid: bool) -> Result<(), ValidationError> {
             path,
             "node contains payload fields not allowed by its kind",
         ))
-    }
-}
-
-pub(crate) fn validation_error(
-    code: &'static str,
-    path: impl Into<String>,
-    message: &'static str,
-) -> ValidationError {
-    ValidationError {
-        code,
-        path: path.into(),
-        message,
     }
 }

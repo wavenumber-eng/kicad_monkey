@@ -41,5 +41,6 @@ name = "sexpr_projection_allocation_benchmark"
 required-features = ["measurement"]
 
 [dev-dependencies]
+kicad-monkey-materialization-pack = { path = "../kicad-monkey-materialization-pack" }
 serde.workspace = true
 stats_alloc = "0.1.10"

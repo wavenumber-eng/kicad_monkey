@@ -12,6 +12,7 @@ use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
 mod config_projection;
+mod materialization_projection;
 
 const SCHEMAS: [(&str, &str); 40] = [
     ("BoardPlotDocument.json", "board_plot_document.rs"),
@@ -469,13 +470,14 @@ fn main() -> Result<()> {
     let mut expected = BTreeMap::new();
     let mut modules = Vec::new();
 
-    for (schema_name, output_name) in SCHEMAS {
+    for (schema_name, output_name) in materialization_projection::with_schemas(SCHEMAS) {
         let schema_path = schema_root.join(schema_name);
         let mut schema: Value = serde_json::from_slice(
             &fs::read(&schema_path).with_context(|| format!("read {}", schema_path.display()))?,
         )?;
         let published_schema = schema.clone();
         validate_plotter_operation_kinds(schema_name, &schema)?;
+        materialization_projection::project_schema(schema_name, &mut schema)?;
         flatten_board_footprint_operation_extensions(schema_name, &mut schema)?;
         project_schematic_request_fields(schema_name, &mut schema)?;
         project_native_external_references(schema_name, &mut schema)?;
@@ -638,7 +640,7 @@ fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result
     Ok(())
 }
 
-fn validate_operation_union(
+pub(crate) fn validate_operation_union(
     schema_name: &str,
     schema: &Value,
     union: &str,
@@ -760,6 +762,7 @@ fn project_generated_presence(
         projected = project_schematic_junction_color(projected)?;
         projected = project_schematic_segment_layers(projected)?;
     }
+    projected = materialization_projection::project_kinds(schema_name, projected)?;
     projected = project_schema_presence(schema_name, published_schema, projected)?;
     // Presence and deterministic-map substitutions can cross rustfmt's line-width
     // boundary, so normalize the fully projected source as the final step.
@@ -815,7 +818,7 @@ fn uses_strict_presence_projection(schema_name: &str) -> bool {
             | "SchematicPlotDocument.json"
             | "SchematicPlotRequest.json"
             | "SchematicPlotResult.json"
-    )
+    ) || materialization_projection::is_schema(schema_name)
 }
 
 fn project_schema_presence(schema_name: &str, schema: &Value, source: String) -> Result<String> {
@@ -1161,7 +1164,7 @@ fn project_schematic_record_string(source: String) -> Result<String> {
     ))
 }
 
-fn project_kind_deserializer(
+pub(crate) fn project_kind_deserializer(
     mut source: String,
     structure: &str,
     deserializer: &str,

@@ -117,8 +117,20 @@ fn front_back_optional_bool(
         return Ok(None);
     };
     let fields = direct_children(source, span, limits.max_via_policy_children, limits)?;
-    let front = optional_yes_no(source, &fields, "front")?;
-    let back = optional_yes_no(source, &fields, "back")?;
+    let mut front = optional_yes_no(source, &fields, "front")?;
+    let mut back = optional_yes_no(source, &fields, "back")?;
+    // Legacy `(tenting front back)` / `(tenting none)`: a named side is set;
+    // `none` leaves both to the board (KiCad's `parseFrontBackOptBool`).
+    if head == "tenting" {
+        for flag in bounded_scalar_values(source, span, 8)? {
+            match flag.lexeme {
+                "front" => front = Some(true),
+                "back" => back = Some(true),
+                "none" => (front, back) = (None, None),
+                _ => {}
+            }
+        }
+    }
     if front.is_none() && back.is_none() {
         return Ok(None);
     }

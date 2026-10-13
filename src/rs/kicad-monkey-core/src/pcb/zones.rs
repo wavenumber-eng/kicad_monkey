@@ -55,10 +55,22 @@ pub struct PcbZoneLayerProperty {
     pub source_range: Range<usize>,
 }
 
+/// An authored zone outline. `points` is its vertex chain; an `(arc (start)
+/// (mid) (end))` element contributes its start and end vertices, and `arcs`
+/// marks the edges between them as arcs through `mid`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbZonePolygon {
     pub points: Vec<PcbPoint>,
+    pub arcs: Vec<PcbZoneOutlineArc>,
     pub source_range: Range<usize>,
+}
+
+/// The outline edge from `points[start_index]` to the next vertex is an arc
+/// through `mid`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PcbZoneOutlineArc {
+    pub start_index: usize,
+    pub mid: PcbPoint,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -87,6 +99,9 @@ pub struct PcbZone {
     pub connect_pads_clearance: f64,
     pub min_thickness: f64,
     pub filled_areas_thickness: bool,
+    /// Whether `(filled_areas_thickness ...)` is declared. Before format
+    /// 20250210, fills without it were stroked at `min_thickness`.
+    pub has_filled_areas_thickness: bool,
     pub fill_enabled: bool,
     pub thermal_gap: f64,
     pub thermal_bridge_width: f64,
@@ -186,6 +201,7 @@ pub(super) fn zone_from_span(
         min_thickness: optional_child_f64(source, &children, "min_thickness")?.unwrap_or(0.25),
         filled_areas_thickness: optional_child_string(source, &children, "filled_areas_thickness")?
             .is_some_and(|value| value == "yes"),
+        has_filled_areas_thickness: child(&children, "filled_areas_thickness").is_some(),
         fill_enabled,
         thermal_gap: optional_child_f64(source, &fill_children, "thermal_gap")?.unwrap_or(0.5),
         thermal_bridge_width: optional_child_f64(source, &fill_children, "thermal_bridge_width")?
@@ -246,8 +262,11 @@ fn zone_collections(
             }
             Some("polygon") => {
                 ensure_polygon_capacity(&result, limits)?;
+                let mut arcs = Vec::new();
+                let points = polygon_points(source, item, limits, &mut point_count, &mut arcs)?;
                 result.polygons.push(PcbZonePolygon {
-                    points: polygon_points(source, item, limits, &mut point_count)?,
+                    points,
+                    arcs,
                     source_range: item.range.clone(),
                 });
             }
@@ -264,6 +283,7 @@ fn zone_collections(
                         &item_children,
                         limits,
                         &mut point_count,
+                        None,
                     )?,
                     source_range: item.range.clone(),
                 });
@@ -431,21 +451,30 @@ fn polygon_points(
     polygon: &FormSpan,
     limits: PcbLimits,
     total: &mut usize,
+    arcs: &mut Vec<PcbZoneOutlineArc>,
 ) -> Result<Vec<PcbPoint>, Error> {
     let children = direct_children(source, polygon, limits.max_object_children, limits)?;
-    polygon_points_from_children(source, &children, limits, total)
+    polygon_points_from_children(source, &children, limits, total, Some(arcs))
 }
 
+/// Points of a `(pts ...)` list. Outlines (`arcs` given) may hold arc
+/// elements, as KiCad writes for rounded outlines; stored fills never do, so
+/// there anything but `xy` stays an error.
 fn polygon_points_from_children(
     source: &str,
     children: &[FormSpan],
     limits: PcbLimits,
     total: &mut usize,
+    mut arcs: Option<&mut Vec<PcbZoneOutlineArc>>,
 ) -> Result<Vec<PcbPoint>, Error> {
     let Some(points) = child(children, "pts") else {
         return Ok(Vec::new());
     };
     let remaining = limits.max_zone_points.saturating_sub(*total);
+    if let Some(decoded) = xy_points_single_pass(source, points, remaining) {
+        *total += decoded.len();
+        return Ok(decoded);
+    }
     let point_spans = direct_children(source, points, remaining, limits).map_err(|error| {
         if error.kind == ErrorKind::ResourceLimit {
             Error::at(
@@ -460,18 +489,100 @@ fn polygon_points_from_children(
     })?;
     let mut decoded = Vec::with_capacity(point_spans.len());
     for point in point_spans {
-        if point.head.as_deref() != Some("xy") {
-            return Err(source_error(
-                "Zone outline and filled-polygon readers currently require XY elements; arc or unknown elements are not omitted",
-                point.start,
-            ));
+        match (point.head.as_deref(), arcs.as_deref_mut()) {
+            (Some("xy"), _) => decoded.push(zone_point(
+                source,
+                &point,
+                ("Expected zone point x", "Expected zone point y"),
+            )?),
+            (Some("arc"), Some(arcs)) => {
+                let parts = direct_children(source, &point, 3, limits)?;
+                let part = |name: &str| {
+                    child(&parts, name).ok_or_else(|| {
+                        source_error("Expected zone outline arc start, mid and end", point.start)
+                    })
+                };
+                let start = zone_point(
+                    source,
+                    part("start")?,
+                    ("Expected zone arc start x", "Expected zone arc start y"),
+                )?;
+                let mid = zone_point(
+                    source,
+                    part("mid")?,
+                    ("Expected zone arc mid x", "Expected zone arc mid y"),
+                )?;
+                let end = zone_point(
+                    source,
+                    part("end")?,
+                    ("Expected zone arc end x", "Expected zone arc end y"),
+                )?;
+                if decoded.last() != Some(&start) {
+                    decoded.push(start);
+                }
+                arcs.push(PcbZoneOutlineArc {
+                    start_index: decoded.len() - 1,
+                    mid,
+                });
+                decoded.push(end);
+            }
+            _ => {
+                return Err(source_error(
+                    "Zone outlines hold XY and arc elements, and filled polygons only XY elements",
+                    point.start,
+                ));
+            }
         }
-        let values = bounded_scalar_values(source, &point, 2)?;
-        decoded.push(PcbPoint {
-            x: required_f64(values.first(), "Expected zone point x", &point)?,
-            y: required_f64(values.get(1), "Expected zone point y", &point)?,
-        });
     }
     *total += decoded.len();
     Ok(decoded)
+}
+
+fn zone_point(
+    source: &str,
+    point: &FormSpan,
+    messages: (&'static str, &'static str),
+) -> Result<PcbPoint, Error> {
+    let values = bounded_scalar_values(source, point, 2)?;
+    Ok(PcbPoint {
+        x: required_f64(values.first(), messages.0, point)?,
+        y: required_f64(values.get(1), messages.1, point)?,
+    })
+}
+
+/// The common `(pts (xy x y) ...)` read in one lexer pass, without a span or
+/// scalar list per point. `None` for anything else (another element, other
+/// tokens, nesting, more than `remaining` points, a non-finite number), so
+/// the general reader then gives its exact result or error.
+fn xy_points_single_pass(source: &str, pts: &FormSpan, remaining: usize) -> Option<Vec<PcbPoint>> {
+    let mut lexer = Lexer::new(pts.text(source).ok()?);
+    let mut next = || lexer.next()?.ok();
+    let head = (next()?, next()?);
+    if head.0.kind != TokenKind::Left || head.1.lexeme != "pts" {
+        return None;
+    }
+    let mut points = Vec::new();
+    loop {
+        let token = next()?;
+        match token.kind {
+            TokenKind::Right => break,
+            TokenKind::Left if points.len() < remaining => {}
+            _ => return None,
+        }
+        let (xy, x, y, close) = (next()?, next()?, next()?, next()?);
+        let number = |token: &Token<'_>| {
+            matches!(token.kind, TokenKind::Integer | TokenKind::Float)
+                .then(|| token.lexeme.parse::<f64>().ok())
+                .flatten()
+                .filter(|value| value.is_finite())
+        };
+        if xy.kind != TokenKind::Atom || xy.lexeme != "xy" || close.kind != TokenKind::Right {
+            return None;
+        }
+        points.push(PcbPoint {
+            x: number(&x)?,
+            y: number(&y)?,
+        });
+    }
+    next().is_none().then_some(points)
 }

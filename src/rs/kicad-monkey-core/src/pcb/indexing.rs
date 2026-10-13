@@ -320,6 +320,7 @@ struct FootprintChildCounts {
     text_boxes: usize,
     pads: usize,
     models: usize,
+    zones: usize,
     embedded_files: usize,
 }
 
@@ -376,6 +377,13 @@ fn index_footprint_child(
             indexed,
             selection.contains(PcbFamily::FootprintTextBoxes),
             limits.max_footprint_text_boxes,
+        ),
+        Some("zone") => retain_nested(
+            &mut counts.zones,
+            &mut index.footprint_zones,
+            indexed,
+            selection.contains(PcbFamily::Zones),
+            limits.max_zones,
         ),
         Some("embedded_files") => index_footprint_embedded_files(
             source,

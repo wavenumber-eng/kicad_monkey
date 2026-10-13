@@ -4,7 +4,7 @@ use super::text::{
     BoardTextBoxOperation, BoardTextHAlign, BoardTextOperation, BoardTextVAlign, TextEffects,
     alignments, effective_line_spacing, text_box_corners,
 };
-use crate::pcb::{PcbGraphic, PcbPoint};
+use crate::pcb::{PcbFootprintTextBox, PcbGraphic, PcbPoint};
 use crate::plotter_ir::mm_to_nm;
 use crate::plotter_text_cache::PlotterTextLayout;
 use crate::plotter_types::{PlotterFill, PlotterOperation, PlotterRect};
@@ -76,23 +76,46 @@ pub(super) struct TextBoxCacheGeometry {
     pub(super) wrap_width: f64,
 }
 
-/// Python `GrTextBox._draw_position` and `_wrap_width`. Cache geometry is
-/// deliberately separate from the legacy Plotter-IR operation anchor.
-pub(super) fn text_box_cache_geometry(
-    graphic: &PcbGraphic,
-    effects: &TextEffects,
+/// The box facts KiCad's text-box draw position depends on, in one frame.
+pub(super) struct TextBoxFrame<'a> {
+    pub(super) start: (f64, f64),
+    pub(super) end: (f64, f64),
+    /// Polygon corners of a non-cardinal box, when stored.
+    pub(super) points: &'a [PcbPoint],
+    pub(super) stroke_width: Option<f64>,
+}
+
+impl<'a> TextBoxFrame<'a> {
+    pub(super) fn of_graphic(graphic: &'a PcbGraphic) -> Self {
+        let (start_x, start_y, end_x, end_y) = text_box_corners(graphic);
+        Self {
+            start: (start_x, start_y),
+            end: (end_x, end_y),
+            points: &graphic.points,
+            stroke_width: graphic.stroke_width,
+        }
+    }
+}
+
+/// KiCad's text-box draw position (`PCB_TEXTBOX::GetDrawPos`, 10.0.6): the
+/// corner or edge midpoint chosen by the alignment (mirrored text swaps left
+/// and right) of the box grown by half its stroke, plus the margins rotated
+/// with the text. `margins` are left, top, right, bottom.
+pub(super) fn text_box_draw_anchor(
+    frame: &TextBoxFrame<'_>,
+    justify: &[String],
     angle: f64,
     margins: [f64; 4],
-) -> TextBoxCacheGeometry {
-    let corners = text_box_cache_corners(graphic, angle);
+) -> [f64; 2] {
+    let corners = text_box_frame_corners(frame, angle);
     let (mut horizontal, vertical) = {
-        let (horizontal, vertical) = alignments(&effects.justify);
+        let (horizontal, vertical) = alignments(justify);
         (
             horizontal.unwrap_or(BoardTextHAlign::Center),
             vertical.unwrap_or(BoardTextVAlign::Center),
         )
     };
-    if effects.justify.iter().any(|token| token == "mirror") {
+    if justify.iter().any(|token| token == "mirror") {
         horizontal = match horizontal {
             BoardTextHAlign::Left => BoardTextHAlign::Right,
             BoardTextHAlign::Right => BoardTextHAlign::Left,
@@ -112,71 +135,85 @@ pub(super) fn text_box_cache_geometry(
         BoardTextVAlign::Center => 0.0,
     };
     let radians = angle.to_radians();
-    let rotated_x = offset_x * radians.cos() + offset_y * radians.sin();
-    let rotated_y = offset_y * radians.cos() - offset_x * radians.sin();
+    [
+        anchor[0] + offset_x * radians.cos() + offset_y * radians.sin(),
+        anchor[1] + offset_y * radians.cos() - offset_x * radians.sin(),
+    ]
+}
+
+/// Python `GrTextBox._draw_position` and `_wrap_width`. Cache geometry is
+/// deliberately separate from the legacy Plotter-IR operation anchor.
+pub(super) fn text_box_cache_geometry(
+    graphic: &PcbGraphic,
+    effects: &TextEffects,
+    angle: f64,
+    margins: [f64; 4],
+) -> TextBoxCacheGeometry {
+    let frame = TextBoxFrame::of_graphic(graphic);
+    let [x, y] = text_box_draw_anchor(&frame, &effects.justify, angle, margins);
+    TextBoxCacheGeometry {
+        x,
+        y,
+        wrap_width: text_box_column_width(&frame, angle, angle, margins),
+    }
+}
+
+/// KiCad's text-box column width (`PCB_TEXTBOX::GetShownText`): the top edge
+/// of the stroke-grown box in draw order, less the left and right margins
+/// when the text's board angle is horizontal, or the top and bottom ones
+/// otherwise. `angle` is the text angle in the frame's own coordinates.
+pub(super) fn text_box_column_width(
+    frame: &TextBoxFrame<'_>,
+    angle: f64,
+    board_angle: f64,
+    margins: [f64; 4],
+) -> f64 {
+    let corners = text_box_frame_corners(frame, angle);
+    let [left, top, right, bottom] = margins;
     let top_edge = (corners[1][0] - corners[0][0]).hypot(corners[1][1] - corners[0][1]);
-    let normalized = angle.rem_euclid(360.0);
-    let horizontal_box = normalized.abs() <= 1e-9 || (normalized - 180.0).abs() <= 1e-9;
-    let margin_width = if horizontal_box {
+    let normalized = board_angle.rem_euclid(360.0);
+    let horizontal = normalized.abs() <= 1e-9 || (normalized - 180.0).abs() <= 1e-9;
+    let margin_width = if horizontal {
         left + right
     } else {
         top + bottom
     };
-    TextBoxCacheGeometry {
-        x: anchor[0] + rotated_x,
-        y: anchor[1] + rotated_y,
-        wrap_width: (top_edge - margin_width).max(0.0),
-    }
+    (top_edge - margin_width).max(0.0)
 }
 
-fn text_box_cache_corners(graphic: &PcbGraphic, angle: f64) -> [[f64; 2]; 4] {
-    let inflate = graphic
+fn text_box_frame_corners(frame: &TextBoxFrame<'_>, angle: f64) -> [[f64; 2]; 4] {
+    let inflate = frame
         .stroke_width
         .filter(|width| *width > 0.0)
         .unwrap_or(0.0)
         / 2.0;
-    let bounds = if graphic.points.is_empty() {
-        let (start_x, start_y, end_x, end_y) = text_box_corners(graphic);
+    let span = |values: &mut dyn Iterator<Item = f64>| {
+        values.fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), value| {
+            (low.min(value), high.max(value))
+        })
+    };
+    let ((min_x, max_x), (min_y, max_y)) = if frame.points.is_empty() {
         (
-            start_x.min(end_x) - inflate,
-            start_x.max(end_x) + inflate,
-            start_y.min(end_y) - inflate,
-            start_y.max(end_y) + inflate,
+            span(&mut [frame.start.0, frame.end.0].into_iter()),
+            span(&mut [frame.start.1, frame.end.1].into_iter()),
         )
     } else {
         (
-            graphic
-                .points
-                .iter()
-                .map(|point| point.x)
-                .fold(f64::INFINITY, f64::min)
-                - inflate,
-            graphic
-                .points
-                .iter()
-                .map(|point| point.x)
-                .fold(f64::NEG_INFINITY, f64::max)
-                + inflate,
-            graphic
-                .points
-                .iter()
-                .map(|point| point.y)
-                .fold(f64::INFINITY, f64::min)
-                - inflate,
-            graphic
-                .points
-                .iter()
-                .map(|point| point.y)
-                .fold(f64::NEG_INFINITY, f64::max)
-                + inflate,
+            span(&mut frame.points.iter().map(|point| point.x)),
+            span(&mut frame.points.iter().map(|point| point.y)),
         )
     };
     let normalized = angle.rem_euclid(360.0);
     let close = |value: f64| (normalized - value).abs() <= 1e-9;
-    if !(graphic.points.is_empty() || close(0.0) || close(90.0) || close(180.0) || close(270.0)) {
-        return noncardinal_polygon_corners(&graphic.points, normalized);
+    if !(frame.points.is_empty() || close(0.0) || close(90.0) || close(180.0) || close(270.0)) {
+        return noncardinal_polygon_corners(frame.points, normalized);
     }
-    let (left, right, top, bottom) = bounds;
+    let (left, right, top, bottom) = (
+        min_x - inflate,
+        max_x + inflate,
+        min_y - inflate,
+        max_y + inflate,
+    );
     if close(90.0) {
         [[left, bottom], [left, top], [right, top], [right, bottom]]
     } else if close(180.0) {
@@ -283,6 +320,7 @@ pub(super) fn new_text_box_operation(
         knockout: false,
         render_cache_polygons: Vec::new(),
         render_cache: None,
+        kicad: None,
     })
 }
 
@@ -344,4 +382,130 @@ pub(super) fn text_box_layout<'a>(
         line_spacing: effective_line_spacing(effects.line_spacing),
         stroke_width: effects.effective_thickness(),
     }
+}
+
+/// How KiCad 10.0 draws text-box text, where the established plot-document
+/// fields (which follow the Python plotter) differ: they ignore the border
+/// stroke in the anchor and the wrap width, the box rotation in the wrap
+/// width, and mirroring.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KiCadTextBoxText {
+    /// `PCB_TEXTBOX::GetDrawPos`, in nm
+    /// ([`text_box_draw_anchor`]).
+    pub anchor: [i64; 2],
+    /// Text with `justify mirror` is drawn mirrored.
+    pub mirrored: bool,
+    /// The text wrapped to KiCad's column width (`PCB_TEXTBOX::GetShownText`).
+    pub text: String,
+}
+
+/// Where and how a text box's text sits, in one frame.
+pub(super) struct KiCadTextInput<'a> {
+    pub(super) frame: &'a TextBoxFrame<'a>,
+    pub(super) justify: &'a [String],
+    /// Text angle in the frame's coordinates.
+    pub(super) angle: f64,
+    /// Text angle on the board; it decides which margins bound the column.
+    pub(super) board_angle: f64,
+    pub(super) margins: [f64; 4],
+}
+
+impl KiCadTextBoxText {
+    /// KiCad's placement of `text`: wrapped to KiCad's column, unless
+    /// `wrapped` (an outline font's native wrapping) is given.
+    pub(super) fn new(
+        input: &KiCadTextInput<'_>,
+        text: &str,
+        wrapped: Option<&str>,
+        size_x_nm: i64,
+    ) -> Result<Self, Error> {
+        let [x, y] = text_box_draw_anchor(input.frame, input.justify, input.angle, input.margins);
+        let text = match wrapped {
+            Some(text) => text.to_owned(),
+            None => {
+                let column = text_box_column_width(
+                    input.frame,
+                    input.angle,
+                    input.board_angle,
+                    input.margins,
+                );
+                super::text_wrap::wrap_text_box(text, column, size_x_nm)
+            }
+        };
+        Ok(Self {
+            anchor: [mm_to_nm(x)?, mm_to_nm(y)?],
+            mirrored: input.justify.iter().any(|token| token == "mirror"),
+            text,
+        })
+    }
+}
+
+/// KiCad's placement of a board text box's text; `native_wrapped` is an
+/// outline font's own wrapping, used as is.
+pub(super) fn board_text_box_placement(
+    graphic: &PcbGraphic,
+    effects: &TextEffects,
+    (angle, margins): (f64, [f64; 4]),
+    text: &str,
+    native_wrapped: Option<&str>,
+) -> Result<KiCadTextBoxText, Error> {
+    let size_x_nm = mm_to_nm(effects.size_x)?;
+    KiCadTextBoxText::new(
+        &KiCadTextInput {
+            frame: &TextBoxFrame::of_graphic(graphic),
+            justify: &effects.justify,
+            angle,
+            board_angle: angle,
+            margins,
+        },
+        text,
+        native_wrapped,
+        if size_x_nm == 0 { 1_270_000 } else { size_x_nm },
+    )
+}
+
+/// KiCad's placement of a footprint text box's text, in the footprint
+/// frame; the footprint angle decides which margins bound the column.
+/// Outline fonts keep `operation_text`, their own wrapping.
+pub(super) fn footprint_text_box_placement(
+    text_box: &PcbFootprintTextBox,
+    footprint_angle: f64,
+    text: &str,
+    operation_text: &str,
+) -> Result<KiCadTextBoxText, Error> {
+    let effects = text_box.effects.clone().unwrap_or_default();
+    let size_x_nm = mm_to_nm(effects.font.size_x)?;
+    KiCadTextBoxText::new(
+        &KiCadTextInput {
+            frame: &TextBoxFrame {
+                start: (text_box.start.x, text_box.start.y),
+                end: (text_box.end.x, text_box.end.y),
+                points: &text_box.polygon_points,
+                stroke_width: text_box.stroke_width,
+            },
+            justify: &effects.justify,
+            angle: text_box.angle,
+            board_angle: text_box.angle + footprint_angle,
+            margins: text_box.margins,
+        },
+        text,
+        effects.font.face.is_some().then_some(operation_text),
+        if size_x_nm == 0 { 1_270_000 } else { size_x_nm },
+    )
+}
+
+/// The outline KiCad strokes for a bordered text box stored as a polygon,
+/// in nm.
+pub(super) fn kicad_border(
+    points: &[PcbPoint],
+    border: bool,
+) -> Result<Option<Vec<[i64; 2]>>, Error> {
+    if !border || points.is_empty() {
+        return Ok(None);
+    }
+    points
+        .iter()
+        .map(|point| Ok([mm_to_nm(point.x)?, mm_to_nm(point.y)?]))
+        .collect::<Result<Vec<_>, Error>>()
+        .map(Some)
 }

@@ -44,6 +44,7 @@ pub use extended::{
 };
 pub use footprints::{
     PcbFootprintGraphic, PcbFootprintProperty, PcbFootprintText, PcbFootprintTextBox,
+    PcbFootprintZone,
 };
 pub use manufacturing::{
     PcbDrillLayerSpan, PcbDrillProperties, PcbPostMachiningProperties, PcbTeardropParameters,
@@ -61,11 +62,11 @@ pub use physical::{
     PcbProfilePrimitive,
 };
 pub use selection::{PcbFamily, PcbSelection};
-pub use setup::{PcbSetup, PcbStackup, PcbStackupLayer};
+pub use setup::{PcbSetup, PcbStackup, PcbStackupLayer, PcbStackupSublayer};
 pub use vias::{PcbFrontBackOptionalBool, PcbVia};
 pub use zones::{
-    PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
-    PcbZonePlacementSource, PcbZonePolygon,
+    PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZoneOutlineArc,
+    PcbZonePlacement, PcbZonePlacementSource, PcbZonePolygon,
 };
 
 /// Resource ceilings for one native PCB read or focused edit.
@@ -436,6 +437,9 @@ pub struct PcbSegment {
     pub end_y: f64,
     pub width: Option<f64>,
     pub layer: Option<String>,
+    /// `(layers "F.Cu" "F.Mask")`: copper exposed through the solder mask.
+    pub layers: Option<Vec<String>>,
+    pub solder_mask_margin: Option<f64>,
     /// Bare `locked` header flag only; the Python oracle's `has_flag` does
     /// not honor the `(locked yes)` child form on segments.
     pub locked: bool,
@@ -539,6 +543,9 @@ pub struct PcbRoutingArc {
     pub end: PcbPoint,
     pub width: Option<f64>,
     pub layer: Option<String>,
+    /// `(layers "F.Cu" "F.Mask")`: copper exposed through the solder mask.
+    pub layers: Option<Vec<String>>,
+    pub solder_mask_margin: Option<f64>,
     pub net: PcbNetRef,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,
@@ -705,6 +712,7 @@ struct PcbIndex {
     footprint_graphics: Vec<IndexedNestedForm>,
     footprint_texts: Vec<IndexedNestedForm>,
     footprint_text_boxes: Vec<IndexedNestedForm>,
+    footprint_zones: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
@@ -738,6 +746,7 @@ pub struct PcbView<'a> {
     footprint_graphics: Vec<IndexedNestedForm>,
     footprint_texts: Vec<IndexedNestedForm>,
     footprint_text_boxes: Vec<IndexedNestedForm>,
+    footprint_zones: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
@@ -818,6 +827,7 @@ impl<'a> PcbView<'a> {
             footprint_graphics: index.footprint_graphics,
             footprint_texts: index.footprint_texts,
             footprint_text_boxes: index.footprint_text_boxes,
+            footprint_zones: index.footprint_zones,
             segments: index.segments,
             vias: index.vias,
             zones: index.zones,

@@ -233,18 +233,26 @@ fn zone_collection_limits_are_lazy_and_fail_closed() {
             ErrorKind::ResourceLimit
         );
     }
-    // The current XY carrier must not silently shorten legal arc outlines, or
-    // claim an unknown future element was converted. Applies to both roles.
-    for carrier in ["polygon", "filled_polygon"] {
-        for element in [
+    // Outlines carry arcs (never shortened); stored fills are XY only, and no
+    // reader claims an unknown future element was converted.
+    for (carrier, element, decodes) in [
+        ("polygon", "(arc (start 1 0) (mid 2 1) (end 1 2))", true),
+        ("polygon", "(future_point 1 2)", false),
+        (
+            "filled_polygon",
             "(arc (start 1 0) (mid 2 1) (end 1 2))",
-            "(future_point 1 2)",
-        ] {
-            let source = format!(
-                "(kicad_pcb (zone ({carrier} (pts (xy 0 0) (xy 1 0) {element} (xy 0 2)))))"
-            );
-            let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
-            assert!(view.zones().next().unwrap().is_err());
+            false,
+        ),
+        ("filled_polygon", "(future_point 1 2)", false),
+    ] {
+        let source =
+            format!("(kicad_pcb (zone ({carrier} (pts (xy 0 0) (xy 1 0) {element} (xy 0 2)))))");
+        let view = PcbView::parse(&source, PcbLimits::default()).unwrap();
+        let zone = view.zones().next().unwrap();
+        assert_eq!(zone.is_ok(), decodes, "{carrier} with {element}");
+        if let Ok(zone) = zone {
+            assert_eq!(zone.polygons[0].points.len(), 4, "the arc keeps both ends");
+            assert_eq!(zone.polygons[0].arcs[0].start_index, 1);
         }
     }
 }
@@ -264,4 +272,52 @@ fn exact_zone_point_and_polygon_limits_are_accepted() {
     let zone = view.zones().next().expect("zone").expect("exact limits");
     assert_eq!(zone.polygons[0].points.len(), 3);
     assert_eq!(zone.filled_polygons[0].points.len(), 4);
+}
+
+#[test]
+fn zone_outlines_with_arcs_keep_their_fills() {
+    // KiCad writes rounded outlines as arc elements; the stored fills stay XY.
+    let source = r#"(kicad_pcb
+      (net 1 "GND")
+      (zone (net 1) (net_name "GND") (layers "In1.Cu" "In4.Cu") (uuid rounded)
+        (polygon (pts
+          (arc (start 221 150.3) (mid 223.828427 149.128427) (end 225 146.3))
+          (xy 225 42.3)
+          (arc (start 225 42.3) (mid 223.828427 39.471573) (end 221 38.3))
+          (xy 119 38.3)))
+        (filled_polygon (layer "In1.Cu") (pts (xy 0 0) (xy 10 0) (xy 10 10)))
+        (filled_polygon (layer "In4.Cu") (pts (xy 0 0) (xy 10 0) (xy 10 10)))))"#;
+    let view = PcbView::parse(source, PcbLimits::default()).unwrap();
+    let zone = view
+        .zones()
+        .next()
+        .unwrap()
+        .expect("a rounded outline decodes");
+    let outline = &zone.polygons[0];
+    let point = |x, y| PcbPoint { x, y };
+    assert_eq!(
+        outline.points,
+        [
+            point(221.0, 150.3),
+            point(225.0, 146.3),
+            point(225.0, 42.3),
+            point(221.0, 38.3),
+            point(119.0, 38.3),
+        ]
+    );
+    assert_eq!(outline.arcs.len(), 2);
+    assert_eq!(
+        (outline.arcs[0].start_index, outline.arcs[1].start_index),
+        (0, 2)
+    );
+    assert_eq!(outline.arcs[1].mid, point(223.828427, 39.471573));
+    assert_eq!(zone.filled_polygons.len(), 2);
+
+    // Stored fills still accept only XY elements.
+    let arc_fill = source.replace(
+        r#"(filled_polygon (layer "In4.Cu") (pts (xy 0 0)"#,
+        r#"(filled_polygon (layer "In4.Cu") (pts (arc (start 0 0) (mid 1 1) (end 2 0))"#,
+    );
+    let view = PcbView::parse(&arc_fill, PcbLimits::default()).unwrap();
+    assert!(view.zones().next().unwrap().is_err());
 }

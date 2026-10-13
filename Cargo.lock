@@ -590,6 +590,7 @@ version = "2026.9.7"
 dependencies = [
  "harfrust",
  "kicad-monkey-contracts",
+ "kicad-monkey-materialization-pack",
  "read-fonts",
  "serde",
  "serde_json",
@@ -599,6 +600,15 @@ dependencies = [
  "ttf-parser",
  "unicode-casefold",
  "zstd",
+]
+
+[[package]]
+name = "kicad-monkey-materialization-pack"
+version = "2026.9.7"
+dependencies = [
+ "kicad-monkey-contracts",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

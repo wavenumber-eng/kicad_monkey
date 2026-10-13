@@ -1,6 +1,6 @@
 //! Board-scoped KiCad PTH pad/via copper-flash resolution.
 
-use crate::pcb::{PcbNetRef, PcbPad, PcbRoutingArc, PcbSegment, PcbVia, PcbView};
+use crate::pcb::{PcbFootprint, PcbNetRef, PcbPad, PcbRoutingArc, PcbSegment, PcbVia, PcbView};
 use crate::sexpr::Error;
 use std::collections::{HashMap, HashSet};
 use std::f64::consts::{PI, TAU};
@@ -51,7 +51,18 @@ struct ConnectionTarget<'a> {
     conditional_pad: bool,
 }
 
-pub(super) struct BoardLayerFlashResolver {
+/// Board families the flash resolver reads, already decoded.
+pub(crate) struct FlashInputs<'a> {
+    /// Copper layer names, front to back.
+    pub(crate) copper_stack: &'a [String],
+    pub(crate) footprints: &'a [PcbFootprint],
+    pub(crate) segments: &'a [PcbSegment],
+    pub(crate) arcs: &'a [PcbRoutingArc],
+    pub(crate) vias: &'a [PcbVia],
+    pub(crate) pads: &'a [PcbPad],
+}
+
+pub(crate) struct BoardLayerFlashResolver {
     copper_stack: Vec<String>,
     routing_shapes: HashMap<RoutingKey, Vec<CopperShape>>,
     items_by_net: HashMap<NetKey, Vec<ConnectedItem>>,
@@ -59,7 +70,7 @@ pub(super) struct BoardLayerFlashResolver {
 }
 
 impl BoardLayerFlashResolver {
-    pub(super) fn from_view(view: &PcbView<'_>) -> Result<Self, Error> {
+    pub(crate) fn from_view(view: &PcbView<'_>) -> Result<Self, Error> {
         let copper_stack = view
             .layers()
             .collect::<Result<Vec<_>, _>>()?
@@ -67,22 +78,33 @@ impl BoardLayerFlashResolver {
             .map(|layer| layer.name)
             .filter(|name| name.ends_with(".Cu"))
             .collect::<Vec<_>>();
-        let footprint_placements = view
-            .footprints()
+        Ok(Self::from_decoded(&FlashInputs {
+            copper_stack: &copper_stack,
+            footprints: &view.footprints().collect::<Result<Vec<_>, _>>()?,
+            segments: &view.segments().collect::<Result<Vec<_>, _>>()?,
+            arcs: &view.arcs().collect::<Result<Vec<_>, _>>()?,
+            vias: &view.vias().collect::<Result<Vec<_>, _>>()?,
+            pads: &view.pads().collect::<Result<Vec<_>, _>>()?,
+        }))
+    }
+
+    /// [`Self::from_view`] from families a caller has already decoded.
+    pub(crate) fn from_decoded(inputs: &FlashInputs<'_>) -> Self {
+        let copper_stack = inputs.copper_stack.to_vec();
+        let footprint_placements = inputs
+            .footprints
+            .iter()
             .map(|footprint| {
-                footprint.map(|footprint| {
-                    (
-                        footprint.at_x.unwrap_or_default(),
-                        footprint.at_y.unwrap_or_default(),
-                        footprint.angle.unwrap_or_default(),
-                    )
-                })
+                (
+                    footprint.at_x.unwrap_or_default(),
+                    footprint.at_y.unwrap_or_default(),
+                    footprint.angle.unwrap_or_default(),
+                )
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Vec<_>>();
 
         let mut routing_shapes: HashMap<RoutingKey, Vec<CopperShape>> = HashMap::new();
-        for segment in view.segments() {
-            let segment = segment?;
+        for segment in inputs.segments {
             let (Some(net), Some(layer)) = (net_key(&segment.net), segment.layer.clone()) else {
                 continue;
             };
@@ -92,10 +114,9 @@ impl BoardLayerFlashResolver {
             routing_shapes
                 .entry((net, layer))
                 .or_default()
-                .push(segment_shape(&segment));
+                .push(segment_shape(segment));
         }
-        for arc in view.arcs() {
-            let arc = arc?;
+        for arc in inputs.arcs {
             let (Some(net), Some(layer)) = (net_key(&arc.net), arc.layer.clone()) else {
                 continue;
             };
@@ -105,19 +126,18 @@ impl BoardLayerFlashResolver {
             routing_shapes
                 .entry((net, layer))
                 .or_default()
-                .extend(arc_shapes(&arc));
+                .extend(arc_shapes(arc));
         }
 
         let mut items_by_net: HashMap<NetKey, Vec<ConnectedItem>> = HashMap::new();
-        for via in view.vias() {
-            let via = via?;
+        for via in inputs.vias {
             if let Some(net) = net_key(&via.net) {
                 let layers = copper_span_layers(&via.layers, &copper_stack);
                 items_by_net.entry(net).or_default().push(ConnectedItem {
                     source_start: via.source_range.start,
-                    full_shapes: vec![via_shape(&via)],
-                    hole_shapes: vec![via_hole_shape(&via)],
-                    conditional_layers: via_conditional_layers(&via, &layers),
+                    full_shapes: vec![via_shape(via)],
+                    hole_shapes: vec![via_hole_shape(via)],
+                    conditional_layers: via_conditional_layers(via, &layers),
                     layers,
                     footprint_owner: None,
                     is_pad: false,
@@ -125,8 +145,7 @@ impl BoardLayerFlashResolver {
                 });
             }
         }
-        for pad in view.pads() {
-            let pad = pad?;
+        for pad in inputs.pads {
             let Some(&(fp_x, fp_y, fp_angle)) = footprint_placements.get(pad.footprint_index)
             else {
                 continue;
@@ -135,27 +154,27 @@ impl BoardLayerFlashResolver {
                 let layers = pad_copper_layers(&pad.layers, &copper_stack);
                 items_by_net.entry(net).or_default().push(ConnectedItem {
                     source_start: pad.source_range.start,
-                    full_shapes: pad_shapes(&pad, fp_x, fp_y, fp_angle),
-                    hole_shapes: pad_hole_shapes(&pad, fp_x, fp_y, fp_angle),
-                    conditional_layers: pad_conditional_layers(&pad, &layers),
+                    full_shapes: pad_shapes(pad, fp_x, fp_y, fp_angle),
+                    hole_shapes: pad_hole_shapes(pad, fp_x, fp_y, fp_angle),
+                    conditional_layers: pad_conditional_layers(pad, &layers),
                     layers,
                     footprint_owner: Some(pad.footprint_index),
                     is_pad: true,
-                    conditional_pad: pad_policy_applies(&pad)
+                    conditional_pad: pad_policy_applies(pad)
                         && pad.remove_unused_layers == Some(true),
                 });
             }
         }
 
-        Ok(Self {
+        Self {
             copper_stack,
             routing_shapes,
             items_by_net,
             footprint_placements,
-        })
+        }
     }
 
-    pub(super) fn via_flash_layers(&self, via: &PcbVia) -> Vec<String> {
+    pub(crate) fn via_flash_layers(&self, via: &PcbVia) -> Vec<String> {
         if self.copper_stack.is_empty() {
             return via.layers.clone();
         }
@@ -180,7 +199,7 @@ impl BoardLayerFlashResolver {
         effective_copper_layers(via, &self.copper_stack, connected)
     }
 
-    pub(super) fn pad_item_layers(&self, pad: &PcbPad) -> Vec<String> {
+    pub(crate) fn pad_item_layers(&self, pad: &PcbPad) -> Vec<String> {
         if self.copper_stack.is_empty() {
             return pad.layers.clone();
         }
